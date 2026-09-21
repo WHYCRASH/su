@@ -21,7 +21,7 @@ import androidx.compose.ui.platform.LocalView
 import io.github.mangi.eta.config.Prefs
 
 /**
- * 工作过程里「正在运行」的工具步骤只震动一次，避免 LazyColumn 回收或状态刷新重复触发。
+ * A "running" tool step buzzes only once while work is in flight, so LazyColumn recycling or state refreshes never retrigger it.
  */
 internal class LiveToolHapticTracker(
     private val maxIds: Int = 256,
@@ -42,8 +42,8 @@ internal class LiveToolHapticTracker(
 }
 
 /**
- * App 内触控反馈。默认档走系统 [View.performHapticFeedback]，以便 HyperOS / 线性马达按系统主题渲染。
- * 低 / 中 / 高档用自定义振幅。总开关关闭时不再发振；同时也尊重系统「触控反馈」总开关。
+ * In-app touch feedback. The default level goes through the system [View.performHapticFeedback] so HyperOS / linear-motor themes render it natively.
+ * Low / medium / high levels use custom amplitudes. Nothing fires while the master switch is off; the system "touch feedback" master switch is honored too.
  */
 internal object TouchHaptics {
     private val liveToolTracker = LiveToolHapticTracker()
@@ -83,8 +83,8 @@ internal object TouchHaptics {
     }
 
     /**
-     * 流式打字的轻触。间隔过短时马达会吞掉后续 tick，输出越快越像没在跟。
-     * 32ms 大约一帧半，快流也能连成一串，又不会把 HyperOS 的 tick 挤掉。
+     * Light tick for streaming output. When ticks arrive too fast the motor swallows follow-ups, so faster output feels like no tracking at all.
+     * 32ms is about a frame and a half: fast streams still merge into a run without crowding out the HyperOS tick.
      */
     fun generationTick(view: View?) {
         if (!isMessageGenerationEnabled()) return
@@ -94,7 +94,7 @@ internal object TouchHaptics {
         tick(view)
     }
 
-    /** 推理、终端、读图、网页搜索等标签首次出现时轻触一次。 */
+    /** One light tick the first time a reasoning, terminal, image-read, or web-search label appears. */
     fun onLiveToolActivity(view: View?, toolId: String) {
         if (!liveToolTracker.markIfNew(toolId)) return
         generationTick(view)
@@ -157,8 +157,8 @@ internal object TouchHaptics {
         if (view == null) return
         if (!ignoreAppSwitch && !isTouchEnabled()) return
         if (intensity == HapticIntensity.DEFAULT) {
-            // ColorOS / HyperOS 单参数入口会走线性马达主题；带 flags=0 的双参数
-            // 会再检查 View.isHapticFeedbackEnabled，升级后这个标志经常是关的。
+            // The single-arg ColorOS / HyperOS entry follows the linear-motor theme; the two-arg form with flags=0
+            // re-checks View.isHapticFeedbackEnabled, which is frequently off after upgrades.
             if (ignoreAppSwitch) {
                 view.performHapticFeedback(
                     constant,

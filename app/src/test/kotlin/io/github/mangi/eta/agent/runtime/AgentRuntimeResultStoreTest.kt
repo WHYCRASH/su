@@ -30,7 +30,7 @@ class AgentRuntimeResultStoreTest {
                 result = AgentRuntimeWire.RunResult(
                     runId = runId,
                     ok = true,
-                    content = "旧版本结果",
+                    content = "legacy result",
                 ),
                 createdAt = System.currentTimeMillis(),
             ),
@@ -38,7 +38,7 @@ class AgentRuntimeResultStoreTest {
 
         val restored = AgentRuntimeResultStore.list(context).single { it.result.runId == runId }
         assertEquals(listOf("assistant"), restored.result.transcript.map { it.role })
-        assertEquals("旧版本结果", restored.result.transcript.single().content)
+        assertEquals("legacy result", restored.result.transcript.single().content)
     }
 
     private lateinit var context: Context
@@ -56,7 +56,7 @@ class AgentRuntimeResultStoreTest {
         val completedRun = AgentRuntimeWire.CompletedRun(
             handoff = AgentRuntimeWire.EntryHandoff(
                 id = runId,
-                source = "breeno",
+                source = AgentRuntimeWire.AGENT_UI_HANDOFF_SOURCE,
                 payload = "{}",
             ),
             result = AgentRuntimeWire.RunResult(
@@ -86,18 +86,18 @@ class AgentRuntimeResultStoreTest {
                 toolCallId = "call-1",
                 content = "{\"ok\":true}",
             ),
-            AgentModelClient.ConversationMessage(role = "assistant", content = "完成"),
+            AgentModelClient.ConversationMessage(role = "assistant", content = "done"),
         )
         val completedRun = AgentRuntimeWire.CompletedRun(
             handoff = AgentRuntimeWire.EntryHandoff(
                 id = runId,
-                source = "breeno",
+                source = AgentRuntimeWire.AGENT_UI_HANDOFF_SOURCE,
                 payload = "{}",
             ),
             result = AgentRuntimeWire.RunResult(
                 runId = runId,
                 ok = true,
-                content = "完成",
+                content = "done",
                 transcript = transcript,
             ),
             createdAt = System.currentTimeMillis(),
@@ -108,7 +108,7 @@ class AgentRuntimeResultStoreTest {
         val restored = AgentRuntimeResultStore.list(context).single { it.result.runId == runId }
         assertEquals(transcript.map { it.role }, restored.result.transcript.map { it.role })
         assertEquals("call-1", restored.result.transcript[1].toolCallId)
-        assertEquals("完成", restored.result.transcript.last().content)
+        assertEquals("done", restored.result.transcript.last().content)
     }
 
     @Test
@@ -116,7 +116,7 @@ class AgentRuntimeResultStoreTest {
         val runId = "checkpoint-${System.nanoTime()}"
         val request = AgentRuntimeWire.RunRequest(
             runId = runId,
-            prompt = "检查运行状态",
+            prompt = "Check run status",
             config = AgentModelClient.ModelConfig(
                 baseUrl = "https://example.com/v1",
                 apiKey = "test-key",
@@ -136,7 +136,7 @@ class AgentRuntimeResultStoreTest {
                 round = 1,
                 toolCallId = "call-1",
                 name = "run_command",
-                argsPreview = "执行命令 · Android · root",
+                argsPreview = "Run command · Android · root",
                 command = "uptime",
             )
         )
@@ -149,7 +149,7 @@ class AgentRuntimeResultStoreTest {
                     result = AgentRuntimeWire.RunResult(
                         runId = runId,
                         ok = true,
-                        content = "完成",
+                        content = "done",
                     ),
                     createdAt = System.currentTimeMillis(),
                 ),
@@ -211,7 +211,7 @@ class AgentRuntimeResultStoreTest {
             context,
             AgentRuntimeWire.RunRequest(
                 runId = runId,
-                prompt = "测试",
+                prompt = "test",
                 config = AgentModelClient.ModelConfig(
                     baseUrl = "https://example.com/v1",
                     apiKey = "test-key",
@@ -242,7 +242,7 @@ class AgentRuntimeResultStoreTest {
         result = AgentRuntimeWire.RunResult(
             runId = runId,
             ok = true,
-            content = "完成",
+            content = "done",
         ),
         createdAt = createdAt,
     )

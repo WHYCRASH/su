@@ -5,7 +5,7 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import org.json.JSONArray
 import org.json.JSONObject
 
-/** 火山方舟 Seedance：内容生成任务，不是 OpenAI /videos。 */
+/** Volcengine Ark Seedance: content generation task, not OpenAI /videos. */
 internal object ArkContentsGenerations {
     fun matches(baseUrl: String): Boolean {
         val host = baseUrl.trim().toHttpUrlOrNull()?.host.orEmpty().lowercase()

@@ -17,7 +17,7 @@ import java.io.IOException
 import java.io.InterruptedIOException
 import org.json.JSONObject
 
-/** 读取用户已明确指定的图片或视频；视频抽取封面帧作为视觉附件。 */
+/** Reads the image or video explicitly specified by the user; for videos, extracts a cover frame as a visual attachment. */
 internal class AgentImageTools(
     private val context: Context,
     private val root: BoundedRootCommandExecutor,
@@ -32,20 +32,20 @@ internal class AgentImageTools(
         val sourceKind = when {
             source.startsWith("content://") -> ImageSourceKind.ContentUri
             source.startsWith("/") && !source.contains('\u0000') -> ImageSourceKind.File
-            else -> return sensitive(error("IMAGE_PATH_DENIED", "图片或视频路径必须是绝对路径、file URI 或已授权的 content URI"))
+            else -> return sensitive(error("IMAGE_PATH_DENIED", "The image or video path must be an absolute path, a file URI, or an authorized content URI"))
         }
         val looksVideo = looksLikeVideo(source, sourceKind)
         val maxBytes = if (looksVideo) MAX_AGENT_VIDEO_BYTES.toLong() else MAX_AGENT_IMAGE_BYTES.toLong()
         val temporaryFile = runCatching {
             File.createTempFile("eta-read-image-", ".img", imageCacheDirectory())
         }.getOrElse {
-            return sensitive(error("IMAGE_TEMPORARY_FILE_FAILED", "无法创建图片临时文件"))
+            return sensitive(error("IMAGE_TEMPORARY_FILE_FAILED", "Unable to create a temporary image file"))
         }
         return try {
             val staged = copyAsApp(source, sourceKind, temporaryFile, maxBytes)
             if (!staged) {
                 if (!rootAvailable()) {
-                    return sensitive(error("IMAGE_ACCESS_DENIED", "Eta 无法读取此文件；请先通过文件选择器导入或授予读取权限"))
+                    return sensitive(error("IMAGE_ACCESS_DENIED", "su cannot read this file; please import it through the file picker or grant read permission first"))
                 }
                 val copyResult = root.execute(
                     imageCopyCommand(source, sourceKind, temporaryFile, maxBytes),
@@ -66,18 +66,18 @@ internal class AgentImageTools(
                     .put("mime", video.mimeType)
                     .put("duration_ms", video.durationMs)
                     .put("image_attached", true)
-                    .put("note", "已抽取视频封面帧作为视觉输入")
+                    .put("note", "Extracted the video cover frame as visual input")
                 video.width?.let { payload.put("width", it) }
                 video.height?.let { payload.put("height", it) }
                 return sensitive(content = payload.toString(), images = listOf(video.thumbnail))
             }
             if (looksVideo || sniffedVideo) {
-                return sensitive(error("VIDEO_FRAME_FAILED", "已找到视频，但无法抽取封面帧"))
+                return sensitive(error("VIDEO_FRAME_FAILED", "Video found, but could not extract a cover frame"))
             }
             val image = AgentImageCodec.fromToolFile(
                 file = temporaryFile,
                 source = "tool_read_image",
-            ) ?: return sensitive(error("IMAGE_UNSUPPORTED", "文件不是可识别的图片或视频"))
+            ) ?: return sensitive(error("IMAGE_UNSUPPORTED", "The file is not a recognized image or video"))
             sensitive(
                 content = JSONObject()
                     .put("ok", true)
@@ -89,7 +89,7 @@ internal class AgentImageTools(
                 images = listOf(image),
             )
         } catch (_: BoundedFileCopy.TooLargeException) {
-            sensitive(error("IMAGE_TOO_LARGE", "文件超过大小限制"))
+            sensitive(error("IMAGE_TOO_LARGE", "The file exceeds the size limit"))
         } finally {
             temporaryFile.delete()
         }
@@ -167,10 +167,10 @@ internal class AgentImageTools(
             ?: context.cacheDir
 
     private fun copyFailure(result: BoundedRootCommandExecutor.Result): String = when (result.exitCode) {
-        21 -> error("IMAGE_SOURCE_UNAVAILABLE", "图片源文件不存在或当前不可读")
-        22 -> error("IMAGE_TOO_LARGE", "文件超过大小限制")
-        23 -> error("IMAGE_STAGE_FAILED", "Root 无法将文件复制到 Eta 临时缓存")
-        else -> error("IMAGE_UNAVAILABLE", "图片或视频读取失败")
+        21 -> error("IMAGE_SOURCE_UNAVAILABLE", "The source image file does not exist or is currently unreadable")
+        22 -> error("IMAGE_TOO_LARGE", "The file exceeds the size limit")
+        23 -> error("IMAGE_STAGE_FAILED", "Root cannot copy the file to su's temporary cache")
+        else -> error("IMAGE_UNAVAILABLE", "Failed to read the image or video")
     }
 
     private fun error(code: String, message: String): String =

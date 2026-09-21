@@ -1,39 +1,39 @@
-# 超长 @引用 / 单条历史的摘要输入预算修复
+# Oversized @-reference / single-history-item summary input budget fix
 
-## 已确认的根因
+## Confirmed root cause
 
-实机失败检查点 c7c490fa-10fb-466e-a8f6-fff40f04a0e0：第一条 user 消息为 @会话引用，248911 字符，本地估算 131195 tokens。摘要窗口内部最多 128000，还需扣输出预留与安全余量。
-旧 splitMessages 对所有完整边界单元执行 `require(cost <= budget)`，所以普通 user 消息也会触发“单个完整工具单元超出摘要模型输入预算”。不是模型生成摘要太长，也不是工具结果本身太大。
+Real-device failing checkpoint c7c490fa-10fb-466e-a8f6-fff40f04a0e0: the first user message is a @-conversation reference, 248911 characters, locally estimated at 131195 tokens. The summary window caps at 128000 internally, before output reserve and safety margin.
+The old splitMessages ran `require(cost <= budget)` on every whole-boundary unit, so an ordinary user message could trigger "single whole tool unit exceeds the summary-model input budget". Not an over-long generated summary, and not an over-large tool result per se.
 
-## 实现
+## Implementation
 
-- 分块预算和实际发送共用 compressionModel / summaryInput，包含系统提示、摘要指令、工具定义、输出预留及媒体投影；不再用固定 1024 开销粗略分块后到发送前才发现超限。
-- 保留完整工具批次边界。正常大小的消息继续结构化回放，保持原 system/tools/session，超大片段前后的 replay 偏移仍按原消息索引计算。
-- 单元过大时，只在摘要路径将整个单元投影为带角色及 tool_call_id 的只读证据，再按真实请求预算分片。原始历史、受保护尾部、归档文件都不修改；不会生成不配对的 tool 协议消息。
-- 每个分片有原消息范围、UTF-16 范围和总字符数；只读提示重复附在每段，说明 @引用是背景，工具是已有记录，不得执行、不得把片段边界当任务完成。
-- 文本分片完整覆盖投影文本，不 trim、不硬截断，不拆 Unicode 代理对；结构化图片沿用既有媒体投影，不将 Base64 当正文。
-- 第一次摘要前先完成整个分块计划。保持每层最多 32 块；计划超限直接报错，不花一半请求再发现块数过多。
-- 中间摘要不能一次合并时，按同一预算分层归并，最多 4 层；每个非最终层必须确实减少正文 token，否则失败保留原历史。
-- 保留原来的正常结束校验、截断拒收、取消、每请求 120 秒期限、输出截断有限重试及最终上下文实际缩减检查。
-- 日志仅包含关联 ID、阶段、消息范围、字符数、块数及预算，不记录引用正文。
+- Chunking budgets and actual sends share compressionModel / summaryInput, including system prompt, summary instructions, tool definitions, output reserve, and media projection; no more rough fixed-1024-overhead chunking that only discovers the overflow at send time.
+- Whole tool-batch boundaries preserved. Normal-size messages keep structured replay with original system/tools/session; replay offsets around oversized fragments are still computed against original message indexes.
+- On oversized units, the summary path alone projects the whole unit into a read-only exhibit carrying role and tool_call_id, then slices it under the real request budget. Original history, the protected tail, and archive files are untouched; no unpaired tool-protocol messages are generated.
+- Each fragment carries original message range, UTF-16 range, and total character count; the read-only notice repeats on every fragment, stating the @-reference is background, the tools are already-recorded history — never execute, never read fragment edges as task completion.
+- Text fragments fully cover the projected text — no trim, no hard cut, no split Unicode surrogate pairs; structured images reuse the existing media projection instead of treating Base64 as body text.
+- The full chunk plan completes before the first summary call. At most 32 chunks per level; over-plan fails fast instead of spending half the requests before discovering there are too many chunks.
+- When intermediate summaries cannot merge at once, hierarchical merging under the same budget follows, at most 4 levels; every non-final level must genuinely reduce body-text tokens or the run fails with the original history kept.
+- Original normal-end validation, truncation rejection, cancellation, the 120-second per-request deadline, output-truncation limited retry, and the final context-actually-shrunk check are kept.
+- Logs carry only correlation IDs, phases, message ranges, character counts, chunk counts, and budgets — never reference body text.
 
-## 不变项
+## Unchanged items
 
-- 不修改 @引用上限、自动压缩阈值、原文保留策略、turnId 或暂停/继续/停止链路。
-- 不修改摘要模型的实际窗口上限，不重新引入摘要目标长度档位。
-- 不修改任何原始会话/检查点数据；已有脱敏和归档事务仍由原调用方处理。
-- 正常可容纳的历史不增加请求；大输入必须多次摘要，不能承诺耗时不增加。
-- 分片保留全部投影文本，不代表模型摘要无损或必然成功。
+- @-reference caps, auto-compression thresholds, original-text retention policy, turnId, and the pause/continue/stop chain are untouched.
+- The summary model's actual window cap is untouched; no summary-target-length tiers reintroduced.
+- No raw conversation/checkpoint data modified; existing redaction and archive transactions stay with their original callers.
+- Normally fitting history costs no extra requests; large inputs take multiple summaries — no promise that latency stays flat.
+- Fragments keep all projected text, which does not mean model summaries are lossless or bound to succeed.
 
-## 测试与状态
+## Tests and status
 
-新增 25 项测试（AgentSummaryTextFragmentsTest 7 项、AgentOversizedSummaryTest 18 项）：
+25 new tests (AgentSummaryTextFragmentsTest 7 items, AgentOversizedSummaryTest 18 items):
 
-- 13.1 万 token 以上的长引用、完整文本覆盖、Unicode、空白/分隔标记。
-- 实际发送预算、原始历史/尾部不变、回放偏移、完整工具批次只读化、媒体 Base64 过滤。
-- 分块上限、极小窗口、旧回放拒绝、坏工具配对拒绝、取消、片段失败、截断失败。
-- 分层合并、无进展退出、最大层数退出、最终合并失败不提交、普通输入单次请求。
+- 131k-token-plus long references, full text coverage, Unicode, blank/separator markers.
+- Actual send budgets, original history/tail unchanged, replay offsets, whole tool batches read-only-ified, media Base64 filtered.
+- Chunk caps, tiny windows, stale-replay rejection, bad-tool-pairing rejection, cancellation, fragment failure, truncation failure.
+- Layered merging, no-progress exit, max-depth exit, failed final merges never committed, ordinary inputs in a single request.
 
-已执行 git diff --check 和修改文件的词法括号检查；尚未执行 Kotlin 编译、单元测试或实机复测。
-本地基于 feat/tts 的 0bf32e5；保留已交付 TTS 改动，未混入 /workspace/Eta 未提交代码。
-本次未提交、推送或触发 GitHub Actions，版本号不变。
+`git diff --check` and lexical bracket checks on modified files run; no Kotlin compilation, unit tests, or on-device retests yet.
+Locally based on feat/tts at 0bf32e5; already-delivered TTS changes kept, uncommitted /workspace/Eta code never mixed in.
+Nothing committed, pushed, or run through GitHub Actions this round; version number unchanged.

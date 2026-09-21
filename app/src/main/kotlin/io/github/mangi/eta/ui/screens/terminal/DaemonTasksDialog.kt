@@ -38,7 +38,7 @@ import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.window.WindowDialog
 
-/** 守护任务列表面板；终端块视图与控制台视图共用。 */
+/** Daemon task list panel; shared by the terminal block view and the console view. */
 @Composable
 internal fun DaemonTasksDialog(
     tasks: List<DaemonTaskUi>,

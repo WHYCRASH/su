@@ -37,7 +37,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.DocumentScanner
 import androidx.compose.material.icons.rounded.Language
-import androidx.compose.material.icons.rounded.RocketLaunch
 import androidx.compose.material.icons.rounded.Terminal
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -144,10 +143,10 @@ import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 
 /**
- * 聊天主体：消息流 + 底部输入框。
+ * Chat body: message stream + bottom input box.
  *
- * AI 对话使用正向时间线：第一条消息从对话区顶部开始，后续回复顺序向下追加。
- * 空 assistant 占位不参与布局，避免刚发送时出现一个无内容消息节点。
+ * AI chat uses a forward timeline: the first message starts at the top of the conversation area and later replies append downward in order.
+ * An empty assistant placeholder does not participate in layout, so no content-less message node appears right after sending.
  */
 @Composable
 @OptIn(ExperimentalLayoutApi::class)
@@ -349,8 +348,8 @@ internal fun AgentChatBody(
                 onBottomAnchorChanged = { keepBottomAnchored = it },
                 onSubmit = { text ->
                     sentFromKeyboard = true
-                    // 发送即重新锚定底部：用户从历史上方直接发送时，同帧内 isStreaming 与
-                    // 新消息一起到位，立即回到底部并恢复后续的流式平滑跟底。
+                    // Sending re-anchors to the bottom immediately: when the user sends from above the history, isStreaming and
+                    // the new message land in the same frame, so jump back to the bottom at once and resume smooth streaming follow afterwards.
                     keepBottomAnchored = true
                     onSubmit(text)
                     submitScrollScope.launch {
@@ -457,7 +456,7 @@ private fun AgentChatScaffold(
     val surfaceColor = MiuixTheme.colorScheme.surface
     val frostEnabled = hasMessages && LocalBlurEnabled.current && isRuntimeShaderSupported()
     val messageBackdrop = rememberLayerBackdrop {
-        // Backdrop 必须包含不透明底色，否则文字边缘模糊到透明区域时会出现黑边。
+        // The backdrop must include an opaque background color, otherwise blurred text edges over transparent regions show dark fringes.
         drawRect(surfaceColor)
         drawContent()
     }
@@ -619,8 +618,8 @@ internal fun AgentConversationMessages(
             onScrollToMessageConsumed()
         }
     }
-    // 操作栏只出现在每轮对话的最终结果上，正在输出的正文保持隐藏。
-    // 流式进行中当前这一轮尚未收尾，不把临时的最后一条正文标为最终结果。
+    // The action bar only appears on the final result of each round; body text that is still generating stays hidden.
+    // While streaming, the current round has not finished yet, so the provisional last body text is not marked as the final result.
     val finalResultMessageIds = remember(visibleMessages, isStreaming, isCompressingContext) {
         resolveFinalResultMessageIds(
             visibleMessages,
@@ -628,8 +627,8 @@ internal fun AgentConversationMessages(
             isCompressingContext = isCompressingContext,
         )
     }
-    // 流式消息的渲染会话按 id 提升到列表层持有：item 滚出视口被 LazyColumn 销毁后，
-    // 滑回时复用同一解析会话与打字机进度，避免整段内容重新解析并重放显现动画。
+    // The render session of a streaming message is hoisted to the list layer by id: after an item scrolls out of view and LazyColumn destroys it,
+    // scrolling back reuses the same parse session and typewriter progress instead of re-parsing everything and replaying the reveal animation.
     val fallbackStreamingStates = remember { mutableStateMapOf<String, StreamingMarkdownState>() }
     val streamingMarkdownStates = LocalStreamingMarkdownStates.current ?: fallbackStreamingStates
     LaunchedEffect(visibleMessages, streamingMarkdownStates) {
@@ -651,7 +650,7 @@ internal fun AgentConversationMessages(
         onDispose { turnNavigationJob?.cancel() }
     }
     val isUserDragging by scrollState.interactionSource.collectIsDraggedAsState()
-    // 手指拖走后的惯性也算用户滚动；跟底自己的 scrollBy 不能把这个标志打开。
+    // Fling inertia after the finger leaves still counts as user scrolling; follow-bottom's own scrollBy must not set this flag.
     var isUserScrolling by remember { mutableStateOf(false) }
     // Observe user motion synchronously, before the asynchronous drag collector
     // and before another scheduled follow frame can mutate the list position.
@@ -782,8 +781,8 @@ internal fun AgentConversationMessages(
         }
     }
 
-    // 流式输出及渲染收尾期间发布最新的跟底距离。历史消息中的步骤/思考展开同样会改变
-    // 列表高度，但那是用户主动查看内容，不能被误判成尾部文字增长。
+    // Publish the latest follow-bottom distance while streaming output and render finalization are in flight. Expanding steps/thoughts in history messages also changes
+    // list height, but that is the user actively viewing content and must not be mistaken for trailing text growth.
     LaunchedEffect(scrollState) {
         snapshotFlow {
             val layoutInfo = scrollState.layoutInfo
@@ -794,8 +793,8 @@ internal fun AgentConversationMessages(
                 enabled = shouldFollowBottom,
                 bottomItemIndex = currentBottomItemIndex,
                 sentinelBottom = sentinel?.let { it.offset + it.size },
-                // 输入器高度属于滚动内容的 bottom inset，而不是滚动容器高度。
-                // 跟底目标应是 afterContentPadding 之前的正文边界。
+                // The input box height belongs to the scroll content's bottom inset, not the scroll container height.
+                // The follow-bottom target is the body boundary before afterContentPadding.
                 viewportEnd = layoutInfo.viewportEndOffset - layoutInfo.afterContentPadding,
                 lastVisibleIndex = layoutInfo.visibleItemsInfo.lastOrNull()?.index,
             )
@@ -814,8 +813,8 @@ internal fun AgentConversationMessages(
             }
     }
 
-    // 一个持续存在的帧时钟从当前屏幕位置追向最新目标。新字符继续到达时只更新目标，
-    // 不取消并重启动画，因此速度连续；用户开始拖动后，enabled=false 会立即停止跟随。
+    // A persistent frame clock chases the latest target from the current screen position. As new characters keep arriving only the target is updated,
+    // never cancelling and restarting the animation, so velocity stays continuous; once the user starts dragging, enabled=false stops following immediately.
     LaunchedEffect(scrollState, bottomFollowDecisions) {
         var remainingDistancePx = 0f
         var requestIndex: Int? = null
@@ -890,8 +889,8 @@ internal fun AgentConversationMessages(
         }
     }
 
-    // 滚动层保持整屏，输入器作为后绘制浮层；输入器高度进入列表的
-    // afterContentPadding，确保跟到底部时最后一行停在输入器上方。
+    // The scroll layer stays full-screen with the input box as a later-drawn overlay; the input height feeds the list's
+    // afterContentPadding so the last line rests above the input box when followed to the bottom.
     Box(modifier = modifier.clipToBounds()) {
         val trailingWorkKey =
             (timelineEntries.lastOrNull() as? AgentTimelineEntry.WorkProcess)?.key
@@ -1005,7 +1004,7 @@ internal fun AgentConversationMessages(
                 item(key = ChatContextCompressingKey) {
                     Column {
                         if (isCompressingContext || isWaitingForCompression) ContextCompressingIndicator(
-                            modelName = "${telemetry.compactingModelName.ifBlank { telemetry.mainModelName }}（主代理）",
+                            modelName = "${telemetry.compactingModelName.ifBlank { telemetry.mainModelName }} (main agent)",
                             waiting = isWaitingForCompression && !isCompressingContext,
                             modifier = Modifier.animateItem(
                                 fadeInSpec = tween(durationMillis = 180),
@@ -1171,12 +1170,12 @@ private fun AgentChatMessageUi.isWorkProcessMessage(): Boolean =
     this is ThinkingMessageUi || this is ToolActivityMessageUi || this is ToolSummaryMessageUi
 
 /**
- * 一轮对话（两条用户消息之间）里最后一条 Agent 正文视为最终结果，其余为中间步骤。
- * 流式或中途压缩期间当前轮次尚未结束，最后一轮不标记，等结束后复制按钮才出现；
- * 之前已结束轮次的最终结果不受影响。
+ * Within one round (between two user messages), the last Agent body text counts as the final result and the rest are intermediate steps.
+ * While streaming or mid-run compaction is active the current round has not ended yet: the last round is not marked, and the copy button only appears after it finishes;
+ * final results of already-finished rounds are unaffected.
  *
- * 追加/steering 的用户消息不算新一轮：被打断的正文和继续输出同属一段，
- * 操作栏只出现在整段结束后的最后一条。
+ * Appended/steering user messages do not start a new round: interrupted body text and its continuation belong to the same segment,
+ * and the action bar only appears on the last message after the whole segment ends.
  */
 internal fun resolveFinalResultMessageIds(
     messages: List<AgentChatMessageUi>,
@@ -1304,7 +1303,7 @@ private fun AgentChatBottomBar(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(ChatBottomFrostHeight)
-                    // DstIn 让真实磨砂在顶部透明、靠近输入框时逐渐变实，消除硬裁切线。
+                    // DstIn keeps the real blur transparent at the top and gradually solid toward the input box, removing the hard cut line.
                     .graphicsLayer {
                         compositingStrategy = CompositingStrategy.Offscreen
                     }
@@ -1325,7 +1324,7 @@ private fun AgentChatBottomBar(
                     ),
             )
         } else {
-            // 空白主页沿用原来的轻微渐隐，不改变主页视觉。
+            // The empty home page keeps its original slight fade; home visuals are unchanged.
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1447,7 +1446,7 @@ private fun ContextCompressingIndicator(waiting: Boolean = false, modelName: Str
         CircularProgressIndicator(size = 18.dp, strokeWidth = 2.dp)
         Text(
             text = if (waiting) stringResource(R.string.compress_conversation_waiting) else
-                "${modelName.ifBlank { "主代理" }} • 正在压缩上下文",
+                "${modelName.ifBlank { "main agent" }} • Compacting context",
             style = MiuixTheme.textStyles.body2,
             color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
             modifier = Modifier.padding(start = 8.dp),
@@ -1467,9 +1466,9 @@ internal fun resolveKeepBottomAnchored(
     isAtBottom: Boolean,
     hasLeftBottom: Boolean = false,
 ): Boolean = when {
-    // 手指一开始拖就停跟底；流式长高让 sentinel 离开视口时不能当成用户上滑。
+    // Stop following as soon as the finger starts dragging; the sentinel leaving the viewport because streaming grew the list must not count as the user scrolling up.
     isUserDragging -> false
-    // 只有真正滑离过底部再回来，才重新贴底，避免轻触后被跟底拽回去。
+    // Only re-pin to the bottom after truly scrolling away and back, so a light tap is not yanked back by following.
     isAtBottom && (current || hasLeftBottom) -> true
     else -> current
 }
@@ -1561,11 +1560,6 @@ private fun EmptyChatState(
             title = stringResource(R.string.ui_analyze_current_screen_ebf08f),
             icon = Icons.Rounded.DocumentScanner,
             prompt = stringResource(R.string.suggestion_analyze_screen_prompt),
-        ),
-        SuggestionItem(
-            title = stringResource(R.string.ui_open_wechat_6b2c28),
-            icon = Icons.Rounded.RocketLaunch,
-            prompt = stringResource(R.string.suggestion_open_wechat_prompt),
         ),
         SuggestionItem(
             title = stringResource(R.string.ui_browse_the_web_da7afb),

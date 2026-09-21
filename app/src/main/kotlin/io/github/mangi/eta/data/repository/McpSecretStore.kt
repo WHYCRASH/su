@@ -10,7 +10,7 @@ import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
-/** MCP 凭据只以 Android Keystore 密文保存在 App 私有偏好中。 */
+/** MCP credentials are stored only as Android Keystore ciphertext in the app's private preferences. */
 internal class McpSecretStore(context: Context) {
     private val preferences = context.applicationContext.getSharedPreferences(
         PREFERENCES_NAME,
@@ -49,12 +49,12 @@ internal class McpSecretStore(context: Context) {
             preferences.edit()
             .putString(tokenKey(serverId), Base64.encodeToString(payload, Base64.NO_WRAP))
             .commit()
-        ) { "MCP 凭据保存失败" }
+        ) { "Failed to save MCP credentials" }
     }
 
     @Synchronized
     fun clear(serverId: String) {
-        check(preferences.edit().remove(tokenKey(serverId)).commit()) { "MCP 凭据删除失败" }
+        check(preferences.edit().remove(tokenKey(serverId)).commit()) { "Failed to delete MCP credentials" }
     }
 
     @Synchronized
@@ -63,7 +63,7 @@ internal class McpSecretStore(context: Context) {
 
     @Synchronized
     fun replaceAll(tokens: Map<String, String>) {
-        check(preferences.edit().clear().commit()) { "MCP 凭据清空失败" }
+        check(preferences.edit().clear().commit()) { "Failed to clear MCP credentials" }
         tokens.forEach { (id, token) ->
             if (id.isNotBlank() && token.isNotBlank()) setBearerToken(id, token)
         }

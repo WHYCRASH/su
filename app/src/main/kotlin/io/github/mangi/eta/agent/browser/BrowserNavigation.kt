@@ -5,8 +5,8 @@ import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 
 /**
- * 把地址栏或 navigate 输入收成 WebView 能打开的 URL。
- * 完整 URL、裸域名走 https；Linux /workspace 与 MiniS 路径落到 file://；否则当作搜索词。
+ * Normalize address bar or navigate input into a URL the WebView can open.
+ * Full URLs and bare domains go to https; Linux /workspace and MiniS paths resolve to file://; otherwise treat as a search term.
  */
 internal object BrowserNavigation {
     const val SEARCH_ENDPOINT = "https://www.bing.com/search?q="
@@ -16,7 +16,7 @@ internal object BrowserNavigation {
         resolveWorkspace: (String) -> String = { it },
     ): String {
         val trimmed = input.trim()
-        require(trimmed.isNotEmpty()) { "url 不能为空" }
+        require(trimmed.isNotEmpty()) { "url cannot be empty" }
 
         localFileUrl(trimmed, resolveWorkspace)?.let { return it }
         if (trimmed.startsWith("about:") || "://" in trimmed) return trimmed

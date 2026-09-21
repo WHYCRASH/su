@@ -74,11 +74,11 @@ class AgentRunControllerTest {
         controller.register { durable.incrementAndGet() }
         controller.register(interruptible = true) { stream.incrementAndGet() }
 
-        assertTrue(controller.steer("改短一点"))
+        assertTrue(controller.steer("Make it shorter"))
 
         assertEquals(0, durable.get())
         assertEquals(1, stream.get())
-        assertEquals("改短一点", controller.pollSteeringMessage())
+        assertEquals("Make it shorter", controller.pollSteeringMessage())
     }
 
     @Test
@@ -101,9 +101,9 @@ class AgentRunControllerTest {
         controller.register(interruptible = true) { stream.incrementAndGet() }
         controller.pause()
 
-        assertTrue(controller.steer("等我看完再说"))
+        assertTrue(controller.steer("Let me finish reading first"))
         assertEquals(1, stream.get())
-        assertEquals("等我看完再说", controller.pollSteeringMessage())
+        assertEquals("Let me finish reading first", controller.pollSteeringMessage())
     }
 
     @Test
@@ -194,9 +194,9 @@ class AgentRunControllerTest {
 
         try {
             assertTrue(entered.await(1, TimeUnit.SECONDS))
-            assertTrue(controller.steer("补充条件"))
+            assertTrue(controller.steer("Add conditions"))
             assertTrue(finished.await(1, TimeUnit.SECONDS))
-            assertEquals("补充条件", controller.pollSteeringMessage())
+            assertEquals("Add conditions", controller.pollSteeringMessage())
         } finally {
             controller.cancel()
             worker.join(1_000)
@@ -307,7 +307,7 @@ class AgentRunControllerTest {
         val controller = AgentRunController()
         assertTrue(controller.requestCompact())
         assertNull(controller.pollSteeringOrSeal())
-        assertTrue(controller.steer("还能追加"))
-        assertEquals("还能追加", controller.pollSteeringMessage())
+        assertTrue(controller.steer("Can still add more"))
+        assertEquals("Can still add more", controller.pollSteeringMessage())
     }
 }

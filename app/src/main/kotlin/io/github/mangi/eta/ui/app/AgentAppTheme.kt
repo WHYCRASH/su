@@ -154,7 +154,7 @@ fun AgentAppTheme(
             LocalPlatformDensity provides platformDensity,
             LocalDensity provides appDensity,
         ) {
-            // MaterialTheme 仅向 markdown-renderer-m3 提供与 Miuix 一致的颜色上下文。
+            // MaterialTheme only provides markdown-renderer-m3 with a color context consistent with Miuix.
             MaterialTheme(
                 colorScheme = materialColors,
             ) {

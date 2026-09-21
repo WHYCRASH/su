@@ -16,7 +16,7 @@ import io.github.mangi.eta.ui.model.ToolSummaryMessageUi
 import io.github.mangi.eta.ui.model.UserMessageUi
 import io.github.mangi.eta.ui.model.isSteerSupplement
 
-/** 以用户轮次为边界同步裁剪展示消息与模型上下文。 */
+/** Trims the display messages and model context in sync, using user turns as the boundary. */
 internal object AgentConversationRevisionReducer {
     data class Boundary(
         val userMessage: UserMessageUi,
@@ -67,8 +67,8 @@ internal object AgentConversationRevisionReducer {
     }
 
     /**
-     * 从目标消息分出一条独立会话：保留该消息及之前的展示内容，
-     * 模型上下文截到同一轮结束（助手消息含本轮回复；用户消息只含该条提问）。
+     * Branch an independent conversation from the target message: keep that message and the preceding display content,
+     * and cut the model context to the end of the same turn (an assistant message includes this turn's reply; a user message includes only that question).
      */
     fun branchPrefix(state: AgentChatUiState, targetMessageId: String): BranchPrefix? {
         val targetIndex = state.messages.indexOfFirst { it.id == targetMessageId }
@@ -184,8 +184,8 @@ internal object AgentConversationRevisionReducer {
     }
 
     /**
-     * 暂停/结束任务后，屏幕上已写出的助手正文必须进模型历史。
-     * 否则下一轮请求看不到刚才的完整回答。
+     * After a task is paused or ends, the assistant text already written to the screen must go into the model history.
+     * Otherwise the next request won't see the full answer just given.
      */
     fun commitVisibleAssistantIntoHistory(
         history: List<AgentModelClient.ConversationMessage>,

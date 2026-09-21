@@ -334,7 +334,7 @@ class SkillRecoveryJournalTest {
             block()
             fail("Expected SkillRecoveryRequiredException")
         } catch (_: SkillRecoveryRequiredException) {
-            // 预期 fail-closed。
+            // Expected fail-closed.
         }
     }
 }

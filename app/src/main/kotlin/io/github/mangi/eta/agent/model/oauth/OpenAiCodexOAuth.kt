@@ -62,10 +62,10 @@ internal object OpenAiCodexOAuth {
         val (code, returnedState) = try {
             withTimeout(300_000) { waitForCallback(context, authUrl) }
         } catch (_: TimeoutCancellationException) {
-            error("登录超时，请重试")
+            error("Sign-in timed out; please retry")
         }
         if (!returnedState.isNullOrBlank() && returnedState != state) {
-            throw IllegalStateException("OAuth state 不匹配")
+            throw IllegalStateException("OAuth state mismatch")
         }
         exchangeCode(store, providerId, code)
     }
@@ -209,7 +209,7 @@ internal object OpenAiCodexOAuth {
         val json = postToken(body)
         persistTokens(store, providerId, json)
         val access = json.optString("access_token")
-        if (access.isBlank()) error("登录成功但没有 access_token")
+        if (access.isBlank()) error("Sign-in succeeded but access_token is missing")
         return access
     }
 
@@ -247,7 +247,7 @@ internal object OpenAiCodexOAuth {
                 httpClient.newCall(request).execute().use { response ->
                     val text = response.body?.string().orEmpty()
                     if (response.code !in 200..299) {
-                        error("Token 交换失败 (${response.code}): ${text.take(300)}")
+                        error("Token exchange failed (${response.code}): ${text.take(300)}")
                     }
                     return JSONObject(text)
                 }
@@ -256,7 +256,7 @@ internal object OpenAiCodexOAuth {
                 if (attempt < 2) Thread.sleep(1000L * (attempt + 1))
             }
         }
-        throw lastError ?: IllegalStateException("Token 交换失败")
+        throw lastError ?: IllegalStateException("Token exchange failed")
     }
 
     internal fun extractAccountId(json: JSONObject): String? {

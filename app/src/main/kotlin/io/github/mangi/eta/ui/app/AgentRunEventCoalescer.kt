@@ -3,10 +3,10 @@ package io.github.mangi.eta.ui.app
 import io.github.mangi.eta.agent.runtime.AgentEvent
 
 /**
- * 合并相邻的文本增量，避免模型每个小分片都触发一次 Compose 状态更新。
+ * Coalesce adjacent text deltas so every small model shard does not trigger its own Compose state update.
  *
- * 这里只合并同一运行、轮次、内容块和类型的事件；块边界仍由调用方立即刷新，
- * 因而不会改变 Runtime 事件的先后语义。
+ * Only events from the same run, round, content block, and kind are merged; block boundaries are still flushed immediately by the caller,
+ * so the ordering semantics of Runtime events do not change.
  */
 internal class AgentRunEventCoalescer {
     private val pendingByRun = mutableMapOf<String, PendingDelta>()

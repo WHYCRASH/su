@@ -13,10 +13,10 @@ import io.github.mangi.eta.ui.model.AgentHomeAction
 import io.github.mangi.eta.ui.model.AgentModelPickerUiState
 
 /**
- * AgentChatHome：首屏为聊天主舞台。
+ * AgentChatHome: the first screen serves as the main chat stage.
  *
- * 顶部入口统一由 [io.github.mangi.eta.ui.app.AgentAppShell] 提供，
- * 本 Screen 只负责消息流、Run trace、工具摘要和底部输入框。
+ * The top entries are uniformly provided by [io.github.mangi.eta.ui.app.AgentAppShell],
+ * This Screen is only responsible for the message stream, Run trace, tool summaries, and the bottom input box.
  */
 @Composable
 internal fun AgentHomeScreen(

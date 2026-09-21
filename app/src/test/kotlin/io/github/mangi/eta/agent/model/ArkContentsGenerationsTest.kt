@@ -29,14 +29,14 @@ class ArkContentsGenerationsTest {
         val json = JSONObject(
             ArkContentsGenerations.createBody(
                 model = "doubao-seedance-2-0-260128",
-                prompt = "一只猫在跑",
+                prompt = "A cat is running",
                 images = listOf(AgentVideoGenerationClient.InputImage(png, "image/png")),
             ),
         )
         assertEquals("doubao-seedance-2-0-260128", json.getString("model"))
         val content = json.getJSONArray("content")
         assertEquals("text", content.getJSONObject(0).getString("type"))
-        assertEquals("一只猫在跑", content.getJSONObject(0).getString("text"))
+        assertEquals("A cat is running", content.getJSONObject(0).getString("text"))
         val image = content.getJSONObject(1)
         assertEquals("image_url", image.getString("type"))
         val url = image.getJSONObject("image_url").getString("url")

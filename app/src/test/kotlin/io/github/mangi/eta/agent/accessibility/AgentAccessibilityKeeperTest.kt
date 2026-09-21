@@ -11,8 +11,8 @@ class AgentAccessibilityKeeperTest {
         val result = AgentAccessibilityKeeper.ensureAvailable(
             serviceAvailable = { false },
             protectionEnabled = { true },
-            requestRecovery = { error("不应请求未连接的保护后端") },
-            awaitServiceBinding = { error("不应等待未发起的恢复") },
+            requestRecovery = { error("Must not request recovery from a disconnected protection backend") },
+            awaitServiceBinding = { error("Must not wait for recovery that was never started") },
             protectionAvailable = { false },
         )
 

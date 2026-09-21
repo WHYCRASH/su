@@ -63,8 +63,8 @@ internal object ConversationTimeLabels {
         SimpleDateFormat(pattern, locale).also { it.timeZone = timeZone }.format(Date(millis))
 
     private fun sameYearPattern(locale: Locale): String = when (locale.language) {
-        Locale.CHINESE.language -> "M月d日"
-        Locale.JAPANESE.language -> "M月d日"
+        Locale.CHINESE.language -> "MMM d"
+        Locale.JAPANESE.language -> "MMM d"
         Locale.KOREAN.language -> "M월 d일"
         else -> "MMM d"
     }

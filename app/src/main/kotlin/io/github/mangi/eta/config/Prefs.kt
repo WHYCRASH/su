@@ -5,38 +5,35 @@ import android.content.SharedPreferences
 import io.github.libxposed.service.XposedService
 
 /**
- * 模块配置中枢。
+ * Module configuration hub.
  *
- * - Hook 进程（system_server / SystemUI / Google / 系统助手等）在模块加载时调用
- *   [attachRemote]，缓存框架提供的只读 [SharedPreferences]；之后所有拦截回调用 [isEnabled]
- *   读取当前进程持有的 remote preferences。
- * - Eta Runtime 自己消费的开关保存在 App 私有配置中，不依赖 Xposed Service。
- * - Hook 消费的开关通过 [remotePreferencesForUi] 写入 RemotePreferences；
- *   XposedService 未就绪时不提供本地假 fallback。
+ * - Hook processes (system_server / SystemUI / Google / system assistant, etc.) call
+ *   [attachRemote] when the module loads, caching the framework-provided read-only [SharedPreferences]; afterwards all interception callbacks use [isEnabled]
+ *   to read the remote preferences held by the current process.
+ * - Switches consumed by Eta Runtime itself are kept in the app's private config and do not depend on Xposed Service.
+ * - Switches consumed by hooks are written to RemotePreferences through [remotePreferencesForUi];
+ *   when XposedService is not ready, no local fake fallback is provided.
  *
- * 基于 libxposed API 102 的 [io.github.libxposed.api.XposedInterface.getRemotePreferences]
- * 与 service 102 的 [XposedService.getRemotePreferences]，两端共用同一 group。
+ * Built on [io.github.libxposed.api.XposedInterface.getRemotePreferences] from libxposed API 102
+ * and [XposedService.getRemotePreferences] from service 102; both ends share the same group.
  */
 internal object Prefs {
 
-    /** 远程配置组名，UI 写入与 Hook 读取必须一致。 */
+    /** Remote config group name; what the UI writes and what hooks read must match. */
     const val GROUP = "eta_prefs"
 
     private const val LOCAL_AGENT_GROUP = "eta_agent_preferences"
 
-    /** 所有功能开关 key。默认值按功能风险独立定义。 */
+    /** Every feature switch key. Defaults are chosen per feature risk. */
     object Keys {
         const val POWER_KEY_ASSISTANT_TARGET = "power_key_assistant_target"
-        // 兼容旧版布尔协议；新 UI 不再写入，缺少三态配置时 true 仍表示 Gemini。
+        // Compatible with the legacy boolean protocol; the new UI no longer writes it, and when the tri-state config is missing, true still means Gemini.
         const val POWER_KEY_TAKEOVER = "power_key_takeover"
         const val ASSISTANT_AUTO_CONFIG = "assistant_auto_config"
         const val HOTWORD_SELF_HEAL = "hotword_self_heal"
         const val GESTURE_BAR_CIRCLE_TO_SEARCH = "gesture_bar_circle_to_search"
-        const val DOUBLE_FINGER_CIRCLE_TO_SEARCH = "double_finger_circle_to_search"
         const val LOCKSCREEN_VOICE_COMMAND = "lockscreen_voice_command"
         const val SCREEN_ON_VOICE_COMMAND = "screen_on_voice_command"
-        const val AGENT_CUSTOM_MODEL = "agent_custom_model"
-        const val AGENT_REQUIRE_PREFIX = "agent_require_prefix"
         const val AGENT_TERMINAL_TOOLS = "agent_terminal_tools"
         const val AGENT_BROWSER_TOOLS = "agent_browser_tools"
         const val AGENT_DEVICE_DIRECT_TOOLS = "agent_device_direct_tools"
@@ -64,17 +61,14 @@ internal object Prefs {
         const val HAPTIC_MESSAGE_GENERATION = "haptic_message_generation"
         const val HAPTIC_INTENSITY = "haptic_intensity"
 
-        /** 全部布尔开关及其默认值。 */
+        /** All boolean switches and their defaults. */
         val BOOLEAN_DEFAULTS: Map<String, Boolean> = mapOf(
             POWER_KEY_TAKEOVER to false,
             ASSISTANT_AUTO_CONFIG to false,
             HOTWORD_SELF_HEAL to false,
             GESTURE_BAR_CIRCLE_TO_SEARCH to true,
-            DOUBLE_FINGER_CIRCLE_TO_SEARCH to false,
             LOCKSCREEN_VOICE_COMMAND to false,
             SCREEN_ON_VOICE_COMMAND to false,
-            AGENT_CUSTOM_MODEL to true,
-            AGENT_REQUIRE_PREFIX to false,
             AGENT_TERMINAL_TOOLS to true,
             AGENT_BROWSER_TOOLS to true,
             AGENT_DEVICE_DIRECT_TOOLS to true,
@@ -87,7 +81,7 @@ internal object Prefs {
             HAPTIC_MESSAGE_GENERATION to true,
         )
 
-        /** 由 Eta Runtime 最终裁决、不要求 Xposed 框架在线的开关。 */
+        /** Switches ultimately decided by Eta Runtime that do not require the Xposed framework to be online. */
         val LOCAL_AGENT_KEYS: Set<String> = setOf(
             AGENT_TERMINAL_TOOLS,
             AGENT_BROWSER_TOOLS,
@@ -102,19 +96,19 @@ internal object Prefs {
         )
     }
 
-    /** Hook 进程缓存的只读 remote preferences，由 ModuleMain 在 onModuleLoaded 注入。 */
+    /** Read-only remote preferences cached by the hook process, injected by ModuleMain in onModuleLoaded. */
     @Volatile
     private var remote: SharedPreferences? = null
 
     @Volatile
     private var localAgent: SharedPreferences? = null
 
-    /** 读取 Agent 本地 Int 配置。 */
+    /** Reads an Agent-local Int config value. */
     fun getInt(key: String, default: Int): Int {
         return localAgent?.getInt(key, default) ?: default
     }
 
-    /** 读取字符串配置。本地 Agent 配置优先，避免和只读 remote 重载抢同一参数。 */
+    /** Reads a string config value. Local Agent config takes priority, avoiding contention with read-only remote overrides over the same key. */
     fun getString(key: String, default: String = ""): String {
         localAgent?.let { prefs ->
             if (prefs.contains(key)) return prefs.getString(key, default) ?: default
@@ -122,22 +116,22 @@ internal object Prefs {
         return remote?.getString(key, default) ?: default
     }
 
-    /** 写入 Agent 本地 Int 配置。 */
+    /** Writes an Agent-local Int config value. */
     fun putInt(key: String, value: Int) {
         localAgent?.edit()?.putInt(key, value)?.apply()
     }
 
-    /** 写入 Agent 本地 String 配置。 */
+    /** Writes an Agent-local String config value. */
     fun putString(key: String, value: String) {
         localAgent?.edit()?.putString(key, value)?.apply()
     }
 
-    /** 写入 Agent 本地 Boolean 配置。 */
+    /** Writes an Agent-local Boolean config value. */
     fun putBoolean(key: String, value: Boolean) {
         localAgent?.edit()?.putBoolean(key, value)?.apply()
     }
 
-    /** App 进程调用：初始化不依赖 Xposed Service 的 Agent 配置。 */
+    /** Called by the app process: initializes the Agent config that does not depend on Xposed Service. */
     fun initLocal(context: Context) {
         if (localAgent == null) {
             synchronized(this) {
@@ -151,12 +145,12 @@ internal object Prefs {
         }
     }
 
-    /** Hook 进程调用：缓存框架提供的只读 SharedPreferences。 */
+    /** Called by the hook process: caches the read-only SharedPreferences provided by the framework. */
     fun attachRemote(prefs: SharedPreferences?) {
         remote = prefs
     }
 
-    /** Hook 进程监听框架下发的配置变化；listener 必须由调用方在进程生命周期内强引用。 */
+    /** The hook process listens for config changes delivered by the framework; the caller must hold a strong reference to the listener for the lifetime of the process. */
     fun registerRemoteListener(listener: SharedPreferences.OnSharedPreferenceChangeListener): Boolean {
         val preferences = remote ?: return false
         preferences.registerOnSharedPreferenceChangeListener(listener)
@@ -164,8 +158,8 @@ internal object Prefs {
     }
 
     /**
-     * 读取布尔开关。remote 不可用（框架未注入或调用失败）时回退各功能自己的默认值；
-     * 默认值与设置页展示保持一致。
+     * Reads a boolean switch. When remote is unavailable (framework not injected or the call failed), falls back to each feature's own default;
+     * the defaults match what the settings page displays.
      */
     fun isEnabled(key: String): Boolean {
         val default = Keys.BOOLEAN_DEFAULTS[key] ?: true
@@ -188,15 +182,15 @@ internal object Prefs {
     }
 
     /**
-     * UI 进程获取可写的 RemotePreferences。
+     * The UI process obtains a writable RemotePreferences.
      *
-     * [XposedService.getRemotePreferences] 的 commit 会同步等待 binder 提交到 LSPosed
-     * 数据库，失败返回 false；service 未就绪时返回 null，让 UI 保持不可写。
+     * commit on [XposedService.getRemotePreferences] synchronously waits for the binder to commit to the LSPosed
+     * database and returns false on failure; when the service is not ready it returns null, leaving the UI non-writable.
      */
     fun remotePreferencesForUi(service: XposedService?): SharedPreferences? =
         runCatching { service?.getRemotePreferences(GROUP) }.getOrNull()
 
-    /** Eta 设置页与 Runtime 使用的本地 Agent 配置，不依赖 LSPosed。 */
+    /** Local Agent config used by the Eta settings page and Runtime; does not depend on LSPosed. */
     fun localAgentPreferences(): SharedPreferences? = localAgent
 
     fun exportAgentPreferences(): Map<String, String> {
@@ -228,7 +222,7 @@ internal object Prefs {
         editor.commit()
     }
 
-    /** 关闭时压缩用当前对话模型；已选过自定义模型的旧配置视为开启。 */
+    /** When off, compression uses the current conversation model; legacy configs that already picked a custom model are treated as on. */
     fun isCustomCompressModelEnabled(preferences: SharedPreferences? = localAgent): Boolean {
         val prefs = preferences ?: return false
         if (prefs.contains(Keys.AGENT_COMPRESS_CUSTOM_MODEL_ENABLED)) {
@@ -239,8 +233,8 @@ internal object Prefs {
     }
 
     /**
-     * 首次升级优先把已有 RemotePreferences 值迁入本地；之后本地值是事实源，并在框架
-     * 可用时回写远端，让仍在目标进程中组装请求的 Hook 入口拿到一致的初始配置。
+     * On the first upgrade, existing RemotePreferences values are migrated into local storage first; after that the local value is the source of truth, and when the framework
+     * is available it is written back to remote, so hook entry points that still assemble requests inside the target process get a consistent initial config.
      */
     fun reconcileAgentPreferences(service: XposedService?) {
         val local = localAgent ?: return

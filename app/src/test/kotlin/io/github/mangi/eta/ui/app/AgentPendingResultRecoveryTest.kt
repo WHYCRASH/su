@@ -43,7 +43,7 @@ class AgentPendingResultRecoveryTest {
             UserMessageUi("user-run-stop", "task"),
             AgentMessageUi("assistant-run-stop-1", "completed work", isStreaming = true),
         ), input = "", isStreaming = true, isPaused = true, thinkingEnabled = false, history = listOf(initial))
-        val result = AgentRuntimeWire.RunResult("run-stop", false, "", "已停止", transcript = additions)
+        val result = AgentRuntimeWire.RunResult("run-stop", false, "", "Stopped", transcript = additions)
         val first = AgentPendingResultRecovery.apply(state, "run-stop", result, supplements = emptyList())
         assertEquals(listOf(initial) + additions, first.state.history)
         assertEquals("completed work", first.state.messages.filterIsInstance<AgentMessageUi>().single().content)
@@ -57,11 +57,11 @@ class AgentPendingResultRecoveryTest {
 
     @Test
     fun recoveryDoesNotReplaceFailedAttemptOrRetryNotice() {
-        val partial = AgentMessageUi(id = "assistant-retry-run-1-0", content = "半截回答")
+        val partial = AgentMessageUi(id = "assistant-retry-run-1-0", content = "Partial answer")
         val notice = SystemNoticeMessageUi(
             id = "assistant-retry-run-retry-1",
             code = SystemNoticeCode.ModelRetry,
-            detail = "正在重试",
+            detail = "Retrying",
         )
         val state = AgentChatUiState(
             messages = listOf(partial, notice), input = "", isStreaming = true, thinkingEnabled = false,
@@ -71,8 +71,8 @@ class AgentPendingResultRecoveryTest {
                 state = state,
                 runId = "retry-run",
                 result = AgentRuntimeWire.RunResult(
-                    runId = "retry-run", ok = ok, content = if (ok) "最终回答" else "",
-                    error = if (ok) null else "重试耗尽",
+                    runId = "retry-run", ok = ok, content = if (ok) "Final answer" else "",
+                    error = if (ok) null else "Retries exhausted",
                 ),
                 supplements = emptyList(),
             )
@@ -85,19 +85,19 @@ class AgentPendingResultRecoveryTest {
     @Test
     fun recoveryFinalizesLatestRoundAndAppendsTranscriptExactlyOnce() {
         val transcript = listOf(
-            AgentModelClient.ConversationMessage(role = "assistant", content = "最终结果")
+            AgentModelClient.ConversationMessage(role = "assistant", content = "Final result")
         )
         val state = AgentChatUiState(
             messages = listOf(
                 AgentMessageUi(
                     id = "assistant-run-1-1",
-                    content = "中间结果",
+                    content = "Intermediate result",
                     isStreaming = false,
                     renderMarkdown = false,
                 ),
                 AgentMessageUi(
                     id = "assistant-run-1-2",
-                    content = "部分",
+                    content = "Partial",
                     isStreaming = true,
                     renderMarkdown = false,
                 ),
@@ -108,13 +108,13 @@ class AgentPendingResultRecoveryTest {
         )
         val supplement = AgentUiHandoffPayload.Supplement(
             index = 1,
-            text = "补充条件",
+            text = "Additional condition",
             createdAt = 1L,
         )
         val result = AgentRuntimeWire.RunResult(
             runId = "run-1",
             ok = true,
-            content = "最终结果",
+            content = "Final result",
             transcript = transcript,
         )
 
@@ -135,7 +135,7 @@ class AgentPendingResultRecoveryTest {
             recovered.state.messages.map { it.id },
         )
         val latest = recovered.state.messages.last() as AgentMessageUi
-        assertEquals("最终结果", latest.content)
+        assertEquals("Final result", latest.content)
         assertFalse(latest.isStreaming)
         assertTrue(latest.renderMarkdown)
         assertEquals(transcript, recovered.state.history)
@@ -167,7 +167,7 @@ class AgentPendingResultRecoveryTest {
                 runId = "run-2",
                 ok = false,
                 content = "",
-                error = "失败原因",
+                error = "Failure reason",
             ),
             supplements = emptyList(),
         )
@@ -175,7 +175,7 @@ class AgentPendingResultRecoveryTest {
         assertEquals("assistant-run-2-1", recovered.state.messages.single().id)
         val message = recovered.state.messages.single() as SystemNoticeMessageUi
         assertEquals(SystemNoticeCode.RuntimeFailed, message.code)
-        assertEquals("失败原因", message.detail)
+        assertEquals("Failure reason", message.detail)
     }
 
     @Test
@@ -184,13 +184,13 @@ class AgentPendingResultRecoveryTest {
             messages = listOf(
                 AgentMessageUi(
                     id = "assistant-run-blocks-1-1",
-                    content = "我先搜索。",
+                    content = "I'll search first.",
                     isStreaming = false,
                     renderMarkdown = true,
                 ),
                 AgentMessageUi(
                     id = "assistant-run-blocks-1-3",
-                    content = "这是最终答案。",
+                    content = "This is the final answer.",
                     isStreaming = false,
                     renderMarkdown = true,
                 ),
@@ -206,11 +206,11 @@ class AgentPendingResultRecoveryTest {
             result = AgentRuntimeWire.RunResult(
                 runId = "run-blocks",
                 ok = true,
-                content = "我先搜索。这是最终答案。",
+                content = "I'll search first. This is the final answer.",
                 transcript = listOf(
                     AgentModelClient.ConversationMessage(
                         role = "assistant",
-                        content = "我先搜索。这是最终答案。",
+                        content = "I'll search first. This is the final answer.",
                     ),
                 ),
             ),
@@ -218,7 +218,7 @@ class AgentPendingResultRecoveryTest {
         )
 
         assertEquals(
-            listOf("我先搜索。", "这是最终答案。"),
+            listOf("I'll search first.", "This is the final answer."),
             recovered.state.messages.filterIsInstance<AgentMessageUi>().map { it.content },
         )
     }
@@ -252,9 +252,9 @@ class AgentPendingResultRecoveryTest {
             id = "run-tool-tool-1-call-1",
             toolName = "run_command",
             status = ToolActivityStatusUi.Success,
-            argumentsSummary = "执行命令 · Android · root",
+            argumentsSummary = "Execute command · Android · root",
             command = "uptime",
-            resultSummary = "完成",
+            resultSummary = "Done",
         )
         val recovered = AgentPendingResultRecovery.apply(
             state = AgentChatUiState(
@@ -273,9 +273,9 @@ class AgentPendingResultRecoveryTest {
             result = AgentRuntimeWire.RunResult(
                 runId = "run-tool",
                 ok = true,
-                content = "最终结果",
+                content = "Final result",
                 transcript = listOf(
-                    AgentModelClient.ConversationMessage(role = "assistant", content = "最终结果")
+                    AgentModelClient.ConversationMessage(role = "assistant", content = "Final result")
                 ),
             ),
             supplements = emptyList(),
@@ -284,19 +284,19 @@ class AgentPendingResultRecoveryTest {
         assertFalse(recovered.alreadyApplied)
         assertEquals(tool, recovered.state.messages.first())
         assertTrue(recovered.state.messages.none { it.id == "interrupted-run-tool" })
-        assertEquals("最终结果", (recovered.state.messages.last() as AgentMessageUi).content)
+        assertEquals("Final result", (recovered.state.messages.last() as AgentMessageUi).content)
     }
 
     @Test
     fun appliedMarkerPreventsOldOutboxReplayAfterLaterTurns() {
         val state = AgentChatUiState(
             messages = listOf(
-                AgentMessageUi(id = "assistant-run-1-1", content = "第一轮"),
-                AgentMessageUi(id = "assistant-run-2-1", content = "第二轮"),
+                AgentMessageUi(id = "assistant-run-1-1", content = "First round"),
+                AgentMessageUi(id = "assistant-run-2-1", content = "Second round"),
             ),
             history = listOf(
-                AgentModelClient.ConversationMessage(role = "assistant", content = "第一轮"),
-                AgentModelClient.ConversationMessage(role = "assistant", content = "第二轮"),
+                AgentModelClient.ConversationMessage(role = "assistant", content = "First round"),
+                AgentModelClient.ConversationMessage(role = "assistant", content = "Second round"),
             ),
             input = "",
             isStreaming = false,
@@ -310,9 +310,9 @@ class AgentPendingResultRecoveryTest {
             result = AgentRuntimeWire.RunResult(
                 runId = "run-1",
                 ok = true,
-                content = "第一轮",
+                content = "First round",
                 transcript = listOf(
-                    AgentModelClient.ConversationMessage(role = "assistant", content = "第一轮")
+                    AgentModelClient.ConversationMessage(role = "assistant", content = "First round")
                 ),
             ),
             supplements = emptyList(),
@@ -326,7 +326,7 @@ class AgentPendingResultRecoveryTest {
     fun continuationPromptIsAddedToUiAndDurableHistoryOnce() {
         val prompt = AgentUiHandoffPayload.Supplement(
             index = 1,
-            text = "继续检查",
+            text = "Continue checking",
             createdAt = 10L,
         )
         val recovered = AgentPendingResultRecovery.apply(
@@ -340,9 +340,9 @@ class AgentPendingResultRecoveryTest {
             result = AgentRuntimeWire.RunResult(
                 runId = "run-next",
                 ok = true,
-                content = "检查完成",
+                content = "Check complete",
                 transcript = listOf(
-                    AgentModelClient.ConversationMessage(role = "assistant", content = "检查完成")
+                    AgentModelClient.ConversationMessage(role = "assistant", content = "Check complete")
                 ),
             ),
             promptSupplement = prompt,
@@ -354,22 +354,22 @@ class AgentPendingResultRecoveryTest {
             recovered.state.messages.map { it.id },
         )
         assertEquals(listOf("user", "assistant"), recovered.state.history.map { it.role })
-        assertEquals("继续检查", recovered.state.history.first().content)
+        assertEquals("Continue checking", recovered.state.history.first().content)
     }
 
     @Test
     fun liveSupplementAppendsAfterStreamingAssistantInsteadOfPreviousUser() {
-        val user = io.github.mangi.eta.ui.model.UserMessageUi(id = "user-1", content = "帮我查天气")
+        val user = io.github.mangi.eta.ui.model.UserMessageUi(id = "user-1", content = "Check the weather for me")
         val streaming = AgentMessageUi(
             id = "assistant-run-live-1",
-            content = "正在查询",
+            content = "Looking up",
             isStreaming = true,
             renderMarkdown = false,
         )
         val merged = AgentPendingResultRecovery.mergeSupplements(
             runId = "run-live",
             supplements = listOf(
-                AgentUiHandoffPayload.Supplement(index = 0, text = "只要上海", createdAt = 1L),
+                AgentUiHandoffPayload.Supplement(index = 0, text = "Only Shanghai", createdAt = 1L),
             ),
             messages = listOf(user, streaming),
         )
@@ -381,23 +381,23 @@ class AgentPendingResultRecoveryTest {
 
     @Test
     fun liveSupplementStillAppendsWhenCurrentRoundHasTools() {
-        val user = io.github.mangi.eta.ui.model.UserMessageUi(id = "user-1", content = "帮我查天气")
+        val user = io.github.mangi.eta.ui.model.UserMessageUi(id = "user-1", content = "Check the weather for me")
         val tool = ToolActivityMessageUi(
             id = "run-live-tool-1-call",
             toolName = "web_search",
             status = ToolActivityStatusUi.Success,
-            argumentsSummary = "上海天气",
+            argumentsSummary = "Shanghai weather",
         )
         val streaming = AgentMessageUi(
             id = "assistant-run-live-2",
-            content = "上海晴",
+            content = "Shanghai is sunny",
             isStreaming = true,
             renderMarkdown = false,
         )
         val merged = AgentPendingResultRecovery.mergeSupplements(
             runId = "run-live",
             supplements = listOf(
-                AgentUiHandoffPayload.Supplement(index = 0, text = "再看下明天", createdAt = 1L),
+                AgentUiHandoffPayload.Supplement(index = 0, text = "Let's take another look tomorrow.", createdAt = 1L),
             ),
             messages = listOf(user, tool, streaming),
         )

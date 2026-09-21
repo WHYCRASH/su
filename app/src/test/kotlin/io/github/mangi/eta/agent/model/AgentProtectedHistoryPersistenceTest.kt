@@ -33,12 +33,12 @@ class AgentProtectedHistoryPersistenceTest {
         val history = listOf(
             AgentModelClient.ConversationMessage("user", "old".repeat(200_000), turnId = "old-turn"),
             AgentModelClient.ConversationMessage("assistant", "reply".repeat(200_000), turnId = "old-turn"),
-            AgentModelClient.ConversationMessage("user", "你好", turnId = "new-turn"),
+            AgentModelClient.ConversationMessage("user", "Hello", turnId = "new-turn"),
         )
         val encoded = AgentConversationCodec.encodeConversationCheckpoint(history)
         val decoded = AgentConversationCodec.decodeTranscript(encoded)
         assertTrue(encoded.length <= AgentConversationCodec.MAX_CONVERSATION_CHECKPOINT_CHARS)
-        assertTrue(decoded.any { it.content == "你好" && it.turnId == "new-turn" })
+        assertTrue(decoded.any { it.content == "Hello" && it.turnId == "new-turn" })
         assertTrue(decoded.none { it.turnId == "old-turn" && it.content.length > 10_000 })
     }
 

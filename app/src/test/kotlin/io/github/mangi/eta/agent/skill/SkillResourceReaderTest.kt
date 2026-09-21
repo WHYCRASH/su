@@ -18,7 +18,7 @@ class SkillResourceReaderTest {
         File(skillRoot, "SKILL.md").writeText("main")
         val nested = File(skillRoot, "references/nested/guide.md")
         nested.parentFile?.mkdirs()
-        nested.writeText("嵌套说明")
+        nested.writeText("Nested description")
         val entry = entry(skillRoot)
         val reader = SkillResourceReader(skillsRoot)
 
@@ -27,7 +27,7 @@ class SkillResourceReaderTest {
 
         val read = reader.readText(entry, "references/nested/guide.md") as
             SkillResourceReadResult.Success
-        assertEquals("嵌套说明", read.text)
+        assertEquals("Nested description", read.text)
     }
 
     @Test

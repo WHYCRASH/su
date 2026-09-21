@@ -24,7 +24,7 @@ internal data class RootAccessState(
     val isGranted: Boolean get() = status == RootAccessStatus.GRANTED
 }
 
-/** Root 探测归 App 进程所有；读取能力不会执行 su 或弹出授权。 */
+/** Root probing belongs to the app process; reading capability never executes su or pops up an authorization prompt. */
 internal object RootAccess {
     private const val PREFERENCES = "eta_root_access"
     private const val AUTOMATIC_REQUEST_ATTEMPTED = "automatic_request_attempted"
@@ -44,12 +44,12 @@ internal object RootAccess {
         refresh(context)
     }
 
-    /** 首次发现 su 时请求一次；拒绝后只有显式 request 才会再次申请。 */
+    /** Request once when su is first discovered; after a denial only an explicit request applies again. */
     fun refresh(context: Context): Job = startProbe(context, explicit = false)
 
     fun request(context: Context): Job = startProbe(context, explicit = true)
 
-    /** 仅由执行器确认 su 拒绝后调用；普通命令失败不代表授权被撤销。 */
+    /** Called only after the executor confirms an su denial; an ordinary command failure does not mean authorization was revoked. */
     fun markDenied() {
         preferences?.edit()?.putBoolean(LAST_GRANTED, false)?.apply()
         mutableState.value = mutableState.value.copy(status = RootAccessStatus.DENIED)
@@ -81,7 +81,7 @@ internal object RootAccess {
                     )
                     return@launch
                 }
-                // 先记住尝试，进程在授权弹窗期间退出也不会在下次启动再次打扰用户。
+                // Record the attempt first, so quitting mid-prompt will not bother the user again on next launch.
                 if (!prefs.edit().putBoolean(AUTOMATIC_REQUEST_ATTEMPTED, true).commit()) {
                     mutableState.value = RootAccessState(RootAccessStatus.NOT_GRANTED, suPresent = true)
                     AndroidAgentLogger.warn("Root access probe outcome=preferences_unavailable")

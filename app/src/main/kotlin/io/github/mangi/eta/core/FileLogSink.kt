@@ -8,7 +8,7 @@ import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
 /**
- * 按大小轮转的日志文件。当前文件超过 [maxBytes] 后依次滚动为 `name.1.ext`、`name.2.ext`。
+ * Size-rotated log file. Once the current file exceeds [maxBytes] it rolls through `name.1.ext`, `name.2.ext`, and so on.
  */
 internal class FileLogSink(
     private val directory: File,
@@ -22,9 +22,9 @@ internal class FileLogSink(
     private var acceptWrites = true
 
     init {
-        require(fileName.isNotBlank()) { "日志文件名不能为空" }
-        require(maxBytes > 0L) { "日志文件大小必须大于 0" }
-        require(maxRotatedFiles > 0) { "轮转文件数必须大于 0" }
+        require(fileName.isNotBlank()) { "Log file name must not be blank" }
+        require(maxBytes > 0L) { "Log file size must be greater than 0" }
+        require(maxRotatedFiles > 0) { "Rotated file count must be greater than 0" }
     }
 
     fun append(text: String) {
@@ -54,7 +54,7 @@ internal class FileLogSink(
 
     private fun appendLocked(payload: String) {
         if (!directory.exists() && !directory.mkdirs()) {
-            error("无法创建日志目录：${directory.absolutePath}")
+            error("Cannot create log directory: ${directory.absolutePath}")
         }
         val incoming = payload.toByteArray(Charsets.UTF_8)
         if (output == null) {
@@ -63,7 +63,7 @@ internal class FileLogSink(
         if (currentSize > 0L && currentSize + incoming.size > maxBytes) {
             rotateLocked()
         }
-        val stream = output ?: error("日志文件未打开")
+        val stream = output ?: error("Log file is not open")
         stream.write(incoming)
         stream.flush()
         currentSize += incoming.size

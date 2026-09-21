@@ -21,7 +21,7 @@ internal class OAuthCallbackServer(
         val bound = bindLocalSockets(port)
         if (bound.isEmpty()) {
             running = false
-            error("无法监听 localhost:$port，请确认没有其它应用占用该端口")
+            error("Cannot listen on localhost:$port; make sure no other app is using that port")
         }
         sockets = bound
         bound.forEach { socket ->

@@ -35,7 +35,7 @@ class AgentQueuedCompactionTest {
                 compactions++
                 check(compactions <= 2)
                 val tail = source.drop(requireNotNull(policy.keepStartOverride))
-                listOf(AgentModelClient.ConversationMessage("user", "[对话摘要]\n" +
+                listOf(AgentModelClient.ConversationMessage("user", "[Conversation summary]\n" +
                     "x".repeat(if (compactions == 1) 360_000 else 4000))) + tail
             }).run()
         assertEquals(2, compactions)
@@ -48,7 +48,7 @@ class AgentQueuedCompactionTest {
             val events = mutableListOf<AgentEvent>()
             val history = JSONArray().put(AgentConversationCodec.userTextMessage("old".repeat(4000)))
                 .put(JSONObject().put("role", "assistant").put("content", "old result"))
-                .put(AgentConversationCodec.userTextMessage("现在"))
+                .put(AgentConversationCodec.userTextMessage("now"))
             var interrupted = false
             var responseComplete = false
             var requests = 0
@@ -65,14 +65,14 @@ class AgentQueuedCompactionTest {
                     val binding = runController.register(interruptible = true) { interrupted = true }
                     try {
                         onEvent(ProviderEvent.BlockStart(AssistantBlockKind.TEXT, 0))
-                        onEvent(ProviderEvent.BlockDelta(AssistantBlockKind.TEXT, 0, "完整"))
+                        onEvent(ProviderEvent.BlockDelta(AssistantBlockKind.TEXT, 0, "Full"))
                         repeat(2) { assertTrue(controller.requestCompact(keepRecentMessages = 1)) }
                         assertFalse(interrupted)
                         assertEquals(0, compactions)
-                        onEvent(ProviderEvent.BlockDelta(AssistantBlockKind.TEXT, 0, "正文"))
-                        onEvent(ProviderEvent.BlockEnd(AssistantBlockKind.TEXT, 0, content = "完整正文", replaceContent = true))
+                        onEvent(ProviderEvent.BlockDelta(AssistantBlockKind.TEXT, 0, " text"))
+                        onEvent(ProviderEvent.BlockEnd(AssistantBlockKind.TEXT, 0, content = "Full text", replaceContent = true))
                         responseComplete = true
-                        return ProviderResponse(JSONObject().put("role", "assistant").put("content", "完整正文").put("finish_reason", "stop"))
+                        return ProviderResponse(JSONObject().put("role", "assistant").put("content", "Full text").put("finish_reason", "stop"))
                     } finally {
                         binding.close()
                     }
@@ -86,18 +86,18 @@ class AgentQueuedCompactionTest {
                     assertTrue(responseComplete)
                     compactions++
                     if (failCompaction) error("summary rejected")
-                    listOf(AgentModelClient.ConversationMessage("user", "[对话摘要]\nold facts")) + source.drop(requireNotNull(policy.keepStartOverride))
+                    listOf(AgentModelClient.ConversationMessage("user", "[Conversation summary]\nold facts")) + source.drop(requireNotNull(policy.keepStartOverride))
                 }).run()
             assertEquals(1, requests)
             assertEquals(1, compactions)
-            assertEquals("完整正文", result.content)
-            assertEquals("完整正文", events.filterIsInstance<AgentEvent.AssistantBlockDelta>()
+            assertEquals("Full text", result.content)
+            assertEquals("Full text", events.filterIsInstance<AgentEvent.AssistantBlockDelta>()
                 .filter { it.kind == AgentEvent.AssistantBlockKind.TEXT }.joinToString("") { it.delta })
             assertEquals(listOf(1), events.filterIsInstance<AgentEvent.RoundStarted>().map { it.round })
             assertEquals(!failCompaction, events.filterIsInstance<AgentEvent.ContextCompacted>().single().applied)
             val last = history.getJSONObject(history.length() - 1)
             assertEquals("original-turn", last.getString(AgentTurnIdentity.JSON_KEY))
-            assertEquals("完整正文", last.getString("content"))
+            assertEquals("Full text", last.getString("content"))
             assertFalse((0 until history.length()).any { history.getJSONObject(it).optString("content") == AgentContextCompactor.SEAMLESS_CONTINUE_PROMPT })
             if (failCompaction) assertEquals("old".repeat(4000), history.getJSONObject(0).getString("content"))
             assertFalse(controller.requestCompact())

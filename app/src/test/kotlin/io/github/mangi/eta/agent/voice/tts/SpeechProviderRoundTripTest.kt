@@ -34,7 +34,7 @@ class SpeechProviderRoundTripTest {
     }
 
     @Test fun oldDedicatedProviderRemainsUsableAfterStorageWithoutSourceType() {
-        val old = CustomProviderSetting(id = "old", name = "语音合成", baseUrl = "https://example.com/v1",
+        val old = CustomProviderSetting(id = "old", name = "Speech synthesis", baseUrl = "https://example.com/v1",
             apiKey = "test", sourceType = ProviderSourceTypes.COMPATIBLE_SPEECH)
         val seeded = old.copy(models = SpeechSynthesisModels.catalogModels(old))
         val restored = ProviderWithModels(seeded.toEntity(), seeded.toModelEntities()).toDomain()

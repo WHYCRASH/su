@@ -16,7 +16,7 @@ class AgentRuntimeHistoryReducerTest {
             thinkingEnabled = false,
         )
         val transcript = listOf(
-            AgentModelClient.ConversationMessage(role = "assistant", content = "完成")
+            AgentModelClient.ConversationMessage(role = "assistant", content = "Done")
         )
 
         val recovered = AgentRuntimeHistoryReducer.apply(initial, "run-1", transcript)

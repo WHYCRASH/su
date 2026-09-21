@@ -48,7 +48,7 @@ class ConversationTokenUsageTest {
                 ContextCompactedMessageUi(
                     id = "c1",
                     compactedCount = 8,
-                    summary = "旧对话",
+                    summary = "old conversation",
                     preservedUsage = ConversationTokenUsageUi(
                         inputTokens = 1200,
                         outputTokens = 80,
@@ -57,7 +57,7 @@ class ConversationTokenUsageTest {
                 ),
                 AgentMessageUi(
                     id = "a1",
-                    content = "新答复",
+                    content = "new reply",
                     usage = TokenUsageUi(inputTokens = 50, outputTokens = 10, cachedTokens = 5),
                 ),
             ),

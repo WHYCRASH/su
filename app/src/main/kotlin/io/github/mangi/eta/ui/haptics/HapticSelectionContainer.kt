@@ -22,12 +22,12 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.UriHandler
 
 /**
- * 会话文本选区。按住开始选中时震一次；滑动扩展、拖动手柄或取消选择都不震。
+ * Conversation text selection. Vibrate once when press-and-hold starts a selection; extending by swipe, dragging a handle, or canceling the selection does not vibrate.
  *
- * Compose 选区变化会连发 [HapticFeedbackType.TextHandleMove]，在 HyperOS 上若转成长按
- * 就会跟着滑。这里吞掉系统选区震动，改由长按超时自己触发一次。
- * 只观察事件，不消费 down/move/up：原生选区需要完整手势来结束拖动并显示复制菜单。
- * 链接防误点在 UriHandler 层处理，不再抢走选区的释放事件。
+ * Compose selection changes fire [HapticFeedbackType.TextHandleMove] repeatedly. On HyperOS, if converted to a long press,
+ * it would slide along. Here we swallow the system selection haptic and instead trigger it once ourselves on long-press timeout.
+ * Observe events only; do not consume down/move/up: the native selection needs the full gesture to end dragging and show the copy menu.
+ * Link accidental-tap prevention is handled in the UriHandler layer, so it no longer steals the selection's release event.
  */
 @Composable
 internal fun HapticSelectionContainer(

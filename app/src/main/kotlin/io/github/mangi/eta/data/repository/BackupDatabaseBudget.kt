@@ -22,12 +22,12 @@ internal object BackupDatabaseBudget {
                 val nameIndex = cursor.getColumnIndexOrThrow("name")
                 while (cursor.moveToNext()) {
                     val name = cursor.getString(nameIndex)
-                    require(name.matches(Regex("[a-zA-Z_][a-zA-Z_0-9]*"))) { "不支持的数据库字段名" }
+                    require(name.matches(Regex("[a-zA-Z_][a-zA-Z_0-9]*"))) { "Unsupported database column name" }
                     names += name
                 }
                 names
             }
-            require(columns.isNotEmpty()) { "备份数据库表缺失：$table" }
+            require(columns.isNotEmpty()) { "Backup database table missing: $table" }
             val sum = columns.joinToString(" + ") { "COALESCE(LENGTH(CAST(`$it` AS BLOB)), 0)" }
             val where = if (conversationId == null) "" else
                 " WHERE `${if (table == "conversations") "id" else "conversation_id"}` = ?"
@@ -38,7 +38,7 @@ internal object BackupDatabaseBudget {
                 bytes += cursor.getLong(1)
             }
             require(rows <= MAX_ROWS && bytes <= MAX_BYTES) {
-                "备份元数据超过当前安全快照上限，请先导出单个会话或减少数据"
+                "Backup metadata exceeds the current safe snapshot limit; export a single session first or reduce the data"
             }
         }
     }

@@ -1,113 +1,113 @@
-# 助手记忆与 Skills 隔离 / 中途变更审查
+# Assistant memory and Skills isolation / mid-run change audit
 
-## 范围与验证等级
+## Scope and verification level
 
-审查当前未提交工作区源码，包括 Runtime、工具执行、助手编辑 UI、记忆存储、Skills 发布目录、Linux 挂载和现有测试。未读取用户真实 MEMORY.md、技能 data 或聊天内容。此轮只新增审查文档，不修改业务代码；未编译、未执行 Kotlin/Robolectric 测试。
+Audits the current uncommitted working-tree source, including Runtime, tool execution, assistant edit UI, memory storage, Skills publish directories, Linux mounts, and existing tests. No real user MEMORY.md, skill data, or chat content read. This round only adds the audit document — no production code modified; nothing compiled, no Kotlin/Robolectric tests executed.
 
-下面的“确认”指源码存在对应路径，不表示已在设备上复现泄漏。不能将文件层面的隔离等同于带 Root/Shell 的安全沙箱。
+"Confirmed" below means the source contains the corresponding path — not that a leak reproduced on a device. File-level isolation must not be equated with a Root/Shell-bearing security sandbox.
 
-## 结论
+## Conclusion
 
-普通显式 assistantId 的记忆文件是分开的；工具写入也有 revision 冲突检查。但运行时使用的助手身份不统一，Skills 的全局可见目录和热更新权限存在确定的设计缺口。当前不能保证“助手之间完全隔离”或“中途修改都安全”。
+Ordinary memories with explicit assistantIds live in separate files; tool writes also carry revision conflict checks. But the runtime assistant identity is inconsistent, and the Skills globally visible directory plus hot-update permissions have definite design gaps. "Fully isolated across assistants" or "all mid-run changes safe" cannot currently be guaranteed.
 
-### 1. 高：运行中记忆注入 / 开关判定与读写目标不是同一个助手
+### 1. High: in-flight memory injection / toggle checks and read/write targets are not the same assistant
 
-证据：
-- `agent/runtime/AgentRuntimeRunExecutor.kt:96,154,194,220-245`：启动时捕获 assistant，把 `assistant.id` 传给 memoryAssistantId；后续 memoryToolsEnabled、skillContextProvider、memoryContextProvider 却调用 `AssistantRepository.active()`。
-- `agent/tool/AgentLocalTools.kt:299-345`：权限由动态回调判定，而 read/mutate 使用固定 memoryAssistantId。
-- `agent/runtime/AgentRuntimeWire.kt:165-173`：RunRequest 没有 assistantId；任务准备排队期间也可能错配请求里已固化的人格提示词与后来选中的记忆。
-- `ui/app/AgentAppState.kt:2715`：聊天页切换只拦截当前选中会话的未暂停运行；不是全局所有任务的身份绑定。
-- `ui/screens/assistants/AssistantsScreen.kt:97`：另有直接 select 的路径，Repository 本身没有 Runtime 互斥。
+Evidence:
+- `agent/runtime/AgentRuntimeRunExecutor.kt:96,154,194,220-245`: captures the assistant at boot and passes `assistant.id` as memoryAssistantId; later memoryToolsEnabled, skillContextProvider, and memoryContextProvider call `AssistantRepository.active()` instead.
+- `agent/tool/AgentLocalTools.kt:299-345`: permissions decided by a dynamic callback while read/mutate use the pinned memoryAssistantId.
+- `agent/runtime/AgentRuntimeWire.kt:165-173`: RunRequest carries no assistantId; a task queued for preparation may also mismatch the persona prompt pinned in the request with later-selected memories.
+- `ui/app/AgentAppState.kt:2715`: the chat page only guards the currently selected conversation's unpaused runs — not identity bindings for all global tasks.
+- `ui/screens/assistants/AssistantsScreen.kt:97`: a separate direct-select path exists; the Repository itself has no Runtime mutual exclusion.
 
-场景：A 任务仍运行时全局切到 B，下一请求可注入 B 记忆，但 memory_get/write 仍操作 A；甚至 A 关闭记忆后，可因 B 的 memoryEnabled=true 而继续通过权限检查。revision 只校验内容，不校验助手身份；不能用它代替隔离。
+Scenario: while A's task still runs, the globe switches to B; the next request may inject B's memories while memory_get/write still operate on A; with A's memory off, B's memoryEnabled=true may even keep passing the permission check. Revisions validate content only, not assistant identity; they cannot substitute for isolation.
 
-修复原则：入口捕获并持久化 assistantId，整条请求/恢复/工具链显式传递；只刷新该 ID 的资料。助手被删除应 fail-closed，不回落到 active()。
+Fix principle: capture and persist assistantId at entry and pass it explicitly through the whole request/restore/tool chain; refresh only that ID's profile. A deleted assistant must fail closed, never fall back to active().
 
-### 2. 高：Skills 共用 .visible，技能 data 会残留、串助手或被删除
+### 2. High: Skills share .visible; skill data lingers, crosses assistants, or gets deleted
 
-证据：
-- `agent/skill/SkillRuntime.kt:660-687`：所有助手发布到同一个 `skills/.visible`；清理只按 skill ID。
-- `agent/skill/SkillRuntime.kt:771-784`：同步遇到 data 只 mkdir，既不复制该助手的数据，也不切换 data 指向。
-- `agent/terminal/ProotCommandBuilder.kt:38`、`ShellProcessSupervisor.kt:303-316`：Linux /var/minis/skills 挂载同一个全局目录；旧终端不绑定所属助手。
-- `agent/skill/SkillRuntime.kt:692-704`：关闭技能直接删除 `.assistant/<assistant>/<skill>`，没有把停用与删除 data 分开。
+Evidence:
+- `agent/skill/SkillRuntime.kt:660-687`: all assistants publish to the same `skills/.visible`; cleanup keys on skill ID only.
+- `agent/skill/SkillRuntime.kt:771-784`: sync meeting data only mkdirs — never copies that assistant's data nor switches the data pointer.
+- `agent/terminal/ProotCommandBuilder.kt:38`, `ShellProcessSupervisor.kt:303-316`: Linux /var/minis/skills mounts the same global directory; legacy terminals bind to no owning assistant.
+- `agent/skill/SkillRuntime.kt:692-704`: disabling a skill deletes `.assistant/<assistant>/<skill>` outright, never separating disable from data deletion.
 
-场景：A/B 都启用 alpha，A 的终端在 `.visible/alpha/data` 写记录，切 B 后 alpha 目录因 ID 相同保留；sync 跳过 data，B 能继续看到 A 留下的文件。若新助手不启用 alpha，该目录直接删掉，A 的数据也可能丢失。代码中没有把 .visible/data 写回所属助手的路径。
+Scenario: A and B both enable alpha; A's terminal writes records under `.visible/alpha/data`; after switching to B the alpha directory survives on equal ID; sync skips data, so B keeps seeing A's leftover files. If the new assistant never enables alpha, the directory is deleted outright and A's data may be lost with it. Nothing in the code writes .visible/data back to its owning assistant.
 
-修复原则：包代码与助手私有可写 data 分离；终端 / run 绑定助手专属根，不原地复用全局可写目录；停用隐藏能力但保留 data。跨助手共享必须是显式选项。
+Fix principle: separate package code from assistant-private writable data; bind terminals / runs to assistant-dedicated roots instead of reusing a global writable directory in place; disabling hides capability but keeps data. Cross-assistant sharing must be an explicit option.
 
-### 3. 高：本轮关闭 Skill 后仍能通过专用工具读取
+### 3. High: a Skill disabled mid-round is still readable through dedicated tools
 
-证据：
-- `agent/tool/AgentLocalTools.kt:947-995`：resolveRunSkill 失败仍回退 indexService.findInstalledSkill（全局已安装包）。
-- `agent/tool/AgentLocalTools.kt:1248-1262`：isVisibleInCurrentRun 在初始快照非空时只查快照，不与当前启用集合求交集。
-- 同文件 `liveSkillEntries` 还有 400ms 缓存；但本问题不是只有 400ms：全局回退 + 初始白名单可持续允许读取。
+Evidence:
+- `agent/tool/AgentLocalTools.kt:947-995`: resolveRunSkill still falls back to indexService.findInstalledSkill (the global installed set) on failure.
+- `agent/tool/AgentLocalTools.kt:1248-1262`: isVisibleInCurrentRun with a non-empty initial snapshot only consults the snapshot, never intersecting with the current enabled set.
+- Same file's `liveSkillEntries` also has a 400ms cache; but this issue is not only 400ms: global fallback + the initial allowlist keep permitting reads indefinitely.
 
-场景：任务开始时 alpha 已启用；中途关闭后最新提示词和 skills_list 可以不再展示 alpha，但 skills_read(alpha) / skills_read_resource(alpha, ...) 仍可找到全局包并通过初始快照检查。
+Scenario: alpha enabled when the task starts; disabled midway; the newest prompt and skills_list may stop showing alpha, yet skills_read(alpha) / skills_read_resource(alpha, ...) still find the global package and pass the initial-snapshot check.
 
-修复原则：执行时必须同时满足固定助手当前授权与本 run 已批准版本。移除全局回退，不以本轮启动快照作为撤权后的授权。
+Fix principle: execution must satisfy both the pinned assistant's current authorization and this run's approved version. Remove the global fallback; never treat the round-start snapshot as post-revocation authorization.
 
-### 4. 高：UI 记忆保存没有 revision，旧草稿可覆盖助手新写入
+### 4. High: UI memory saves carry no revision; stale drafts can overwrite an assistant's newer writes
 
-证据：
-- `data/repository/AgentMemoryRepository.kt:85-101`：mutate 检查 revision；replaceAll 无条件写入。
-- `ui/screens/assistants/AssistantEditScreen.kt:88,139`：加载只保存 content，保存调用 replaceAll(memoryDraft, assistantId)。
-- `ui/app/AgentAppState.kt:539-650`：通用记忆页 snapshot/save/clear 使用默认 active ID；异步任务未固定草稿所属 assistantId，也没有 revision。
+Evidence:
+- `data/repository/AgentMemoryRepository.kt:85-101`: mutate checks revision; replaceAll writes unconditionally.
+- `ui/screens/assistants/AssistantEditScreen.kt:88,139`: load keeps content only; save calls replaceAll(memoryDraft, assistantId).
+- `ui/app/AgentAppState.kt:539-650`: the generic memory page's snapshot/save/clear use the default active ID; async tasks pin neither the draft's owning assistantId nor a revision.
 
-场景：用户打开记忆编辑页，模型随后 memory_write 追加内容，用户保存旧草稿会覆盖这次追加且不报冲突；通用记忆页还存在助手切换后将旧助手草稿写入新助手的风险。
+Scenario: the user opens the memory edit page; the model then memory_writes appended content; the user's save of the stale draft overwrites that append with no conflict; the generic memory page additionally risks writing the old assistant's draft into the new assistant after a switch.
 
-修复原则：编辑状态带 assistantId、baseRevision；UI 保存也用 CAS，冲突提示比较/合并，不盲目重试整文件覆盖。回调更新 UI 前校验仍是同一编辑对象。
+Fix principle: edit state carries assistantId and baseRevision; UI saves also use CAS, with conflicts prompting compare/merge instead of blind whole-file overwrite retries. Callbacks verify they still own the same edit object before updating the UI.
 
-### 5. 中高：新增、安装和更新 Skill 的生效时机不一致
+### 5. Medium-high: new, installed, and updated Skills take effect at inconsistent times
 
-证据：
-- Runtime 每个模型请求都动态注入当前 enabled skills 并重新 publish。
-- AgentLocalTools.isVisibleInCurrentRun：初始集合非空时新增 ID 不可用；初始集合为空时却退到 live 集合。
-- AgentLocalTools.installResult:1287 调用 AssistantRepository.enableSkills，修改完成时全局 active 助手，而非启动任务所属助手。
-- installResult 返回 next_turn，但 enableSkills -> update -> publishVisibleSkills 会立即发布到终端目录；下一模型请求的提示词也没有过滤本轮 mutatedSkillIds。
-- 同 ID 更新没有 run 级内容 hash 绑定；.visible 同步覆盖文件。
+Evidence:
+- Runtime dynamically injects the currently enabled skills on every model request and republishes.
+- AgentLocalTools.isVisibleInCurrentRun: with a non-empty initial set, new IDs stay unavailable; with an empty initial set it degrades to the live set instead.
+- AgentLocalTools.installResult:1287 calls AssistantRepository.enableSkills, which completes against the global active assistant rather than the task's owning assistant.
+- installResult returns next_turn, but enableSkills -> update -> publishVisibleSkills publishes to the terminal directory immediately; the next model request's prompt also never filters this round's mutatedSkillIds.
+- Same-ID updates have no run-level content-hash binding; .visible sync overwrites files in place.
 
-后果：可能出现“提示词说已启用，skills_read 却拒绝”；也可能“工具说下轮才可用，当前终端已经可读/执行”。安装进行中切换助手，还可能把新技能启用给错误助手。
+Consequences: "prompt says enabled, skills_read refuses" is possible; so is "tool says next-turn-only, current terminal already readable/executable". Switching assistants mid-install may even enable the new skill for the wrong assistant.
 
-修复原则：一个版本化的能力快照同时供提示词、list/read/resource 和终端使用。建议新增/升级下一个用户 run 生效；撤权执行时立即拦截。不要把一次工具后模型请求与下一用户轮混用。
+Fix principle: one versioned capability snapshot serving prompts, list/read/resource, and terminals together. New/updated versions should take effect on the next user run; revocation intercepts immediately at execution. Never conflate a post-tool model request with the next user turn.
 
-### 6. 中高：Skills 发布复制不是事务，更新和撤权可能遇到半更新文件
+### 6. Medium-high: Skills publish copies are not transactional; updates and revocations can meet half-written files
 
-证据：
-- `SkillRuntime.publishVisibleSkills/bindSkillsToAssistant/syncSkillPackage/copySkillTree` 未使用安装与读取已有的 SkillMutationLock。
-- 逐文件 overwrite，复制错误 runCatching 吞掉；不会清理源包已移除的普通文件。
-- AssistantRepository.update 在配置 publish 后才 refresh，并吞掉 refresh 异常。
+Evidence:
+- `SkillRuntime.publishVisibleSkills/bindSkillsToAssistant/syncSkillPackage/copySkillTree` never take the SkillMutationLock that install and read already share.
+- Per-file overwrite with copy errors swallowed by runCatching; ordinary files removed from the source package are never cleaned.
+- AssistantRepository.update refreshes only after config publish, swallowing refresh exceptions.
 
-后果：启用状态和目录可能不一致，脚本运行中被覆盖，旧文件残留。SkillLoader/ResourceReader 有边界和锁，并不能保护未加入同一锁的目录复制器；已经运行的脚本也不由文件删除自动撤销。
+Consequences: enabled state and directory may disagree, scripts overwritten mid-run, stale files lingering. SkillLoader/ResourceReader boundaries and locks cannot protect a directory copier outside the same lock; already-running scripts are not revoked by file deletion either.
 
-修复原则：受校验版本目录 + 暂存完整发布 + 原子指针/绑定；失败保留旧版本并明确报告。数据目录独立，不能随代码同步删除。
+Fix principle: validated version directories + full staging publish + atomic pointer/binding; failures keep the old version and report explicitly. Data directories stand alone and are never deleted with code syncs.
 
-### 7. 中高：删除助手与正在运行的任务没有闭环
+### 7. Medium-high: deleting an assistant never closes its running tasks
 
-证据：AssistantRepository.delete 删除记忆和技能目录但不取消/等待该助手的 run；AgentMemoryRepository.storeFor 未检查 profile 是否存在，旧工具仍持有 memoryAssistantId；isEnabled/setEnabled 对缺失 ID 回落 active。
+Evidence: AssistantRepository.delete removes memory and skill directories but never cancels/waits for that assistant's runs; AgentMemoryRepository.storeFor never checks the profile still exists, and stale tools still hold memoryAssistantId; isEnabled/setEnabled on a missing ID fall back to active.
 
-后果：旧任务可能重新创建已删除的记忆目录，或使用新助手开关判断旧助手工具权限。记忆锁是 store 实例锁，delete 与持有旧实例的读写不在同一事务。
+Consequences: stale tasks may recreate deleted memory directories or judge old-assistant tool permissions with the new assistant's toggles. The memory lock is a store-instance lock, so delete and reads/writes holding stale instances are not in one transaction.
 
-修复原则：助手生命周期锁/删除标记，阻止新操作，取消或收束所属 run，再删除并拒绝后续重建。
+Fix principle: assistant-lifecycle lock / deletion marker blocking new operations, cancelling or winding down owned runs, then deleting while refusing later recreation.
 
-### 8. 条件性高风险：导入助手 ID 的路径校验和规范化碰撞
+### 8. Conditionally high risk: imported assistant-ID path validation and normalization collisions
 
-证据：`data/model/Assistant.kt:54-60` 只替换字符并截长，保留 `.`/`..`，不同输入也可归一到同名；`EtaBackupRepository.kt:608-613` 对 profiles ID 只查非空与原值重复。该值用于 memory 与 `.assistant` 目录，部分路径有递归删除。
+Evidence: `data/model/Assistant.kt:54-60` only substitutes characters and truncates, keeping `.`/`..`, and different inputs can normalize to the same name; `EtaBackupRepository.kt:608-613` checks profile IDs only for non-emptiness and equality with the original. The value feeds memory and `.assistant` directories, some paths with recursive deletion.
 
-正常新建 UUID 不触发；外部导入/手工编辑索引可能让不同助手落入相同目录或不再位于预期的助手子目录。应在导入与 repository 入口校验合法 ID、规范化后唯一性以及 canonical containment；不依赖有损替换生成隔离键。未制作或导入恶意备份验证。
+Normal new UUIDs never trigger this; externally imported / hand-edited indexes could land different assistants in the same directory or outside the expected assistant subtree. Validate legal IDs at import and repository entry, check post-normalization uniqueness plus canonical containment; never generate isolation keys with lossy substitution. No malicious backup crafted or imported for verification.
 
-## 已核实正常与边界
+## Verified fine, with boundaries
 
-- 显式 assistantId 的普通记忆存储分目录；已有 AgentMemoryIsolationTest 只验证了这一静态场景，不能证明热切换安全。
-- 同一助手、没有并发切换时，工具 memory_write 使用当前 revision，有冲突会返回 MEMORY_CONFLICT；新记忆会在下一次模型请求重新注入，不会修改已经发送到服务商的请求。
-- memory/skills 关闭时 PromptBuilder 都返回占位 system 消息，因此仅切换这两个开关不会改变 system 消息条数；本次没有把“固定 systemCount 覆盖历史”误判为它们的必然问题。
-- 关闭记忆或技能不可能撤回已经发出的请求；旧工具结果、模型回答或摘要中已经包含的资料也不会因开关自动消失。skills_read 正文会进入普通会话历史；memory_get 原始结果有既有敏感工具脱敏策略，但模型自己写出的答案/摘要另当别论。
-- ConversationEntity 与 RunRequest 没有助手归属字段，同一会话切换助手不会自动清空历史。若要求会话也隔离，需要单独设计，不能仅靠记忆目录实现。
-- Root/任意 Shell 不是助手级安全沙箱：即使专用工具修好，仍需明确终端可读范围的实际授权边界。
+- Ordinary memories with explicit assistantIds store in separate directories; the existing AgentMemoryIsolationTest only verifies that static scenario — not hot-switch safety.
+- Within one assistant with no concurrent switches, tool memory_write uses the current revision and returns MEMORY_CONFLICT on conflict; new memories inject on the next model request and never rewrite already-sent provider requests.
+- PromptBuilder returns a placeholder system message with memory/skills off alike, so toggling just those two switches never changes the system-message count; "pinned systemCount overwriting history" was not misjudged as their necessary consequence this round.
+- Turning memory or skills off cannot recall already-issued requests; already-included material in old tool results, model answers, or summaries never vanishes via toggle either. skills_read body text enters ordinary conversation history; memory_get raw results have the existing sensitive-tool redaction policy, while answers/summaries the model wrote itself are another matter.
+- ConversationEntity and RunRequest have no assistant-ownership field; switching assistants on one conversation never auto-clears history. Conversation-level isolation needs its own design — memory directories alone cannot do it.
+- Root/arbitrary Shell is not an assistant-level security sandbox: even with dedicated tools fixed, the actual authorized readable scope of terminals still needs stating.
 
-## 推荐修复 / 回归顺序
+## Recommended fix / regression order
 
-1. run + 编辑草稿固定 assistantId；权限、记忆注入/读写、安装归属统一，不回落 active。
-2. Skills 私有 data 与终端绑定修复；关闭技能立即撤销新的读取，新增和更新下一 run 生效。
-3. UI revision CAS；删除生命周期；目录原子发布和内容版本。
-4. 回归：A/B 同时任务、排队时切换、记忆 UI/工具冲突、技能关闭后 list/read/resource/terminal 一致性、初始技能为空/非空、中途安装更新、停用再启用保留 data、删除助手、导入不合法 ID。
-5. 编译和运行测试继续遵守用户的 GitHub Actions 授权约定；此报告不宣称任何测试已经运行或问题已经修复。
+1. Pin assistantId on runs + edit drafts; unify permissions, memory injection/reads/writes, and install ownership; never fall back to active.
+2. Fix Skills private data and terminal binding; revoking a Skill immediately revokes new reads; installs and updates take effect next run.
+3. UI revision CAS; deletion lifecycle; atomic directory publish and content versions.
+4. Regression: A/B concurrent tasks, switches while queued, memory UI/tool conflicts, list/read/resource/terminal consistency after Skill disable, initially-empty/non-empty skill sets, mid-run install/update, disable-then-enable keeping data, assistant deletion, illegal-ID imports.
+5. Builds and test runs keep honoring the user's GitHub Actions authorization convention; this report claims no test run and no issue fixed.

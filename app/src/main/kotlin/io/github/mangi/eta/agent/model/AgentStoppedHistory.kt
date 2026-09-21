@@ -18,7 +18,7 @@ internal object AgentStoppedHistory {
         pending.values.forEach { call ->
             messages.put(AgentConversationCodec.toolResultMessage(call, AgentModelClient.ToolResult(
                 content = JSONObject().put("ok", false).put("code", "STOPPED_OUTCOME_UNKNOWN")
-                    .put("message", "用户已停止本轮；此调用未取得可确认结果，可能未执行或已部分执行。不要自动重放，请先核验实际状态。")
+                    .put("message", "The user has stopped this round; this call produced no confirmable result and may not have executed or may have partially executed. Do not automatically replay it; verify the actual state first.")
                     .toString(),
             )).put(AgentTurnIdentity.JSON_KEY, turnId))
         }

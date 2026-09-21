@@ -4,7 +4,7 @@ import java.math.BigDecimal
 import org.json.JSONArray
 import org.json.JSONObject
 
-/** 在工具执行前校验模型参数；这里只检查调用合同，不承担权限审批或安全策略。 */
+/** Validate model arguments before tool execution; this checks only the call contract, not permission approval or security policy. */
 internal class AgentToolCallValidator(tools: JSONArray) {
     private data class ToolSchema(
         val parameters: JSONObject,
@@ -22,9 +22,9 @@ internal class AgentToolCallValidator(tools: JSONArray) {
 
     fun validate(call: AgentModelClient.ToolCall): String? {
         val toolSchema = schemasByName[call.name]
-            ?: return "工具未在本次运行的能力目录中声明"
+            ?: return "Tool is not declared in this run's capability catalog"
         val arguments = runCatching { JSONObject(call.argumentsJson.ifBlank { "{}" }) }
-            .getOrElse { return "参数不是有效的 JSON object" }
+            .getOrElse { return "Arguments are not a valid JSON object" }
         return validateValue(
             value = arguments,
             schema = toolSchema.parameters,
@@ -41,11 +41,11 @@ internal class AgentToolCallValidator(tools: JSONArray) {
         path: String,
         depth: Int,
     ): String? {
-        if (depth > MAX_SCHEMA_DEPTH) return "$path 的 Schema 引用层级过深"
+        if (depth > MAX_SCHEMA_DEPTH) return "$path has overly deep Schema reference nesting"
 
         schema.optString("${'$'}ref").takeIf { it.isNotBlank() }?.let { reference ->
             val referenced = resolveReference(root, reference)
-                ?: return "$path 的 Schema 引用无法解析：$reference"
+                ?: return "$path Schema reference cannot be resolved: $reference"
             validateSchema(value, referenced, root, path, depth + 1)?.let { return it }
         }
 
@@ -54,15 +54,15 @@ internal class AgentToolCallValidator(tools: JSONArray) {
         if (schema.optBoolean("nullable", false) && isJsonNull(value)) return null
         val type = schema.opt("type")
         if (type != null && type != JSONObject.NULL && !matchesType(value, type)) {
-            return "$path 类型应为 ${describeType(type)}"
+            return "$path must be of type ${describeType(type)}"
         }
 
         if (schema.has("const") && !jsonEquals(schema.opt("const"), value)) {
-            return "$path 必须等于 Schema 声明的固定值"
+            return "$path must equal the constant declared by the Schema"
         }
         val enum = schema.optJSONArray("enum")
         if (enum != null && (0 until enum.length()).none { jsonEquals(enum.opt(it), value) }) {
-            return "$path 不在允许值集合中"
+            return "$path is not in the allowed value set"
         }
 
         return when (value) {
@@ -88,17 +88,17 @@ internal class AgentToolCallValidator(tools: JSONArray) {
         }
         schema.optJSONArray("anyOf")?.let { branches ->
             if (!matchesBranchCount(value, branches, root, path, depth, minimum = 1)) {
-                return "$path 不符合 anyOf 中的任何 Schema"
+                return "$path matches none of the anyOf Schemas"
             }
         }
         schema.optJSONArray("oneOf")?.let { branches ->
             if (!matchesBranchCount(value, branches, root, path, depth, minimum = 1, maximum = 1)) {
-                return "$path 必须且只能符合 oneOf 中的一个 Schema"
+                return "$path must match exactly one of the oneOf Schemas"
             }
         }
         schema.opt("not").takeUnless { it == null || it == JSONObject.NULL }?.let { rejected ->
             if (validateSchema(value, rejected, root, path, depth + 1) == null) {
-                return "$path 符合了 not 禁止的 Schema"
+                return "$path matches a Schema forbidden by not"
             }
         }
         schema.opt("if").takeUnless { it == null || it == JSONObject.NULL }?.let { condition ->
@@ -139,13 +139,13 @@ internal class AgentToolCallValidator(tools: JSONArray) {
         depth: Int,
     ): String? {
         val size = value.length()
-        schema.optInteger("minProperties")?.let { if (size < it) return "$path 的字段数不能少于 $it" }
-        schema.optInteger("maxProperties")?.let { if (size > it) return "$path 的字段数不能超过 $it" }
+        schema.optInteger("minProperties")?.let { if (size < it) return "$path field count must be at least $it" }
+        schema.optInteger("maxProperties")?.let { if (size > it) return "$path field count must be at most $it" }
 
         schema.optJSONArray("required")?.let { required ->
             for (index in 0 until required.length()) {
                 val key = required.optString(index)
-                if (!value.has(key)) return "$path 缺少必填字段 $key"
+                if (!value.has(key)) return "$path is missing required field $key"
             }
         }
 
@@ -155,7 +155,7 @@ internal class AgentToolCallValidator(tools: JSONArray) {
                 val required = dependencies.optJSONArray(key) ?: continue
                 for (index in 0 until required.length()) {
                     val dependent = required.optString(index)
-                    if (!value.has(dependent)) return "$path.$key 要求同时提供字段 $dependent"
+                    if (!value.has(dependent)) return "$path.$key requires field $dependent"
                 }
             }
         }
@@ -182,7 +182,7 @@ internal class AgentToolCallValidator(tools: JSONArray) {
             }
             if (!matched) {
                 when (additionalProperties) {
-                    false -> return "$path 不允许额外字段 $key"
+                    false -> return "$path does not allow extra field $key"
                     is JSONObject, is Boolean ->
                         validateSchema(childValue, additionalProperties, root, childPath, depth + 1)?.let { return it }
                 }
@@ -191,7 +191,7 @@ internal class AgentToolCallValidator(tools: JSONArray) {
 
         schema.opt("propertyNames").takeUnless { it == null || it == JSONObject.NULL }?.let { nameSchema ->
             for (key in value.keys()) {
-                validateSchema(key, nameSchema, root, "$path 的字段名 $key", depth + 1)?.let { return it }
+                validateSchema(key, nameSchema, root, "$path field name $key", depth + 1)?.let { return it }
             }
         }
         return null
@@ -204,12 +204,12 @@ internal class AgentToolCallValidator(tools: JSONArray) {
         path: String,
         depth: Int,
     ): String? {
-        schema.optInteger("minItems")?.let { if (value.length() < it) return "$path 项目数不能少于 $it" }
-        schema.optInteger("maxItems")?.let { if (value.length() > it) return "$path 项目数不能超过 $it" }
+        schema.optInteger("minItems")?.let { if (value.length() < it) return "$path item count must be at least $it" }
+        schema.optInteger("maxItems")?.let { if (value.length() > it) return "$path item count must be at most $it" }
         if (schema.optBoolean("uniqueItems", false)) {
             for (left in 0 until value.length()) {
                 for (right in left + 1 until value.length()) {
-                    if (jsonEquals(value.opt(left), value.opt(right))) return "$path 不允许重复项目"
+                    if (jsonEquals(value.opt(left), value.opt(right))) return "$path does not allow duplicate items"
                 }
             }
         }
@@ -234,7 +234,7 @@ internal class AgentToolCallValidator(tools: JSONArray) {
                         ?.let { return it }
                 }
             }
-            false -> if (value.length() > (prefixItems?.length() ?: 0)) return "$path 不允许更多项目"
+            false -> if (value.length() > (prefixItems?.length() ?: 0)) return "$path does not allow more items"
         }
 
         schema.opt("contains").takeUnless { it == null || it == JSONObject.NULL }?.let { contains ->
@@ -243,30 +243,30 @@ internal class AgentToolCallValidator(tools: JSONArray) {
             }
             val minimum = schema.optInteger("minContains") ?: 1
             val maximum = schema.optInteger("maxContains") ?: Int.MAX_VALUE
-            if (matches !in minimum..maximum) return "$path 中符合 contains 的项目数必须在 $minimum..$maximum 之间"
+            if (matches !in minimum..maximum) return "$path items matching contains must be within $minimum..$maximum"
         }
         return null
     }
 
     private fun validateString(value: String, schema: JSONObject, path: String): String? {
-        schema.optInteger("minLength")?.let { if (value.codePointCount(0, value.length) < it) return "$path 长度不能少于 $it" }
-        schema.optInteger("maxLength")?.let { if (value.codePointCount(0, value.length) > it) return "$path 长度不能超过 $it" }
+        schema.optInteger("minLength")?.let { if (value.codePointCount(0, value.length) < it) return "$path length must be at least $it" }
+        schema.optInteger("maxLength")?.let { if (value.codePointCount(0, value.length) > it) return "$path length must be at most $it" }
         schema.optString("pattern").takeIf { it.isNotBlank() }?.let { pattern ->
             val regex = runCatching { Regex(pattern) }.getOrNull()
-                ?: return "$path 的 Schema pattern 无效"
-            if (!regex.containsMatchIn(value)) return "$path 不符合 pattern $pattern"
+                ?: return "$path Schema pattern is invalid"
+            if (!regex.containsMatchIn(value)) return "$path does not match pattern $pattern"
         }
         return null
     }
 
     private fun validateNumber(value: Number, schema: JSONObject, path: String): String? {
-        val number = value.toBigDecimal() ?: return "$path 不是有效数字"
-        schema.optBigDecimal("minimum")?.let { if (number < it) return "$path 不能小于 $it" }
-        schema.optBigDecimal("maximum")?.let { if (number > it) return "$path 不能大于 $it" }
-        schema.optBigDecimal("exclusiveMinimum")?.let { if (number <= it) return "$path 必须大于 $it" }
-        schema.optBigDecimal("exclusiveMaximum")?.let { if (number >= it) return "$path 必须小于 $it" }
+        val number = value.toBigDecimal() ?: return "$path is not a valid number"
+        schema.optBigDecimal("minimum")?.let { if (number < it) return "$path must not be less than $it" }
+        schema.optBigDecimal("maximum")?.let { if (number > it) return "$path must not be greater than $it" }
+        schema.optBigDecimal("exclusiveMinimum")?.let { if (number <= it) return "$path must be greater than $it" }
+        schema.optBigDecimal("exclusiveMaximum")?.let { if (number >= it) return "$path must be less than $it" }
         schema.optBigDecimal("multipleOf")?.takeIf { it.signum() != 0 }?.let { divisor ->
-            if (number.remainder(divisor).compareTo(BigDecimal.ZERO) != 0) return "$path 必须是 $divisor 的倍数"
+            if (number.remainder(divisor).compareTo(BigDecimal.ZERO) != 0) return "$path must be a multiple of $divisor"
         }
         return null
     }
@@ -296,9 +296,9 @@ internal class AgentToolCallValidator(tools: JSONArray) {
         depth: Int,
     ): String? = when (schema) {
         true -> null
-        false -> "$path 被 false Schema 拒绝"
+        false -> "$path was rejected by a false Schema"
         is JSONObject -> validateValue(value, schema, root, path, depth)
-        else -> "$path 的 Schema 节点无效"
+        else -> "$path Schema node is invalid"
     }
 
     private fun resolveReference(root: JSONObject, reference: String): Any? {
@@ -336,7 +336,7 @@ internal class AgentToolCallValidator(tools: JSONArray) {
         (opt(name) as? Number)?.toBigDecimal()
 
     private fun describeType(type: Any): String = when (type) {
-        is JSONArray -> (0 until type.length()).joinToString(" 或 ") { type.optString(it) }
+        is JSONArray -> (0 until type.length()).joinToString(" or ") { type.optString(it) }
         else -> type.toString()
     }
 

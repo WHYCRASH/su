@@ -8,7 +8,7 @@ import org.junit.Test
 class BrowserNavigationTest {
     @Test
     fun searchTermsBecomeSearchUrls() {
-        val url = BrowserNavigation.normalize("今日科技新闻")
+        val url = BrowserNavigation.normalize("Today's Tech News")
         assertTrue(url.startsWith(BrowserNavigation.SEARCH_ENDPOINT))
         assertTrue(url.contains("q="))
         assertTrue(BrowserNavigation.normalize("open minis").startsWith(BrowserNavigation.SEARCH_ENDPOINT))
@@ -48,7 +48,7 @@ class BrowserNavigationTest {
     fun looksLikeUrlRejectsSearchPhrases() {
         assertTrue(BrowserNavigation.looksLikeUrl("github.com/OpenMinis"))
         assertTrue(BrowserNavigation.looksLikeUrl("127.0.0.1:8080"))
-        assertFalse(BrowserNavigation.looksLikeUrl("今日新闻"))
+        assertFalse(BrowserNavigation.looksLikeUrl("Today's News"))
         assertFalse(BrowserNavigation.looksLikeUrl("hello world"))
     }
 }

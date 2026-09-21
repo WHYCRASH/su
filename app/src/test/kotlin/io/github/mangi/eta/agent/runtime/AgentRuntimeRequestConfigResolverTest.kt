@@ -30,7 +30,7 @@ class AgentRuntimeRequestConfigResolverTest {
     @Test
     fun externalAssistantRequestKeepsEntryConfig() {
         val entryConfig = modelConfig("entry-key", ReasoningEffort.OFF)
-        val request = request(source = "breeno", config = entryConfig)
+        val request = request(source = AgentRuntimeWire.AGENT_UI_HANDOFF_SOURCE, config = entryConfig)
 
         val resolved = AgentRuntimeRequestConfigResolver.applyRuntimeConfig(
             request,
@@ -47,16 +47,16 @@ class AgentRuntimeRequestConfigResolverTest {
         config: AgentModelClient.ModelConfig,
     ): AgentRuntimeWire.RunRequest = AgentRuntimeWire.RunRequest(
         runId = "run-1",
-        prompt = "测试",
+        prompt = "Test",
         config = config,
         images = emptyList(),
         handoff = AgentRuntimeWire.EntryHandoff(
             id = "handoff-1",
             source = source,
             payload = AgentExternalArchivePayload(
-                userText = "测试",
+                userText = "Test",
                 conversationKey = "conversation-1",
-                title = "测试",
+                title = "Test",
             ).toJson(),
         ),
     )

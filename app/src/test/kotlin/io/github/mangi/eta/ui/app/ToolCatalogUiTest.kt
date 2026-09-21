@@ -47,8 +47,8 @@ class ToolCatalogUiTest {
 
     @Test
     fun hostedSearchNamesAndDynamicMcpNamesUseTheirToolIcons() {
-        assertEquals(Icons.Rounded.TravelExplore, iconForTool("网页搜索"))
-        assertEquals(iconForTool("网页搜索"), iconForTool("web_search"))
+        assertEquals(Icons.Rounded.TravelExplore, iconForTool("Web Search"))
+        assertEquals(iconForTool("Web Search"), iconForTool("web_search"))
         assertEquals(Icons.Rounded.Language, iconForTool("browser_use"))
         assertEquals(Icons.Rounded.Extension, iconForTool("mcp_server_search_012345"))
         assertEquals(Icons.Rounded.Build, iconForTool("unknown_tool"))
@@ -60,14 +60,13 @@ class ToolCatalogUiTest {
         val allCards = groups.flatMap { it.tools }
         allCards.forEach { toolCardRequirement(it.id) }
         assertEquals(allCards.size, allCards.map { it.id }.distinct().size)
-        assertEquals(groups, projectToolGroups(groups, true, false, false))
-        assertEquals(groups, projectToolGroups(groups, false, true, true))
+        assertEquals(groups, projectToolGroups(groups, showAll = true, rootGranted = false))
+        assertEquals(groups, projectToolGroups(groups, showAll = false, rootGranted = true))
 
-        val ordinaryCards = projectToolGroups(groups, false, false, false).flatMap { it.tools }
+        val ordinaryCards = projectToolGroups(groups, showAll = false, rootGranted = false).flatMap { it.tools }
         assertTrue(ordinaryCards.isNotEmpty())
         assertEquals(allCards.filter { card ->
-            val requirement = toolCardRequirement(card.id)
-            requirement.rootRequirement != RootRequirement.REQUIRED && !requirement.colorOs
+            toolCardRequirement(card.id).rootRequirement != RootRequirement.REQUIRED
         }, ordinaryCards)
     }
 }

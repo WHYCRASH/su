@@ -2,7 +2,7 @@ package io.github.mangi.eta.agent.terminal
 
 internal const val SELECTED_LINUX_WIRE_NAME = "linux"
 
-/** Eta 支持的 Linux 用户态发行版。内核仍由 Android 提供，发行版只替换 rootfs。 */
+/** Linux user-space distributions supported by su. The kernel is still provided by Android; the distribution only replaces the rootfs. */
 internal enum class LinuxDistribution(val wireName: String) {
     ALPINE("alpine"),
     DEBIAN("debian"),
@@ -27,7 +27,7 @@ internal val LinuxDistribution.terminalEnvironment: TerminalEnvironment
     }
 
 /**
- * 返回 UI 显示用的人类可读名称。
+ * Returns a human-readable name for UI display.
  */
 internal fun TerminalEnvironment.label(): String = when (this) {
     TerminalEnvironment.ANDROID -> "Android"

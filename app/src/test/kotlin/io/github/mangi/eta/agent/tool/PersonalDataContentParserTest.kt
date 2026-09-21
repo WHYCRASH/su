@@ -25,12 +25,12 @@ class PersonalDataContentParserTest {
     @Test
     fun parsesOnlyDeclaredColumnsWithoutSplittingMessageBody() {
         val rows = PersonalDataContentParser.parseRows(
-            "Row: 0 _id=7, address=1069, body=会议地点改到 A, B 两区, date=123",
+            "Row: 0 _id=7, address=1069, body=Meeting location changed to areas A and B, date=123",
             listOf("_id", "address", "body", "date"),
         )
 
         assertEquals(1, rows.size)
-        assertEquals("会议地点改到 A, B 两区", rows.single().getString("body"))
+        assertEquals("Meeting location changed to areas A and B", rows.single().getString("body"))
         assertEquals("123", rows.single().getString("date"))
         assertFalse(rows.single().has("unknown"))
     }

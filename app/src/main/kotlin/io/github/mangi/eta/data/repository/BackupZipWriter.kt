@@ -18,13 +18,13 @@ internal class BackupZipWriter(
 
     private fun reserve(name: String, size: Long) {
         val normalized = BackupArchiveSafety.relativePath(name)
-        require(normalized == name && names.size < entryLimit && names.add(name)) { "导出条目过多、重复或路径无效" }
-        require(size >= 0 && size <= totalLimit - total) { "导出大小超过可恢复的上限" }
+        require(normalized == name && names.size < entryLimit && names.add(name)) { "Too many export entries, duplicates, or invalid paths" }
+        require(size >= 0 && size <= totalLimit - total) { "Export size exceeds the recoverable limit" }
     }
 
     fun text(name: String, text: String) {
         val bytes = text.toByteArray()
-        require(bytes.size.toLong() <= BackupArchiveSafety.MANIFEST_LIMIT) { "备份清单过大" }
+        require(bytes.size.toLong() <= BackupArchiveSafety.MANIFEST_LIMIT) { "Backup manifest is too large" }
         reserve(name, bytes.size.toLong())
         zip.putNextEntry(ZipEntry(name))
         zip.write(bytes)
@@ -33,7 +33,7 @@ internal class BackupZipWriter(
     }
 
     fun file(name: String, file: File, expectedSha256: String? = null) {
-        require(file.isFile && !Files.isSymbolicLink(file.toPath())) { "备份附件缺失或不是普通文件：${file.name}" }
+        require(file.isFile && !Files.isSymbolicLink(file.toPath())) { "Backup attachment is missing or is not a regular file: ${file.name}" }
         val expected = file.length()
         val modified = file.lastModified()
         reserve(name, expected)
@@ -44,27 +44,27 @@ internal class BackupZipWriter(
         }
         if (expectedSha256 != null) {
             val sha256 = digest.digest().joinToString("") { "%02x".format(it.toInt() and 0xff) }
-            require(sha256 == expectedSha256) { "附件在导出时发生变化" }
+            require(sha256 == expectedSha256) { "Attachment changed during export" }
         }
-        require(actual == expected && file.length() == expected && file.lastModified() == modified) { "备份文件在读取时发生变化" }
+        require(actual == expected && file.length() == expected && file.lastModified() == modified) { "Backup file changed while being read" }
         zip.closeEntry()
         total += actual
     }
 
     fun stream(name: String, write: (OutputStream) -> Unit): Long {
         val normalized = BackupArchiveSafety.relativePath(name)
-        require(normalized == name && names.size < entryLimit && names.add(name)) { "导出条目过多、重复或路径无效" }
+        require(normalized == name && names.size < entryLimit && names.add(name)) { "Too many export entries, duplicates, or invalid paths" }
         zip.putNextEntry(ZipEntry(name))
         val remaining = totalLimit - total
         val counting = object : OutputStream() {
             var size = 0L
             override fun write(b: Int) {
-                require(size + 1 <= remaining) { "导出大小超过可恢复的上限" }
+                require(size + 1 <= remaining) { "Export size exceeds the recoverable limit" }
                 zip.write(b)
                 size++
             }
             override fun write(b: ByteArray, off: Int, len: Int) {
-                require(len >= 0 && len.toLong() <= remaining - size) { "导出大小超过可恢复的上限" }
+                require(len >= 0 && len.toLong() <= remaining - size) { "Export size exceeds the recoverable limit" }
                 zip.write(b, off, len)
                 size += len
             }
@@ -78,9 +78,9 @@ internal class BackupZipWriter(
     fun directory(prefix: String, root: File, skipNames: Set<String> = emptySet()) {
         if (!root.exists()) return
         fun visit(file: File, depth: Int) {
-            require(++visited <= entryLimit && depth <= 64) { "备份目录过深或条目过多" }
+            require(++visited <= entryLimit && depth <= 64) { "Backup directory is too deep or contains too many entries" }
             if (file != root && file.name in skipNames) return
-            require(!Files.isSymbolicLink(file.toPath())) { "备份目录不支持符号链接：${file.name}" }
+            require(!Files.isSymbolicLink(file.toPath())) { "Symbolic links are not supported in the backup directory: ${file.name}" }
             if (file.isDirectory) {
                 Files.newDirectoryStream(file.toPath()).use { entries ->
                     for (entry in entries) visit(entry.toFile(), depth + 1)

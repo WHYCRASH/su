@@ -3,7 +3,7 @@ package io.github.mangi.eta.agent.runtime
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
-/** 服务销毁只封闭新提交；已经接纳的停止回调必须执行完，不能随服务协程一起取消。 */
+/** Service destruction only closes off new submissions; stop callbacks that have already been accepted must run to completion and must not be canceled along with the service coroutine. */
 internal class ExecutionStopQueue(
     private val executor: ExecutorService = Executors.newSingleThreadExecutor { runnable ->
         Thread(runnable, "eta-execution-stop").apply { isDaemon = true }

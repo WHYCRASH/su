@@ -51,9 +51,10 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.window.WindowDialog
 
 /**
- * Linux 环境文件浏览：目录列举、预览、导出和删除都在 Linux 会话中完成，
- * 因此能看到 /workspace 等 bind 挂载里的真实文件。
- * 查看文件时进入屏内查看态，页面返回键先退回列表再退出页面。
+ * Linux environment file browser: listing, previewing, exporting, and deleting all run inside
+ * the Linux session, so it sees the real files behind bind mounts such as /workspace.
+ * Opening a file enters an in-screen viewer state; the page back button returns to the list
+ * before leaving the page.
  */
 @Composable
 internal fun LinuxFilesScreen(

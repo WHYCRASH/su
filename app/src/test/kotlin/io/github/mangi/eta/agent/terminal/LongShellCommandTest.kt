@@ -5,7 +5,7 @@ import org.junit.Test
 
 class LongShellCommandTest {
     @Test fun scriptBeyondKernelArgumentLimitPreservesUnicodeHeredocAndStdin() {
-        val source = "cat <<'END' >/dev/null\n" + "中文 ' \" literal \u0024()\n".repeat(14000) + "END\ncat\nprintf '\\nfinished'"
+        val source = "cat <<'END' >/dev/null\n" + "Chinese ' \" literal \u0024()\n".repeat(14000) + "END\ncat\nprintf '\\nfinished'"
         val prepared = LongShellCommand.prepare(source, TerminalEnvironment.ANDROID, null)
         assertNotNull(prepared.file)
         assertTrue(prepared.command!!.length < 1024)

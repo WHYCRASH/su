@@ -38,10 +38,10 @@ internal class AgentVideoGenerationClient(
         prompt: String,
         images: List<InputImage> = emptyList(),
     ): Result {
-        require(config.baseUrl.isNotBlank()) { "请先配置 API 地址" }
-        require(prompt.isNotBlank()) { "请输入视频描述" }
+        require(config.baseUrl.isNotBlank()) { "Please configure the API address first" }
+        require(prompt.isNotBlank()) { "Please enter a video description" }
         require(config.providerType != ProviderTypes.ANTHROPIC) {
-            "当前供应商不支持生视频接口"
+            "The current provider does not support the video generation API"
         }
         val headers = requestHeaders(config)
         val inputImages = images.filter { it.bytes.isNotEmpty() }
@@ -64,15 +64,15 @@ internal class AgentVideoGenerationClient(
             if (response.ok) {
                 val generated = resolve(config, headers, response)
                 if (generated.videos.isNotEmpty()) return generated
-                lastError = generated.text.takeIf { it.isNotBlank() } ?: "响应里没有视频"
+                lastError = generated.text.takeIf { it.isNotBlank() } ?: "The response contains no video"
                 return@forEach
             }
             lastError = AgentVideoGenerationParser.errorMessage(response.body, response.code)
             if (!response.retryable) {
-                error(lastError ?: "生视频失败")
+                error(lastError ?: "Video generation failed")
             }
         }
-        error(lastError ?: "生视频失败")
+        error(lastError ?: "Video generation failed")
     }
 
     private enum class Attempt {
@@ -103,7 +103,7 @@ internal class AgentVideoGenerationClient(
         }
         val parsed = AgentVideoGenerationParser.parse(response.body)
         if (parsed.failed) {
-            error(parsed.error ?: parsed.text.ifBlank { "生视频失败" })
+            error(parsed.error ?: parsed.text.ifBlank { "Video generation failed" })
         }
         val materialized = materialize(parsed)
         if (materialized.videos.isNotEmpty()) return materialized
@@ -136,7 +136,7 @@ internal class AgentVideoGenerationClient(
                 }
                 val parsed = AgentVideoGenerationParser.parse(response.body)
                 if (parsed.failed) {
-                    error(parsed.error ?: parsed.text.ifBlank { "生视频失败" })
+                    error(parsed.error ?: parsed.text.ifBlank { "Video generation failed" })
                 }
                 val materialized = materialize(parsed)
                 if (materialized.videos.isNotEmpty()) {
@@ -148,7 +148,7 @@ internal class AgentVideoGenerationClient(
                 }
             }
         }
-        error("视频生成超时，请稍后在会话里重试")
+        error("Video generation timed out. Please try again in the conversation later")
     }
 
     private fun pollContent(
@@ -179,7 +179,7 @@ internal class AgentVideoGenerationClient(
     ): RawResponse {
         val request = when (attempt) {
             Attempt.ArkContents -> Request.Builder()
-                .url(ArkContentsGenerations.tasksUrl(config.baseUrl) ?: error("当前地址不是火山方舟内容生成接口"))
+                .url(ArkContentsGenerations.tasksUrl(config.baseUrl) ?: error("The current address is not the Volcano Ark content generation API"))
                 .headers(headers)
                 .post(ArkContentsGenerations.createBody(config.model, prompt, images).toRequestBody(JSON_MEDIA_TYPE))
                 .build()

@@ -179,7 +179,7 @@ internal class AgentLocalTools(
         }
         if (!ForegroundExclusiveGate.acquire(browserRunId) { closed.get() }) {
             return textResult(
-                errorResult("FOREGROUND_BUSY", "其他会话正在操作屏幕，当前任务已停止等待"),
+                errorResult("FOREGROUND_BUSY", "Another session is operating the screen; the current task has stopped waiting"),
             )
         }
         return executeInternal(toolCall)
@@ -190,13 +190,13 @@ internal class AgentLocalTools(
             if (AssistantRepository.isReady() && AssistantRepository.currentProfile(memoryAssistantId) == null) {
                 terminalController.interruptAll()
                 terminalController.stopOwnedDaemons()
-                return@runCatching textResult(errorResult("ASSISTANT_DELETED", "任务所属助手已删除，工具未执行"))
+                return@runCatching textResult(errorResult("ASSISTANT_DELETED", "The assistant that owns the task has been deleted; the tool was not executed"))
             }
             val args = JSONObject(toolCall.argumentsJson.ifBlank { "{}" })
             if (AgentToolRequirements.find(toolCall.name) != null &&
                 AgentToolRequirements.rootDenied(toolCall.name, args, rootAvailable())
             ) {
-                return@runCatching textResult(errorResult("ROOT_REQUIRED", "此操作需要 Root 授权，本次未执行"))
+                return@runCatching textResult(errorResult("ROOT_REQUIRED", "This operation requires Root authorization and was not executed this time"))
             }
             deviceToolPermissionError(toolCall.name)?.let { return@runCatching it }
             memoryToolPermissionError(toolCall.name)?.let { return@runCatching it }
@@ -241,7 +241,7 @@ internal class AgentLocalTools(
                 "open_system_panel" -> textResult(deviceController.openSystemPanel(args.optString("panel")))
                 in DEVICE_TOOL_NAMES ->
                     structuredDeviceTools.execute(toolCall.name, args)
-                        ?: textResult(errorResult("UNKNOWN_TOOL", "未知设备工具"))
+                        ?: textResult(errorResult("UNKNOWN_TOOL", "Unknown device tool"))
                 "read_image" -> fileVisionTool { imageTools.readImage(args) }
                 "terminal" -> textResult(terminalTool { terminal(args) })
                 "run_command" -> textResult(terminalTool { runCommand(args) })
@@ -259,7 +259,7 @@ internal class AgentLocalTools(
                 else -> textResult(
                     errorResult(
                         code = "UNKNOWN_TOOL",
-                        message = "未知工具：${toolCall.name}"
+                        message = "Unknown tool: ${toolCall.name}"
                     )
                 )
             }
@@ -287,11 +287,11 @@ internal class AgentLocalTools(
     ): AgentModelClient.ToolResult? {
         val error = when {
             toolName in DEVICE_DIRECT_TOOL_NAMES && !deviceDirectToolsEnabled() ->
-                "DEVICE_DIRECT_TOOLS_DISABLED" to "请先启用设备直达工具"
+                "DEVICE_DIRECT_TOOLS_DISABLED" to "Please enable the Device Direct tool first"
             toolName in DEVICE_SENSITIVE_READ_TOOL_NAMES && !deviceSensitiveReadToolsEnabled() ->
-                "DEVICE_SENSITIVE_READ_TOOLS_DISABLED" to "请先允许读取敏感设备信息"
+                "DEVICE_SENSITIVE_READ_TOOLS_DISABLED" to "Please allow reading sensitive device information first"
             toolName in DEVICE_SENSITIVE_ACTION_TOOL_NAMES && !deviceSensitiveActionToolsEnabled() ->
-                "DEVICE_SENSITIVE_ACTION_TOOLS_DISABLED" to "请先允许敏感设备操作"
+                "DEVICE_SENSITIVE_ACTION_TOOLS_DISABLED" to "Please allow sensitive device operations first"
             else -> null
         } ?: return null
         return AgentModelClient.ToolResult(
@@ -303,16 +303,16 @@ internal class AgentLocalTools(
 
     private fun terminalTool(block: () -> String): String {
         liveSkillEntries()
-        if (skillAuthorizationChanged.get() || skillTreeMutationUncertain.get()) return errorResult("NEXT_TURN_REQUIRED", "本轮技能授权已撤销，终端会话已关闭；请开启下一轮任务")
+        if (skillAuthorizationChanged.get() || skillTreeMutationUncertain.get()) return errorResult("NEXT_TURN_REQUIRED", "This round's skill authorization has been revoked and the terminal session has been closed; please start the next round of tasks")
         if (!terminalToolsEnabled()) {
-            return errorResult("TERMINAL_TOOLS_DISABLED", "请先启用终端/文件工具")
+            return errorResult("TERMINAL_TOOLS_DISABLED", "Please enable the terminal/file tool first")
         }
         return block()
     }
 
     private fun fileVisionTool(block: () -> AgentModelClient.ToolResult): AgentModelClient.ToolResult {
         if (!terminalToolsEnabled()) {
-            return textResult(errorResult("TERMINAL_TOOLS_DISABLED", "请先启用终端/文件工具"))
+            return textResult(errorResult("TERMINAL_TOOLS_DISABLED", "Please enable the terminal/file tool first"))
         }
         return block()
     }
@@ -320,7 +320,7 @@ internal class AgentLocalTools(
     private fun memoryToolPermissionError(toolName: String): AgentModelClient.ToolResult? {
         if (toolName !in MEMORY_TOOL_NAMES || (memoryToolsEnabled?.invoke() ?: AgentMemoryRepository.isEnabled(memoryAssistantId))) return null
         return AgentModelClient.ToolResult(
-            content = errorResult("MEMORY_DISABLED", "当前助手未启用记忆"),
+            content = errorResult("MEMORY_DISABLED", "Memory is not enabled for the current assistant"),
             sensitive = true,
         )
     }
@@ -344,7 +344,7 @@ internal class AgentLocalTools(
             .put("content", result.content)
             .toString()
     } catch (failure: AgentMemoryException) {
-        errorResult(failure.code, failure.message ?: "记忆读取失败")
+        errorResult(failure.code, failure.message ?: "Failed to read memory")
     }
 
     private fun memoryWrite(args: JSONObject): String = try {
@@ -361,7 +361,7 @@ internal class AgentLocalTools(
                 content = args.getString("content"),
             )
             "clear" -> AgentMemoryMutation.Clear(revision)
-            else -> error("不支持的记忆写入模式")
+            else -> error("Unsupported memory write mode")
         }
         when (val result = AgentMemoryRepository.mutate(mutation, memoryAssistantId)) {
             is AgentMemoryWriteResult.Success -> JSONObject()
@@ -373,19 +373,19 @@ internal class AgentLocalTools(
             is AgentMemoryWriteResult.Conflict -> JSONObject()
                 .put("ok", false)
                 .put("code", "MEMORY_CONFLICT")
-                .put("message", "记忆已发生变化，请先调用 memory_get 获取最新内容")
+                .put("message", "Memory has changed; call memory_get first to get the latest content")
                 .put("revision", result.snapshot.revision)
                 .put("bytes", result.snapshot.byteSize)
                 .put("line_count", result.snapshot.lineCount)
                 .toString()
         }
     } catch (failure: AgentMemoryException) {
-        errorResult(failure.code, failure.message ?: "记忆写入失败")
+        errorResult(failure.code, failure.message ?: "Failed to write memory")
     }
 
     private fun browserUse(args: JSONObject, toolCallId: String): AgentModelClient.ToolResult {
         if (!browserToolsEnabled()) {
-            return textResult(errorResult("BROWSER_TOOLS_DISABLED", "请先启用网页浏览工具"))
+            return textResult(errorResult("BROWSER_TOOLS_DISABLED", "Please enable the web browsing tool first"))
         }
         val result = AgentBrowserSession.execute(
             context = context,
@@ -470,7 +470,7 @@ internal class AgentLocalTools(
         val observation = requireElementObservation(args) ?: return observationError(args)
         val node = observation.nodes.firstOrNull { it.index == index }
         if (node == null) {
-            return errorResult("INVALID_NODE_INDEX", "观察快照中不存在节点 index=$index")
+            return errorResult("INVALID_NODE_INDEX", "Node index=$index does not exist in the observation snapshot")
         }
         val result = deviceController.tapElement(observation, index)
         if (result.isOkJson()) {
@@ -486,7 +486,7 @@ internal class AgentLocalTools(
         val node = observation.nodes.firstOrNull { it.index == index }
         val durationMs = args.optInt("duration_ms", 800)
         if (node == null) {
-            return errorResult("INVALID_NODE_INDEX", "观察快照中不存在节点 index=$index")
+            return errorResult("INVALID_NODE_INDEX", "Node index=$index does not exist in the observation snapshot")
         }
         val result = deviceController.longPressElement(observation, index, durationMs)
         if (result.isOkJson()) {
@@ -543,7 +543,7 @@ internal class AgentLocalTools(
     private fun inputText(args: JSONObject): String {
         val text = args.optString("text")
         if (text.length > 1_000) {
-            return errorResult("TEXT_TOO_LONG", "input_text 最多支持 1000 个字符")
+            return errorResult("TEXT_TOO_LONG", "input_text supports a maximum of 1000 characters")
         }
         return when (args.optString("mode", "append").lowercase(Locale.ROOT)) {
             "replace" -> replaceText(args)
@@ -607,20 +607,20 @@ internal class AgentLocalTools(
                 ?: deviceController.screenDimensions()
             if (x !in 0 until width || y !in 0 until height) {
                 throw InvalidToolArgumentException(
-                    "屏幕坐标超出范围：($x,$y) not in ${width}x$height",
+                    "Screen coordinates out of range: ($x,$y) not in ${width}x$height",
                 )
             }
             return ScreenPoint(x, y)
         }
         if (space == null) {
             throw InvalidToolArgumentException(
-                "当前没有可用的截图坐标系；请先 observe_screen，或明确设置 coordinate_space=screen",
+                "There is currently no available screenshot coordinate space; please call observe_screen first, or explicitly set coordinate_space=screen",
             )
         }
         val point = runCatching { space.fromScreenshot(x, y) }
             .getOrElse { throwable ->
                 throw InvalidToolArgumentException(
-                    throwable.message ?: "截图坐标超出范围",
+                    throwable.message ?: "Screenshot coordinates out of range",
                 )
             }
         return ScreenPoint(point.x, point.y)
@@ -629,7 +629,7 @@ internal class AgentLocalTools(
     private fun searchApps(args: JSONObject): String {
         val query = args.optString("query").trim()
         if (query.isBlank()) {
-            return errorResult("INVALID_ARGUMENT", "query 不能为空")
+            return errorResult("INVALID_ARGUMENT", "query cannot be empty")
         }
         val includeSystem = args.optBoolean("include_system", false)
         val limit = args.optInt("limit", 10).coerceIn(1, 20)
@@ -650,7 +650,7 @@ internal class AgentLocalTools(
             findAppByPackage(packageName) ?: AppInfo(packageName = packageName, appName = appName ?: packageName)
         } else {
             if (appName == null) {
-                return errorResult("INVALID_ARGUMENT", "package_name 和 app_name 至少提供一个")
+                return errorResult("INVALID_ARGUMENT", "At least one of package_name and app_name must be provided")
             }
             val matches = findAppsByName(appName, includeSystem = false)
             val exactMatches = matches.filter { it.appName.equals(appName, ignoreCase = true) }
@@ -659,12 +659,12 @@ internal class AgentLocalTools(
                 matches.size == 1 -> matches.single()
                 matches.isEmpty() -> return errorResult(
                     code = "APP_NOT_FOUND",
-                    message = "未找到应用：$appName"
+                    message = "App not found: $appName"
                 )
                 else -> return JSONObject()
                     .put("ok", false)
                     .put("code", "AMBIGUOUS_APP")
-                    .put("message", "匹配到多个应用，请指定 package_name")
+                    .put("message", "Multiple apps matched; please specify package_name")
                     .put("candidates", matches.take(10).toJsonArray())
                     .toString()
             }
@@ -675,7 +675,7 @@ internal class AgentLocalTools(
         if (launchIntent == null) {
             return errorResult(
                 code = "APP_NOT_LAUNCHABLE",
-                message = "应用不可启动或未安装：${app.packageName}"
+                message = "App cannot be launched or is not installed: ${app.packageName}"
             )
         }
         launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
@@ -692,17 +692,17 @@ internal class AgentLocalTools(
     private fun openUri(args: JSONObject): String {
         val uriText = args.optString("uri").trim()
         if (uriText.isBlank()) {
-            return errorResult("INVALID_ARGUMENT", "uri 不能为空")
+            return errorResult("INVALID_ARGUMENT", "uri cannot be empty")
         }
         val uri = Uri.parse(uriText)
         if (uri.scheme.isNullOrBlank()) {
-            return errorResult("INVALID_ARGUMENT", "uri 缺少 scheme")
+            return errorResult("INVALID_ARGUMENT", "uri is missing a scheme")
         }
         val context = requireContext()
         val intent = Intent(Intent.ACTION_VIEW, uri)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         if (!HookSupport.resolvesActivity(context, intent)) {
-            return errorResult("NO_ACTIVITY", "没有应用可以处理该 URI")
+            return errorResult("NO_ACTIVITY", "No app can handle this URI")
         }
         context.startActivity(intent)
         logger.info("Agent local tool action=open_uri outcome=started")
@@ -825,7 +825,7 @@ internal class AgentLocalTools(
 
     private fun requireContext(): Context =
         AgentAppContext.resolve()
-            ?: error("无法获取 Android 进程 Context")
+            ?: error("Unable to get the Android process Context")
 
     private fun List<AppInfo>.toJsonArray(): JSONArray =
         JSONArray().also { array ->
@@ -864,18 +864,18 @@ internal class AgentLocalTools(
         val requestedId = args.optString("observation_id").trim()
         return when (ObservationReferencePolicy.validate(current?.id, requestedId)) {
             ObservationReferencePolicy.Status.NO_OBSERVATION ->
-                errorResult("NO_OBSERVATION", "请先调用 observe_screen 获取 UI 节点")
+                errorResult("NO_OBSERVATION", "Please call observe_screen first to get UI nodes")
             ObservationReferencePolicy.Status.ID_REQUIRED -> errorResult(
                 "OBSERVATION_ID_REQUIRED",
-                "节点动作必须携带同一次 observe_screen 返回的 observation_id",
+                "Node actions must carry the observation_id returned by the same observe_screen call",
             )
             ObservationReferencePolicy.Status.STALE -> errorResult(
                 "STALE_OBSERVATION",
-                "observation_id=$requestedId 已过期；当前为 ${current?.id}，请重新观察屏幕",
+                "observation_id=$requestedId has expired; current is ${current?.id}, please observe the screen again",
             )
             ObservationReferencePolicy.Status.MATCH -> errorResult(
                 "OBSERVATION_ERROR",
-                "观察快照状态异常，请重新观察屏幕",
+                "The observation snapshot is in an invalid state; please observe the screen again",
             )
         }
     }
@@ -949,9 +949,9 @@ internal class AgentLocalTools(
     // ==================== Skills tools ====================
 
     private fun skillsList(args: JSONObject): String {
-        if (skillTreeMutationUncertain.get()) return nextTurnRequired("Skill 树")
+        if (skillTreeMutationUncertain.get()) return nextTurnRequired("Skill tree")
         val indexService = skillIndexService
-            ?: return errorResult("SKILLS_UNAVAILABLE", "技能服务未初始化")
+            ?: return errorResult("SKILLS_UNAVAILABLE", "Skill service is not initialized")
         val query = args.optString("query").trim().lowercase()
         val limit = args.optInt("limit", 50).coerceIn(1, 200)
         val entries = liveSkillEntries()
@@ -990,21 +990,21 @@ internal class AgentLocalTools(
     }
 
     private fun skillsRead(args: JSONObject): String {
-        if (skillTreeMutationUncertain.get()) return nextTurnRequired("Skill 树")
+        if (skillTreeMutationUncertain.get()) return nextTurnRequired("Skill tree")
         val indexService = skillIndexService
-            ?: return errorResult("SKILLS_UNAVAILABLE", "技能服务未初始化")
+            ?: return errorResult("SKILLS_UNAVAILABLE", "Skill service is not initialized")
         val loader = skillLoader
-            ?: return errorResult("SKILLS_UNAVAILABLE", "技能加载器未初始化")
+            ?: return errorResult("SKILLS_UNAVAILABLE", "Skill loader is not initialized")
         val skillId = args.optString("skillId").trim()
-        if (skillId.isBlank()) return errorResult("MISSING_PARAM", "缺少 skillId")
+        if (skillId.isBlank()) return errorResult("MISSING_PARAM", "Missing skillId")
         val maxChars = args.optInt("maxChars", 16_000).coerceIn(512, 64_000)
         val entry = resolveRunSkill(skillId)
-            ?: return if (SkillParser.normalizeSkillLookup(skillId) in mutatedSkillIds) nextTurnRequired(skillId) else errorResult("NOT_FOUND", "未找到 skill：$skillId")
+            ?: return if (SkillParser.normalizeSkillLookup(skillId) in mutatedSkillIds) nextTurnRequired(skillId) else errorResult("NOT_FOUND", "Skill not found: $skillId")
         if (!isVisibleInCurrentRun(entry.id)) return nextTurnRequired(entry.id)
         val compat = SkillCompatibilityChecker.evaluate(entry)
-        if (!compat.available) return errorResult("INCOMPATIBLE", compat.reason ?: "当前环境不可用")
-        val resolved = loader.load(entry, "agent 主动读取 skill")
-            ?: return errorResult("READ_FAILED", "读取 SKILL.md 失败：${entry.skillFilePath}")
+        if (!compat.available) return errorResult("INCOMPATIBLE", compat.reason ?: "The current environment is unavailable")
+        val resolved = loader.load(entry, "The agent proactively reads the Skill")
+            ?: return errorResult("READ_FAILED", "Failed to read SKILL.md: ${entry.skillFilePath}")
         val body = if (resolved.bodyMarkdown.length <= maxChars) {
             resolved.bodyMarkdown
         } else {
@@ -1030,22 +1030,22 @@ internal class AgentLocalTools(
     }
 
     private fun skillsReadResource(args: JSONObject): String {
-        if (skillTreeMutationUncertain.get()) return nextTurnRequired("Skill 树")
+        if (skillTreeMutationUncertain.get()) return nextTurnRequired("Skill tree")
         val indexService = skillIndexService
-            ?: return errorResult("SKILLS_UNAVAILABLE", "技能服务未初始化")
+            ?: return errorResult("SKILLS_UNAVAILABLE", "Skill service is not initialized")
         val reader = skillResourceReader
-            ?: return errorResult("SKILLS_UNAVAILABLE", "Skill 资源读取器未初始化")
+            ?: return errorResult("SKILLS_UNAVAILABLE", "Skill resource reader is not initialized")
         val skillId = args.getString("skillId").trim()
         val relativePath = args.getString("relativePath").trim()
         val maxChars = args.optInt("maxChars", 16_000).coerceIn(512, 64_000)
         val entry = resolveRunSkill(skillId)
-            ?: return if (SkillParser.normalizeSkillLookup(skillId) in mutatedSkillIds) nextTurnRequired(skillId) else errorResult("NOT_FOUND", "未找到已启用 Skill：$skillId")
+            ?: return if (SkillParser.normalizeSkillLookup(skillId) in mutatedSkillIds) nextTurnRequired(skillId) else errorResult("NOT_FOUND", "Enabled Skill not found: $skillId")
         if (!isVisibleInCurrentRun(entry.id)) return nextTurnRequired(entry.id)
         val compatibility = SkillCompatibilityChecker.evaluate(entry)
         if (!compatibility.available) {
             return errorResult(
                 "INCOMPATIBLE",
-                compatibility.reason ?: "当前环境不可用",
+                compatibility.reason ?: "The current environment is unavailable",
             )
         }
         val dataRead = relativePath.startsWith("data/") && runSkillsRoot != null
@@ -1082,7 +1082,7 @@ internal class AgentLocalTools(
 
     private fun skillsListCurated(): String {
         val source = githubSkillSource
-            ?: return errorResult("SKILL_INSTALLER_UNAVAILABLE", "GitHub Skill 服务未初始化")
+            ?: return errorResult("SKILL_INSTALLER_UNAVAILABLE", "GitHub Skill service is not initialized")
         return skillSourceResult {
             val inspection = source.listCurated()
             rememberInspection(
@@ -1096,7 +1096,7 @@ internal class AgentLocalTools(
 
     private fun skillsInspectGitHub(args: JSONObject): String {
         val source = githubSkillSource
-            ?: return errorResult("SKILL_INSTALLER_UNAVAILABLE", "GitHub Skill 服务未初始化")
+            ?: return errorResult("SKILL_INSTALLER_UNAVAILABLE", "GitHub Skill service is not initialized")
         return skillSourceResult {
             val repository = GitHubSkillRepositoryParser.resolve(
                 repository = args.getString("repository"),
@@ -1128,7 +1128,7 @@ internal class AgentLocalTools(
             if (replaceExisting && selectedPaths.size != 1) {
                 return@skillSourceResult errorResult(
                     "SKILL_REPLACE_SCOPE_TOO_BROAD",
-                    "一次只能替换一个 Skill 路径；请逐个重试",
+                    "Only one Skill path can be replaced at a time; retry each one separately",
                 )
             }
             val expectedReplacementId = args.optString("expectedReplacementId").trim()
@@ -1144,7 +1144,7 @@ internal class AgentLocalTools(
                     inspectionKey(requestedRepository.slug, requestedRepository.ref)
                 ] ?: return@skillSourceResult errorResult(
                     "SKILL_INSPECTION_REQUIRED",
-                    "安装前必须在本轮先检查同一仓库与 ref 的 Skill 候选",
+                    "Before installing, you must first check the Skill candidates for the same repository and ref in this round",
                 )
                 val invalidSelection = selectedPaths.firstOrNull {
                     it !in snapshot.candidatesByPath
@@ -1152,7 +1152,7 @@ internal class AgentLocalTools(
                 if (invalidSelection != null) {
                     return@skillSourceResult errorResult(
                         "INVALID_SKILL_SELECTION",
-                        "所选路径不在本轮检查返回的候选中：$invalidSelection",
+                        "The selected path is not among the candidates returned by this round's check: $invalidSelection",
                     )
                 }
                 val snapshotPrefix = snapshot.prefix
@@ -1164,7 +1164,7 @@ internal class AgentLocalTools(
                 ) {
                     return@skillSourceResult errorResult(
                         "INVALID_SKILL_SELECTION",
-                        "所选路径不在本轮检查的目录范围内",
+                        "The selected path is outside the directory scope of this round's check",
                     )
                 }
                 requestedRepository.copy(ref = snapshot.commitSha)
@@ -1176,24 +1176,24 @@ internal class AgentLocalTools(
             ) {
                 return@skillSourceResult errorResult(
                     "INVALID_SKILL_SELECTION",
-                    "所选路径不在 GitHub URL 指定目录内",
+                    "The selected path is not within the directory specified by the GitHub URL",
                 )
             }
             val source = githubSkillSource
                 ?: return@skillSourceResult errorResult(
                     "SKILL_INSTALLER_UNAVAILABLE",
-                    "GitHub Skill 服务未初始化",
+                    "GitHub Skill service is not initialized",
                 )
             val installer = skillPackageInstaller
                 ?: return@skillSourceResult errorResult(
                     "SKILL_INSTALLER_UNAVAILABLE",
-                    "Skill 安装器未初始化",
+                    "Skill installer is not initialized",
                 )
             source.downloadArchive(repository).use { archive ->
                 if (closed.get()) {
                     return@skillSourceResult errorResult(
                         "SKILL_INSTALL_CANCELLED",
-                        "Skill 安装已取消，未提交文件",
+                        "Skill installation was canceled; no files were committed",
                     )
                 }
                 val result = installer.installRepositoryZip(
@@ -1277,7 +1277,7 @@ internal class AgentLocalTools(
     ): String? {
         val pending = pendingSkillConflict.get() ?: return errorResult(
             "SKILL_REPLACE_CAPABILITY_REQUIRED",
-            "没有可供精确重放的 Skill 冲突",
+            "No Skill conflict is available for exact replay",
         )
         if (
             !requestedRepository.slug.equals(pending.repository, ignoreCase = true) ||
@@ -1287,7 +1287,7 @@ internal class AgentLocalTools(
         ) {
             return errorResult(
                 "SKILL_REPLACE_CAPABILITY_MISMATCH",
-                "覆盖参数必须精确重放冲突结果中的仓库、commitSha、路径与 Skill ID",
+                "Override parameters must exactly replay the repository, commitSha, path, and Skill ID from the conflict result",
             )
         }
         return null
@@ -1300,7 +1300,7 @@ internal class AgentLocalTools(
 
     private fun nextTurnRequired(skillId: String): String = errorResult(
         "NEXT_TURN_REQUIRED",
-        "Skill $skillId 在本轮已安装或变更，将从下一轮对话开始可用",
+        "Skill $skillId was installed or changed in this round and will be available starting from the next round of conversation",
     )
 
     private fun installResult(
@@ -1335,8 +1335,8 @@ internal class AgentLocalTools(
                 .put("enabled", enableResult.isSuccess)
                 .put("enableError", if (enableResult.isSuccess) JSONObject.NULL else "ASSISTANT_ENABLE_FAILED")
                 .put("scriptsExecuted", false)
-                .put("message", if (enableResult.isSuccess) "Skill 已安装并启用，新版本从下一轮任务开始可用；本轮已批准的旧快照不变，安装过程未执行脚本"
-                    else "Skill 文件已安装，但未能为本轮所属助手启用；请在该助手设置中检查。安装过程未执行脚本")
+                .put("message", if (enableResult.isSuccess) "Skill installed and enabled; the new version will be available starting from the next task round. The old snapshot approved for this round remains unchanged; no scripts were executed during installation"
+                    else "The Skill files were installed, but could not be enabled for the assistant associated with this round; check that assistant's settings. No scripts were executed during installation")
                 .toString()
         }
         is SkillInstallResult.Conflict -> {
@@ -1365,7 +1365,7 @@ internal class AgentLocalTools(
             JSONObject()
                 .put("ok", false)
                 .put("code", "SKILL_CONFLICT")
-                .put("message", "Skill 已存在；可替换的单个用户 Skill 可按返回参数直接重试，内置 Skill 不可覆盖")
+                .put("message", "The Skill already exists; a single replaceable user Skill can be retried directly with the returned parameters, and built-in Skills cannot be overridden")
                 .put("repository", repository)
                 .put("ref", ref)
                 .put("commitSha", commitSha)
@@ -1387,7 +1387,7 @@ internal class AgentLocalTools(
     private inline fun skillSourceResult(block: () -> String): String = try {
         block()
     } catch (failure: GitHubSkillSourceException) {
-        errorResult(failure.code, failure.message ?: "GitHub Skill 请求失败")
+        errorResult(failure.code, failure.message ?: "GitHub Skill request failed")
     }
 
     private fun textToSpeech(args: JSONObject): String {
@@ -1399,7 +1399,7 @@ internal class AgentLocalTools(
             throw InvalidToolArgumentException("text is too long")
         }
         if (SpeechPlayback.state.value.recording) {
-            return errorResult("SPEECH_BUSY", "正在录音，无法朗读")
+            return errorResult("SPEECH_BUSY", "Recording is in progress; cannot read aloud")
         }
         android.os.Handler(android.os.Looper.getMainLooper()).post {
             SpeechPlayback.speak(context, "agent-tts", text)
@@ -1470,9 +1470,6 @@ internal class AgentLocalTools(
             "app_usage_summary",
             "get_current_location",
             "get_device_environment",
-            "list_alarms",
-            "list_active_timers",
-            "search_clipboard_history",
             "get_health_summary",
             "read_sms_code",
             "get_logcat",
@@ -1485,14 +1482,7 @@ internal class AgentLocalTools(
             "search_call_history",
             "search_messages",
             "search_downloads",
-            "search_coloros_notes",
-            "search_coloros_recordings",
-            "search_recording_summaries",
-            "search_coloros_memories",
-            "search_saved_places",
             "search_personal_orders",
-            "search_qq_chat_images",
-            "search_wechat_chat_images",
         )
         val DEVICE_SENSITIVE_ACTION_TOOL_NAMES = setOf(
             "set_setting",

@@ -17,7 +17,7 @@ internal class McpRunTool(
     val bearerToken: String?,
 )
 
-/** 一次 run 使用冻结的 MCP 工具目录，设置变更从下一次 run 生效。 */
+/** One run uses a frozen MCP tool catalog; settings changes take effect starting with the next run. */
 internal class McpRunSnapshot(
     val tools: List<McpRunTool>,
 ) {
@@ -28,9 +28,9 @@ internal class McpRunSnapshot(
     fun appendModelTools(destination: JSONArray) {
         tools.forEach { tool ->
             val description = buildString {
-                append("MCP 服务器「").append(tool.server.name).append("」提供的工具")
+                append("Tool provided by MCP server \"").append(tool.server.name).append("\"")
                 tool.definition.description.trim().takeIf { it.isNotBlank() }?.let {
-                    append("。 ").append(it)
+                    append(". ").append(it)
                 }
             }
             destination.put(
@@ -59,9 +59,9 @@ internal class McpRunSnapshot(
                 server.activeTools.forEach { tool ->
                     if (count >= MAX_RUN_TOOLS) return
                     val description = buildString {
-                        append("MCP 服务器「").append(server.name).append("」提供的工具")
+                        append("Tool provided by MCP server \"").append(server.name).append("\"")
                         tool.description.trim().takeIf { it.isNotBlank() }?.let {
-                            append("。 ").append(it)
+                            append(". ").append(it)
                         }
                     }
                     runCatching {
@@ -141,13 +141,13 @@ internal class McpToolExecutor(
     override fun execute(toolCall: AgentModelClient.ToolCall): AgentModelClient.ToolResult {
         val tool = snapshot.resolve(toolCall.name) ?: return failure(
             code = "UNKNOWN_MCP_TOOL",
-            message = "MCP 工具未在本次运行中启用",
+            message = "MCP tool is not enabled in this run",
         )
         val arguments = runCatching { JSONObject(toolCall.argumentsJson.ifBlank { "{}" }) }
-            .getOrElse { return failure("INVALID_ARGUMENT", "MCP 工具参数不是 JSON object") }
+            .getOrElse { return failure("INVALID_ARGUMENT", "MCP tool arguments are not a JSON object") }
         return runCatching {
             val client = synchronized(lifecycleLock) {
-                if (closed) return failure("MCP_EXECUTOR_CLOSED", "MCP 工具执行器已关闭")
+                if (closed) return failure("MCP_EXECUTOR_CLOSED", "MCP tool executor is closed")
                 clients[tool.server.id] ?: McpHttpClient(
                     server = tool.server,
                     bearerToken = tool.bearerToken,
@@ -155,7 +155,7 @@ internal class McpToolExecutor(
             }
             adaptResult(tool, client.callTool(tool.definition, arguments))
         }.getOrElse {
-            failure("MCP_CALL_FAILED", "MCP 工具调用失败")
+            failure("MCP_CALL_FAILED", "MCP tool call failed")
         }
     }
 
@@ -175,13 +175,13 @@ internal class McpToolExecutor(
         if (resultType == "input_required") {
             return failure(
                 code = "MCP_INPUT_REQUIRED_UNSUPPORTED",
-                message = "当前版本暂不支持 MCP 工具在执行中请求补充输入",
+                message = "This version does not support MCP tools requesting additional input mid-execution",
             )
         }
         if (tool.server.lastProtocolVersion == McpProtocolMode.LATEST && resultType != "complete") {
             return failure(
                 code = "MCP_RESULT_TYPE_UNSUPPORTED",
-                message = "MCP 工具返回了不支持的结果类型",
+                message = "MCP tool returned an unsupported result type",
             )
         }
         val content = result.optJSONArray("content") ?: JSONArray()

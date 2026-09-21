@@ -12,14 +12,14 @@ class UserMessageFileReferencesTest {
     @Test fun imagePreviewHidesOnlyItsDuplicateFileCard() {
         val photo = file("/cache/c1/photo.jpg")
         val document = file("/docs/readme.pdf")
-        val message = UserMessageUi("u", "图片", images = listOf("data:image/jpeg;base64,preview"), imageSources = listOf(photo.absolutePath))
+        val message = UserMessageUi("u", "photo", images = listOf("data:image/jpeg;base64,preview"), imageSources = listOf(photo.absolutePath))
         assertEquals(listOf(document), message.visibleFileReferences(listOf(photo, document)))
     }
 
     @Test fun videoUsesOriginalSourceNotItsCoverForDeduplication() {
         val video = file("/cache/c1/clip.mp4")
         val cover = file("/cache/c1/cover.jpg")
-        val message = UserMessageUi("u", "视频", images = listOf(cover.absolutePath), imageSources = listOf(video.absolutePath), imageIsVideo = listOf(true))
+        val message = UserMessageUi("u", "video", images = listOf(cover.absolutePath), imageSources = listOf(video.absolutePath), imageIsVideo = listOf(true))
         assertEquals(listOf(cover), message.visibleFileReferences(listOf(video, cover)))
         assertTrue(message.isVideoAt(0))
         assertEquals(video.absolutePath, message.fullImageSourceAt(0))
@@ -63,7 +63,7 @@ class UserMessageFileReferencesTest {
         val video = file("/cache/c1/clip.mp4")
         val document = file("/docs/readme.pdf")
         val references = listOf(photo, video, document)
-        val content = AgentFileReferencePromptCodec.format("补充附件", references)
+        val content = AgentFileReferencePromptCodec.format("Additional attachments", references)
         val encoded = encodeUserMessageImages(
             listOf(photo.absolutePath, "/cache/c1/cover.jpg"),
             listOf(photo.absolutePath, video.absolutePath), listOf(false, true), listOf(null, 12000L))

@@ -24,7 +24,7 @@ class AgentLocalToolsPermissionTest {
         val root = AtomicBoolean(true)
         val tools = tools(
             rootAvailable = root::get,
-            beforeToolExecution = { error("缺少 Root 的旧调用不应进入执行阶段") },
+            beforeToolExecution = { error("Old Root call must not reach the execution stage") },
         )
         root.set(false)
         listOf(
@@ -99,7 +99,7 @@ class AgentLocalToolsPermissionTest {
             beforeToolExecution = {
                 ToolExecutionDecision.Reject(
                     code = "ENTRY_SURFACE_NOT_READY",
-                    message = "入口窗口尚未确认关闭",
+                    message = "Entry window has not confirmed close",
                 )
             },
         )
@@ -122,7 +122,7 @@ class AgentLocalToolsPermissionTest {
             beforeToolExecution = {
                 ToolExecutionDecision.Reject(
                     code = "ACCESSIBILITY_PROTECTION_UNAVAILABLE",
-                    message = "无障碍保护后端不可用",
+                    message = "Accessibility protection backend unavailable",
                 )
             },
         )
@@ -137,7 +137,7 @@ class AgentLocalToolsPermissionTest {
         val json = JSONObject(result.content)
 
         assertEquals("ACCESSIBILITY_PROTECTION_UNAVAILABLE", json.getString("code"))
-        assertEquals("无障碍保护后端不可用", json.getString("message"))
+        assertEquals("Accessibility protection backend unavailable", json.getString("message"))
         tools.close()
     }
 

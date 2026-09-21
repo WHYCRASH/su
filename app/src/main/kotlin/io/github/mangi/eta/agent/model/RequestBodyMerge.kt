@@ -14,12 +14,12 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /**
- * 将用户自定义请求体字段递归合并到主请求 JSON。
+ * Recursively merge user-defined request-body fields into the main request JSON.
  *
- * 规则：
- * - 如果 key 已存在且两边都是 [JSONObject]，递归合并。
- * - 如果 key 已存在且两边都是 [JSONArray]，替换为用户自定义数组（用户优先）。
- * - 其他情况直接覆盖（用户自定义优先）。
+ * Rules:
+ * - If the key exists and both sides are [JSONObject], merge recursively.
+ * - If the key exists and both sides are [JSONArray], replace with the user-defined array (user wins).
+ * - Otherwise overwrite directly (user-defined wins).
  */
 internal object RequestBodyMerge {
 

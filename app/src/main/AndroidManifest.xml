@@ -19,7 +19,7 @@
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"
         tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
-    <!-- Agent 的应用发现与可见性自检需要完整应用列表，launcher queries 不能覆盖该能力。 -->
+    <!-- The agent's app-discovery and visibility self-check need the full app list; launcher queries cannot cover that. -->
     <uses-permission
         android:name="android.permission.QUERY_ALL_PACKAGES"
         tools:ignore="QueryAllPackagesPermission" />

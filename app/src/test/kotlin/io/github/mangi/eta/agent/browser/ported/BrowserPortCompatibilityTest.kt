@@ -32,11 +32,11 @@ class BrowserPortCompatibilityTest {
     }
 
     @Test fun coordinatesAndSubmitSurviveParsing() {
-        val input = requireNotNull(BrowserActionInput.parse("""{"action":"type","coordinate_x":20,"coordinate_y":40,"text":"测试","submit":true}"""))
+        val input = requireNotNull(BrowserActionInput.parse("""{"action":"type","coordinate_x":20,"coordinate_y":40,"text":"Test","submit":true}"""))
         assertEquals(20, input.coordinateX)
         assertEquals(40, input.coordinateY)
         assertTrue(input.submit)
-        assertEquals("测试", input.text)
+        assertEquals("Test", input.text)
     }
 
     @Test fun cookieDefaultsDoNotLoseEtaFuzzyMatching() {

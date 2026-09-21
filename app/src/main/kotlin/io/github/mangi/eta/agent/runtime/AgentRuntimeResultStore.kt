@@ -23,7 +23,7 @@ internal object AgentRuntimeResultStore {
     private val recentlyAcknowledgedRunIds = LinkedHashMap<String, Long>()
 
     /**
-     * 返回 false 表示同一 run 已先收到 ACK，不应在 ACK 之后重新写回待交付队列。
+     * Returning false means this run already received an ACK; do not write it back to the pending-delivery queue after the ACK.
      */
     fun add(context: Context, completedRun: AgentRuntimeWire.CompletedRun): Boolean {
         val appContext = context.applicationContext

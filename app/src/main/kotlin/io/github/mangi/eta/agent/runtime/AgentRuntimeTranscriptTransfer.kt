@@ -11,11 +11,11 @@ import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * 把最终结果 transcript 从 Messenger Bundle 中移出。
+ * Move the final result transcript out of the Messenger Bundle.
  *
- * 发送端把 transcript 序列化后写入临时文件，并通过只读文件描述符交给入口进程；
- * 接收端读取文件后恢复成消息列表。文件本身由发送端持有，直到入口 ACK 后再清理。
- * 旧客户端仍可从 Bundle 内联 JSON 回退读取。
+ * The sender serializes the transcript and writes it to a temporary file, then hands it to the entry process via a read-only file descriptor;
+ * the receiver reads the file and restores it into a message list. The file itself is held by the sender and cleaned up only after the entry process ACKs.
+ * Older clients can still fall back to reading the inline JSON from the Bundle.
  */
 internal object AgentRuntimeTranscriptTransfer {
     private const val TRANSCRIPT_TRANSFER_DIRECTORY = "agent-runtime-transcript"
@@ -41,7 +41,7 @@ internal object AgentRuntimeTranscriptTransfer {
     ): PreparedTranscript {
         val cacheDirectory = File(context.cacheDir, TRANSCRIPT_TRANSFER_DIRECTORY).apply {
             if (!isDirectory && !mkdirs()) {
-                throw IllegalStateException("无法创建 transcript 传输缓存")
+                throw IllegalStateException("Unable to create transcript transport cache")
             }
         }
         cleanupStaleFiles(cacheDirectory)
@@ -54,7 +54,7 @@ internal object AgentRuntimeTranscriptTransfer {
         }
         file.writeBytes(bytes)
         val descriptor = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
-            ?: throw IllegalStateException("无法打开 transcript 文件描述符")
+            ?: throw IllegalStateException("Unable to open transcript file descriptor")
         return PreparedTranscript(descriptor, file)
     }
 
@@ -73,7 +73,7 @@ internal object AgentRuntimeTranscriptTransfer {
             }
         }.getOrNull()
         if (fromFd != null) return fromFd
-        // 兼容旧 Runtime：transcript 仍内联在 Bundle 中。
+        // For compatibility with the old Runtime: transcript is still inlined in the Bundle.
         return AgentConversationCodec.decodeTranscript(
             bundle.getString(AgentRuntimeWire.KEY_TRANSCRIPT_JSON),
         )

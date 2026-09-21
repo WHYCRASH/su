@@ -29,14 +29,14 @@ class ConversationDraftsTest {
         try {
             val drafts = ConversationDrafts(preferences(), scope)
             val a = drafts.field("a")
-            a.setTextAndPlaceCursorAtEnd("A 草稿")
+            a.setTextAndPlaceCursorAtEnd("A draft")
             val b = drafts.field("b")
-            b.setTextAndPlaceCursorAtEnd("B 草稿")
+            b.setTextAndPlaceCursorAtEnd("B draft")
             assertSame(a, drafts.field("a"))
             assertSame(b, drafts.field("b"))
-            assertEquals("A 草稿", drafts.field("a").text.toString())
-            assertEquals("B 草稿", drafts.field("b").text.toString())
-            assertEquals(4, drafts.field("a").selection.end)
+            assertEquals("A draft", drafts.field("a").text.toString())
+            assertEquals("B draft", drafts.field("b").text.toString())
+            assertEquals(7, drafts.field("a").selection.end)
         } finally { scope.cancel() }
     }
 
@@ -45,11 +45,11 @@ class ConversationDraftsTest {
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
         try {
             val drafts = ConversationDrafts(prefs, scope)
-            drafts.field("a").setTextAndPlaceCursorAtEnd("未发送\n第二行 😀")
+            drafts.field("a").setTextAndPlaceCursorAtEnd("Unsent\nsecond line 😀")
             Snapshot.sendApplyNotifications()
             yield()
             val restored = ConversationDrafts(prefs, scope)
-            assertEquals("未发送\n第二行 😀", restored.field("a").text.toString())
+            assertEquals("Unsent\nsecond line 😀", restored.field("a").text.toString())
             val removed = drafts.field("b")
             drafts.remove("b")
             removed.setTextAndPlaceCursorAtEnd("late event")

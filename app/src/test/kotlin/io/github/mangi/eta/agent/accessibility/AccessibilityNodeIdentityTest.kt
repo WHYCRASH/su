@@ -7,25 +7,25 @@ import org.junit.Test
 class AccessibilityNodeIdentityTest {
     @Test
     fun `same view id with recycled row text is not the same node`() {
-        val original = identity(text = "第一行")
-        val recycled = identity(text = "插入后的新行")
+        val original = identity(text = "first row")
+        val recycled = identity(text = "inserted new row")
 
         assertFalse(original.matches(recycled))
     }
 
     @Test
     fun `unique id cannot hide changed action semantics`() {
-        val original = identity(uniqueId = "virtual-42", text = "旧状态")
-        val refreshed = identity(uniqueId = "virtual-42", text = "新状态")
+        val original = identity(uniqueId = "virtual-42", text = "old state")
+        val refreshed = identity(uniqueId = "virtual-42", text = "new state")
 
         assertFalse(original.matches(refreshed))
-        assertTrue(original.matches(identity(uniqueId = "virtual-42", text = "旧状态")))
+        assertTrue(original.matches(identity(uniqueId = "virtual-42", text = "old state")))
     }
 
     @Test
     fun `blank semantic node is weak when window content changes`() {
         assertFalse(identity(text = "", description = "").strong)
-        assertTrue(identity(text = "按钮").strong)
+        assertTrue(identity(text = "button").strong)
     }
 
     @Test
@@ -71,7 +71,7 @@ class AccessibilityNodeIdentityTest {
 
     private fun identity(
         uniqueId: String = "",
-        text: String = "条目",
+        text: String = "item",
         description: String = "",
     ): AccessibilityNodeIdentity = AccessibilityNodeIdentity(
         uniqueId = uniqueId,

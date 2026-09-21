@@ -3,7 +3,7 @@ package io.github.mangi.eta.agent.terminal
 import android.content.Context
 import java.io.File
 
-/** Eta 管理的 Linux 工具环境路径；内部历史包名不参与对外展示。 */
+/** Paths for the su-managed Linux tool environment; the internal legacy package name is not user-visible. */
 internal object AlpineEnvironmentPaths {
     const val READY_MARKER = LinuxEnvironmentPaths.READY_MARKER
     const val COMMON_TOOLS_MARKER = ".eta-common-tools-ready"
@@ -11,14 +11,12 @@ internal object AlpineEnvironmentPaths {
     const val PYTHON_TOOLS_MARKER = ".eta-python-tools-ready"
     const val NODE_TOOLS_MARKER = ".eta-node-tools-ready"
     const val SSH_TOOLS_MARKER = ".eta-ssh-tools-ready"
-    const val KIMI_TOOLS_MARKER = ".eta-kimi-tools-ready"
     const val TOOLSET_REVISION = 1
     const val APK_ANALYSIS_REVISION = 1
     const val PYTHON_TOOLS_REVISION = 1
-    // revision 2：Debian 规格补装 libatomic1，已就绪环境需重走安装补齐依赖。
+    // Revision 2: the Debian spec additionally installs libatomic1; environments already marked ready must reinstall to pick up the dependency.
     const val NODE_TOOLS_REVISION = 2
     const val SSH_TOOLS_REVISION = 1
-    const val KIMI_TOOLS_REVISION = 1
 
     fun environmentDir(context: Context): File =
         LinuxEnvironmentPaths.environmentDir(context, LinuxDistribution.ALPINE)

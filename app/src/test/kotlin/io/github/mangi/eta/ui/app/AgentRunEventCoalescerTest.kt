@@ -10,11 +10,11 @@ class AgentRunEventCoalescerTest {
     fun coalescesAdjacentDeltasFromTheSameBlock() {
         val coalescer = AgentRunEventCoalescer()
 
-        assertNull(coalescer.append("run-1", delta(index = 0, text = "你")))
-        assertNull(coalescer.append("run-1", delta(index = 0, text = "好")))
+        assertNull(coalescer.append("run-1", delta(index = 0, text = "you")))
+        assertNull(coalescer.append("run-1", delta(index = 0, text = "good")))
 
         assertEquals(
-            delta(index = 0, text = "你好", chars = 2),
+            delta(index = 0, text = "yougood", chars = 7),
             coalescer.flush("run-1"),
         )
     }
@@ -22,10 +22,10 @@ class AgentRunEventCoalescerTest {
     @Test
     fun flushesThePreviousBlockBeforeBufferingANewOne() {
         val coalescer = AgentRunEventCoalescer()
-        val text = delta(index = 0, text = "回答")
+        val text = delta(index = 0, text = "Answer")
         val thinking = delta(
             index = 1,
-            text = "分析",
+            text = "Analyze",
             kind = AgentEvent.AssistantBlockKind.THINKING,
         )
 

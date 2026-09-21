@@ -43,7 +43,7 @@ class AgentCompactionPruningTest {
         val cut = AgentCompressionBoundary.selectStart(source, 20_000)
         assertEquals(4, cut)
         val working = AgentContextCompactor.pruneOversizedToolResults(source, archive, cut)
-        assertTrue(working[2].content.contains("[Eta tool output pruned;"))
+        assertTrue(working[2].content.contains(AgentContextCompactor.TOOL_PRUNED_PREFIX))
         assertEquals(source.drop(cut), working.drop(cut))
         val result = AgentContextCompactor.compress(working,
             AgentContextCompactor.Config(1, model(), provider {}, archive), keepStartOverride = cut)
@@ -91,7 +91,7 @@ class AgentCompactionPruningTest {
                 fail("Stale replay must never be sent")
             }), keepStartOverride = 3, replay = replay)
         }
-        assertTrue(failure.message.orEmpty().contains("回放与选中历史不一致"))
+        assertTrue(failure.message.orEmpty().contains("Summary replay is inconsistent with the selected history"))
     }
 
     @Test fun noEligiblePrefixMeansNoPruningAndNoArchiveWrites() {

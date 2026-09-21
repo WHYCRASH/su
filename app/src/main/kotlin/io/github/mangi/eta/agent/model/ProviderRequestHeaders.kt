@@ -23,11 +23,11 @@ internal object ProviderRequestHeaders {
                 builder.set("session-id", sessionId)
             }
         } else {
-            builder.set("User-Agent", "Eta")
+            builder.set("User-Agent", "su")
         }
         CustomHeaderFilter.mergeInto(builder, customHeaders)
         if (baseUrl.toHttpUrlOrNull()?.host == "opencode.ai") {
-            // 会话头由 Runtime 持有，避免固定自定义值把所有对话合并到同一路由。
+            // The session header is owned by the runtime, so a fixed custom value does not merge every conversation into one route.
             builder.set(
                 "x-opencode-session",
                 UUID.nameUUIDFromBytes(sessionId.toByteArray(Charsets.UTF_8)).toString(),

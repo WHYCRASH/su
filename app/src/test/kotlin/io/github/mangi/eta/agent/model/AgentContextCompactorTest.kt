@@ -187,13 +187,21 @@ class AgentContextCompactorTest {
             messages,
             systemCount = 1,
             history = listOf(
-                msg("system", AgentContextCompactor.SUMMARY_PREFIX_ZH + "\n摘要"),
+                msg("system", AgentContextCompactor.SUMMARY_PREFIX + "\nSummary"),
                 msg("user", "new"),
             ),
         )
         assertEquals(3, messages.length())
         assertEquals("rules", messages.getJSONObject(0).getString("content"))
         assertEquals("new", messages.getJSONObject(2).getString("content"))
+    }
+
+    @Test
+    fun legacyChinesePrefixedSummaryIsStillRecognizedAndStripped() {
+        val legacy = msg("system", AgentContextCompactor.SUMMARY_PREFIX_ZH + "\nPersisted work: replaced the battery")
+        assertTrue(AgentContextCompactor.isCompressionSummary(legacy))
+        assertFalse(AgentContextCompactor.isVisibleConversationMessage(legacy))
+        assertEquals("Persisted work: replaced the battery", AgentContextCompactor.displaySummary(legacy.content))
     }
 
 
@@ -204,7 +212,7 @@ class AgentContextCompactorTest {
             msg("assistant", "a1"),
             msg("user", "u2"),
             msg("assistant", "a2-partial"),
-            msg("user", AgentContextCompactor.steeringUserContent("再加上这个")),
+            msg("user", AgentContextCompactor.steeringUserContent("Add this too")),
             msg("assistant", "a2-continue"),
         )
         val start = AgentContextCompactor.recentKeepStartIndex(history, 1)
@@ -223,10 +231,10 @@ class AgentContextCompactorTest {
             msg("assistant", "a1"),
             msg("user", "u2"),
             msg("assistant", "a2-partial"),
-            msg("user", "还有没"),
+            msg("user", "Anything else?"),
         )
         val start = AgentContextCompactor.recentKeepStartIndex(history, 1)
-        assertEquals(history.indexOfLast { it.content == "还有没" }, start)
+        assertEquals(history.indexOfLast { it.content == "Anything else?" }, start)
         assertFalse(history.subList(start, history.size).any { it.content == "u2" })
     }
 

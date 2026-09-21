@@ -20,8 +20,8 @@ class DisconnectedContinueTest {
     @Test
     fun runtimeFailureNoticeEnablesContinue() {
         val messages = listOf(
-            UserMessageUi(id = "user-1", content = "继续刚才的任务"),
-            AgentMessageUi(id = "assistant-1", content = "已完成 4 个步骤"),
+            UserMessageUi(id = "user-1", content = "Continue the task from before"),
+            AgentMessageUi(id = "assistant-1", content = "Completed 4 steps"),
             SystemNoticeMessageUi(id = "fail-1", code = SystemNoticeCode.RuntimeFailed, detail = "connection closed"),
         )
         assertTrue(canContinueDisconnectedRun(messages))
@@ -31,9 +31,9 @@ class DisconnectedContinueTest {
     @Test
     fun laterUserMessageDisablesDisconnectedContinue() {
         val messages = listOf(
-            UserMessageUi(id = "user-1", content = "任务"),
+            UserMessageUi(id = "user-1", content = "Task"),
             SystemNoticeMessageUi(id = "fail-1", code = SystemNoticeCode.RuntimeFailed, detail = "connection closed"),
-            UserMessageUi(id = "user-2", content = "换个问题"),
+            UserMessageUi(id = "user-2", content = "A different question"),
         )
         assertFalse(canContinueDisconnectedRun(messages))
     }
@@ -41,7 +41,7 @@ class DisconnectedContinueTest {
     @Test
     fun emptyResultDoesNotLookLikeDisconnect() {
         val messages = listOf(
-            UserMessageUi(id = "user-1", content = "任务"),
+            UserMessageUi(id = "user-1", content = "Task"),
             SystemNoticeMessageUi(id = "empty-1", code = SystemNoticeCode.EmptyResult),
         )
         assertFalse(canContinueDisconnectedRun(messages))
@@ -50,10 +50,10 @@ class DisconnectedContinueTest {
     @Test
     fun resumeSupplementDoesNotHideFailureNotice() {
         val messages = listOf(
-            UserMessageUi(id = "user-1", content = "任务"),
-            AgentMessageUi(id = "assistant-1", content = "半截正文"),
+            UserMessageUi(id = "user-1", content = "Task"),
+            AgentMessageUi(id = "assistant-1", content = "Partial body text"),
             SystemNoticeMessageUi(id = "fail-1", code = SystemNoticeCode.RuntimeFailed, detail = "connection closed"),
-            UserMessageUi(id = "user-run-2-supplement-resume", content = "从被打断的位置直接接着做。"),
+            UserMessageUi(id = "user-run-2-supplement-resume", content = "Pick up directly where it was interrupted."),
         )
         assertTrue(canContinueDisconnectedRun(messages))
     }
@@ -62,8 +62,8 @@ class DisconnectedContinueTest {
     fun failedRoundStaysClosedAfterNotice() {
         val state = AgentChatUiState(
             messages = listOf(
-                UserMessageUi(id = "user-1", content = "任务"),
-                AgentMessageUi(id = "assistant-1", content = "已完成 4 个步骤"),
+                UserMessageUi(id = "user-1", content = "Task"),
+                AgentMessageUi(id = "assistant-1", content = "Completed 4 steps"),
                 SystemNoticeMessageUi(id = "fail-1", code = SystemNoticeCode.RuntimeFailed, detail = "connection closed"),
             ),
             input = "",
@@ -79,9 +79,9 @@ class DisconnectedContinueTest {
     fun pauseAndSteerStayOnTheSameOpenTurn() {
         val state = AgentChatUiState(
             messages = listOf(
-                UserMessageUi(id = "user-1", content = "任务"),
-                AgentMessageUi(id = "assistant-1", content = "做到一半", isStreaming = false),
-                UserMessageUi(id = "user-1-supplement-1", content = "再补充一句"),
+                UserMessageUi(id = "user-1", content = "Task"),
+                AgentMessageUi(id = "assistant-1", content = "Halfway done", isStreaming = false),
+                UserMessageUi(id = "user-1-supplement-1", content = "One more thing"),
             ),
             input = "",
             isStreaming = true,
@@ -96,11 +96,11 @@ class DisconnectedContinueTest {
     @Test
     fun stoppingWhileWaitingForApiRetryEnablesContinue() {
         val messages = listOf(
-            UserMessageUi(id = "user-1", content = "任务"),
+            UserMessageUi(id = "user-1", content = "Task"),
             SystemNoticeMessageUi(
                 id = "assistant-run-1-retry-1",
                 code = SystemNoticeCode.ModelRetry,
-                detail = "模型请求暂时中断，2 秒后重试（1/3）",
+                detail = "Model request was briefly interrupted; retrying in 2 seconds (1/3)",
             ),
             SystemNoticeMessageUi(id = "fail-1", code = SystemNoticeCode.Stopped),
         )
@@ -117,8 +117,8 @@ class DisconnectedContinueTest {
     @Test
     fun ordinaryStopWithoutRetryDoesNotLookLikeDisconnect() {
         val messages = listOf(
-            UserMessageUi(id = "user-1", content = "任务"),
-            AgentMessageUi(id = "assistant-1", content = "写到一半"),
+            UserMessageUi(id = "user-1", content = "Task"),
+            AgentMessageUi(id = "assistant-1", content = "Halfway written"),
             SystemNoticeMessageUi(id = "stop-1", code = SystemNoticeCode.Stopped),
         )
         assertFalse(messages.stoppedDuringModelRetry())

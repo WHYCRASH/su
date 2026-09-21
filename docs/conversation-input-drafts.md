@@ -1,13 +1,33 @@
-# 会话输入草稿
+# Conversation input drafts
 
-文字输入状态由 AgentAppState 中的 ConversationDrafts 按 conversationId 持有。首页、对话页、设置返回和会话切换使用同一编辑状态，包括进程内的光标与选择范围。尚未发送的新会话使用独立草稿槽，首次创建会话时迁移到会话 ID。
+Text input state is held per conversationId by ConversationDrafts in AgentAppState.
+Home, conversation page, settings return, and conversation switching share one editing
+state, including in-process cursor and selection. A not-yet-sent new conversation uses
+a standalone draft slot that migrates to the conversation ID when the conversation is
+first created.
 
-输入通过 snapshotFlow 写入独立 SharedPreferences，重建 AppState 可恢复文字。打字不修改消息列表、会话排序或聊天数据库，不触发整份 transcript 保存。附件仍使用原有会话状态，不扩展附件跨进程持久化。
+Input flows through snapshotFlow into a standalone SharedPreferences store; rebuilding
+AppState restores the text. Typing never touches the message list, conversation order,
+or the chat database, and never triggers a full transcript save. Attachments keep the
+existing conversation state; attachment cross-process persistence is not extended.
 
-删除会话同时取消其草稿观察并删除存储；删除全部会话清理草稿。发送前的校验失败保留输入；开始发送后只清理所属会话草稿。返回正在流式生成的会话不清空输入。追加消息收到 Runtime 接收事件后，只有文字仍等于已提交内容才清空，避免覆盖后续编辑。编辑历史消息时保留原草稿，取消编辑恢复。
+Deleting a conversation also cancels its draft observation and deletes its storage;
+deleting all conversations clears drafts. Pre-send validation failure keeps the input;
+after sending starts, only that conversation's draft is cleared. Returning to a
+conversation that is still streaming does not clear the input. After an appended message
+receives the Runtime acceptance event, the input clears only if the text still equals
+the submitted content, so later edits are never overwritten. Editing a history message
+keeps the original draft, and cancelling the edit restores it.
 
-回归用例覆盖会话独立编辑与光标、文字持久化、删除后的迟到更新、新会话草稿迁移与发送清理。尚未执行 Android 单测及编译；实机验收需在构建后验证设置往返、A/B 会话切换、流式中输入、发送校验失败和重启恢复。
+Regression cases cover per-conversation independent editing and cursor, text
+persistence, late updates after deletion, new-conversation draft migration, and
+send-time cleanup. Android unit tests and compilation have not been run yet; on-device
+acceptance after a build must verify settings round trips, A/B conversation switching,
+typing mid-stream, send-validation failure, and restart recovery.
 
-## 构建验证
+## Build verification
 
-2026-09-20：提交 `00c3849`，GitHub Actions `35505059621` 成功，1,759 项单测全部通过（无失败、错误或跳过）；包含本文回归用例。签名 APK 5.3.0 已交付手机下载目录，未自动安装，未进行安装后 UI 验收。
+2026-09-20: commit `00c3849`, GitHub Actions `35505059621` green, all 1,759 unit tests
+passed (no failures, errors, or skips), including this doc's regression cases. The signed
+5.3.0 APK was delivered to the phone's download folder; it was not auto-installed and
+no post-install UI acceptance was performed.

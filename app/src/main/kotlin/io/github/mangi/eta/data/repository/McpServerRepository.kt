@@ -47,7 +47,7 @@ internal object McpServerRepository {
     }
 
     suspend fun update(server: McpServerSetting, bearerToken: String? = null) {
-        val previous = requireNotNull(serverById(server.id)) { "MCP 服务器不存在" }
+        val previous = requireNotNull(serverById(server.id)) { "MCP server not found" }
         val secretStore = secrets()
         val previousToken = secretStore.bearerToken(server.id)
         val changesSecret = bearerToken != null || server.authorizationType == McpAuthorizationType.NONE
@@ -58,7 +58,7 @@ internal object McpServerRepository {
         }
         if (changesSecret) updateSecret(secretStore, updated, bearerToken.orEmpty())
         try {
-            require(dao().update(updated.toEntity()) == 1) { "MCP 服务器不存在" }
+            require(dao().update(updated.toEntity()) == 1) { "MCP server not found" }
         } catch (failure: Throwable) {
             if (changesSecret) runCatching {
                 updateSecret(secretStore, previous, previousToken.orEmpty())
@@ -68,19 +68,19 @@ internal object McpServerRepository {
     }
 
     suspend fun setToolEnabled(serverId: String, toolName: String, enabled: Boolean) {
-        val server = requireNotNull(serverById(serverId)) { "MCP 服务器不存在" }
+        val server = requireNotNull(serverById(serverId)) { "MCP server not found" }
         val names = server.enabledToolNames.toMutableSet()
         if (enabled) names += toolName else names -= toolName
         update(server.copy(enabledToolNames = names))
     }
 
     suspend fun delete(serverId: String) {
-        val previous = requireNotNull(serverById(serverId)) { "MCP 服务器不存在" }
+        val previous = requireNotNull(serverById(serverId)) { "MCP server not found" }
         val secretStore = secrets()
         val previousToken = secretStore.bearerToken(serverId)
         secretStore.clear(serverId)
         try {
-            require(dao().delete(serverId) == 1) { "MCP 服务器不存在" }
+            require(dao().delete(serverId) == 1) { "MCP server not found" }
         } catch (failure: Throwable) {
             runCatching { updateSecret(secretStore, previous, previousToken.orEmpty()) }
             throw failure

@@ -3,7 +3,7 @@ package io.github.mangi.eta.ui.model
 import io.github.mangi.eta.agent.model.AgentContextCompactor
 import io.github.mangi.eta.agent.model.AgentModelClient
 
-/** 把压缩结果变成时间线上的分界标记，摘要原文原样保留。 */
+/** Turn a compression result into a boundary marker on the timeline; the summary source text is kept verbatim. */
 internal object AgentContextCompactionUi {
     /** Pruning may commit before a manual summary fails. Until a new bill or a successful
      * summary baseline arrives, keep the latest measured occupancy instead of falling back
@@ -32,7 +32,7 @@ internal object AgentContextCompactionUi {
             message.role.equals("user", ignoreCase = true) &&
                 !AgentContextCompactor.isCompressionSummary(message)
         } + extraKeptUserMessages.coerceAtLeast(0)
-        // 圆环不能再用压缩前的窗口账单，但累计用量要留在标记上，供会话/设置统计。
+        // The ring can no longer use the pre-compression window bill, but cumulative usage stays on the marker for conversation/settings stats.
         val preservedUsage = conversationTokenUsage(messages)
         val messagesWithoutOldUsage = messages.map { message ->
             if (message is ContextCompactedMessageUi) {
@@ -47,7 +47,7 @@ internal object AgentContextCompactionUi {
                 id = markerId,
                 compactedCount = compactedCount,
                 summary = summary,
-                compressorLabel = if (pruningOnly) "工具输出修剪（非摘要）" else compressorLabel,
+                compressorLabel = if (pruningOnly) "Tool output pruning (not a summary)" else compressorLabel,
                 baselineTokens = baselineTokens,
                 resumeRound = resumeRound,
                 preservedUsage = preservedUsage,
@@ -78,13 +78,14 @@ internal object AgentContextCompactionUi {
         compressorLabel: String = "",
     ): Boolean {
         // Runtime events may include tool records not yet reflected in UI history.
-        if (compressorLabel == "工具输出预算修剪（原文可回读）") return true
+        if (compressorLabel == "Tool-output budget pruning (originals readable)") return true
         if (originalHistory == compressedHistory) return false
         return originalHistory.size == compressedHistory.size &&
             originalHistory.zip(compressedHistory).all { (before, after) ->
                 before == after || (before.role == "tool" && after.role == "tool" &&
                     before.copy(content = after.content) == after &&
-                    after.content.contains("[Eta tool output pruned;"))
+                    (after.content.contains(AgentContextCompactor.TOOL_PRUNED_PREFIX) ||
+                        after.content.contains(AgentContextCompactor.LEGACY_TOOL_PRUNED_PREFIX)))
             }
     }
 

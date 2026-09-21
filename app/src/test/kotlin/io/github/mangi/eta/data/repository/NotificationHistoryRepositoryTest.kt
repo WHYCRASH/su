@@ -31,10 +31,10 @@ class NotificationHistoryRepositoryTest {
     @Test
     fun `query and package filters only return matching notification`() {
         val now = System.currentTimeMillis()
-        repository.record("one", "com.example.food", "订单配送中", "骑手即将送达", null, now)
-        repository.record("two", "com.example.chat", "新消息", "今晚见", null, now - 1)
+        repository.record("one", "com.example.food", "Order out for delivery", "Courier arriving soon", null, now)
+        repository.record("two", "com.example.chat", "New message", "See you tonight", null, now - 1)
 
-        val result = JSONObject(repository.search("骑手", "com.example.food", 24, 20))
+        val result = JSONObject(repository.search("Courier", "com.example.food", 24, 20))
 
         assertEquals(1, result.getInt("count"))
         assertEquals("com.example.food", result.getJSONArray("items").getJSONObject(0).getString("package_name"))
@@ -43,15 +43,15 @@ class NotificationHistoryRepositoryTest {
     @Test
     fun `same notification key replaces prior content and expired records are excluded`() {
         val now = System.currentTimeMillis()
-        repository.record("same", "com.example.food", "旧状态", null, null, now - 1)
-        repository.record("same", "com.example.food", "已送达", null, null, now)
-        repository.record("expired", "com.example.food", "很久以前", null, null, now - 8L * 24 * 60 * 60 * 1_000)
+        repository.record("same", "com.example.food", "Old status", null, null, now - 1)
+        repository.record("same", "com.example.food", "Delivered", null, null, now)
+        repository.record("expired", "com.example.food", "A long time ago", null, null, now - 8L * 24 * 60 * 60 * 1_000)
 
         val serialized = repository.search("", "", 168, 20)
         val result = JSONObject(serialized)
 
         assertEquals(1, result.getInt("count"))
-        assertFalse(serialized.contains("旧状态"))
-        assertFalse(serialized.contains("很久以前"))
+        assertFalse(serialized.contains("Old status"))
+        assertFalse(serialized.contains("A long time ago"))
     }
 }

@@ -76,7 +76,7 @@ internal fun ConversationCollaborationDialog(
             else runCatching { RuntimeConfigRepository.buildRuntimeConfig(provider, model) }.getOrNull()
         }
     }
-    WindowDialog(show = taskRunning || (editingSlot == null && modelSlot == null), title = "本会话协作", onDismissRequest = onDismiss) {
+    WindowDialog(show = taskRunning || (editingSlot == null && modelSlot == null), title = "In-session collaboration", onDismissRequest = onDismiss) {
         Column(
             Modifier.fillMaxWidth().alpha(if (taskRunning) 0.38f else 1f)
                 .pointerInput(taskRunning) {
@@ -93,8 +93,8 @@ internal fun ConversationCollaborationDialog(
             Column(Modifier.heightIn(max = listMaxHeight).verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 SwitchPreference(
-                    title = "自动委派",
-                    summary = "主代理分配任务并审核结果",
+                    title = "Auto delegation",
+                    summary = "Main agent assigns tasks and reviews results",
                     checked = enabled,
                     enabled = !taskRunning,
                     insideMargin = androidx.compose.foundation.layout.PaddingValues(0.dp),
@@ -114,8 +114,8 @@ internal fun ConversationCollaborationDialog(
                             role = Role.Button,
                             enabled = !taskRunning,
                             hapticFeedbackEnabled = false,
-                            onClickLabel = "选择${SubAgentPreferences.label(slot)}模型",
-                            onLongClickLabel = "调整${SubAgentPreferences.label(slot)}思考深度",
+                            onClickLabel = "Select ${SubAgentPreferences.label(slot)} model",
+                            onLongClickLabel = "Adjust ${SubAgentPreferences.label(slot)} thinking depth",
                             onClick = { if (!currentTaskRunning) { TouchHaptics.click(view); modelSlot = slot } },
                             // Keep a consuming long-click even for an empty slot; do not fall through to model selection.
                             onLongClick = {
@@ -128,27 +128,27 @@ internal fun ConversationCollaborationDialog(
                         horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                         Column(Modifier.weight(1f)) {
                             Text(SubAgentPreferences.label(slot), style = MiuixTheme.textStyles.body1)
-                            Text(if (SubAgentPreferences.role(slot) == "implementation") "限定工作区内修改" else "只读检查与整理",
+                            Text(if (SubAgentPreferences.role(slot) == "implementation") "Restrict changes to the workspace" else "Read-only inspection and cleanup",
                                 style = MiuixTheme.textStyles.footnote1,
                                 color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
                         }
                         Column(Modifier.weight(1f), horizontalAlignment = Alignment.End) {
-                            Text(model?.displayName ?: "未配置", style = MiuixTheme.textStyles.body2,
+                            Text(model?.displayName ?: "Not configured", style = MiuixTheme.textStyles.body2,
                                 maxLines = 2, overflow = TextOverflow.Ellipsis)
                             model?.let {
-                                Text(listOfNotNull(it.providerName, effective?.let { effort -> "思考：${effort.displayName}" }).joinToString(" · "), style = MiuixTheme.textStyles.footnote1,
+                                Text(listOfNotNull(it.providerName, effective?.let { effort -> "Thinking: ${effort.displayName}" }).joinToString(" · "), style = MiuixTheme.textStyles.footnote1,
                                     color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                                     maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
                         }
                     }
                 }
-                Text("单击选模型 · 长按调整思考深度\n最多并行 2 项 · 更改下次运行生效\n模型配置：设置 → 模型功能 → 子代理",
+                Text("Tap to select model · Long-press to adjust thinking depth\nUp to 2 parallel tasks · Changes take effect on the next run\nModel configuration: Settings → Model features → Sub-agents",
                     style = MiuixTheme.textStyles.footnote1,
                     color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                     modifier = Modifier.padding(top = 4.dp))
             }
-            TextButton(text = "完成", modifier = Modifier.fillMaxWidth(), enabled = !taskRunning,
+            TextButton(text = "Done", modifier = Modifier.fillMaxWidth(), enabled = !taskRunning,
                 colors = ButtonDefaults.textButtonColorsPrimary(),
                 onClick = { if (!currentTaskRunning) { TouchHaptics.click(view); onDismiss() } })
         }
@@ -162,7 +162,7 @@ internal fun ConversationCollaborationDialog(
         TtsModelPickerDialog(
             state = models,
             show = true,
-            title = "选择${SubAgentPreferences.label(slot)}模型",
+            title = "Select ${SubAgentPreferences.label(slot)} model",
             onDismiss = { modelSlot = null },
             onClearSelection = {
                 if (currentTaskRunning) return@TtsModelPickerDialog
@@ -193,8 +193,8 @@ internal fun ConversationCollaborationDialog(
                 effort = effort,
                 options = options.ifEmpty { listOf(effort) },
                 description = "${SubAgentPreferences.label(slot)} · ${config.modelDisplayName.ifBlank { config.model }}\n" +
-                    "仅影响此子代理槽位，下次运行生效" +
-                    if (options.size <= 1) "\n该模型没有可切换的思考档位" else "",
+                    "Only affects this sub-agent slot and takes effect on the next run" +
+                    if (options.size <= 1) "\nThis model has no switchable thinking levels" else "",
                 onDismiss = { editingSlot = null },
                 onEffortChange = { next ->
                     if (!currentTaskRunning && next in options) {

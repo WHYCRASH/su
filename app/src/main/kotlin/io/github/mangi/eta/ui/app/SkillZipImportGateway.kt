@@ -9,7 +9,7 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.isActive
 
 /**
- * UI 与技能安装内核之间的窄适配层。UI 只负责重新打开 SAF 输入流，不解析或解压 ZIP。
+ * Narrow adapter between the UI and the skill-install core. The UI only reopens the SAF input stream; it never parses or unzips the archive.
  */
 internal fun interface SkillZipImportGateway {
     suspend fun installLocalZip(

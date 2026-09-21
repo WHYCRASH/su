@@ -8,10 +8,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 
 /**
- * 在途 UI run 的进程持久化日志。
+ * Durable per-process log for in-flight UI runs.
  *
- * 它不保存 Provider 配置、API Key、工具调用参数增量或原始工具结果，只保存 UI 已可见的
- * 参数摘要、终端命令与结果摘要。
+ * It never stores provider configs, API keys, tool-call argument deltas, or raw tool results, only the
+ * argument summaries, terminal commands, and result summaries already visible in the UI.
  */
 internal object AgentRunCheckpointStore {
     data class Checkpoint(
@@ -68,7 +68,7 @@ internal object AgentRunCheckpointStore {
         }
     }
 
-    /** 返回所有未确认 run；是否 active 或已完成由恢复协调器结合 Runtime 状态判断。 */
+    /** Return all unacknowledged runs; whether each is active or finished is judged by the recovery coordinator against Runtime state. */
     fun list(context: Context): List<Checkpoint> =
         runBlocking(Dispatchers.IO) {
             EtaDatabase.get(context.applicationContext)

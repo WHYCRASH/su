@@ -148,7 +148,7 @@ class SmoothTextRevealPolicyTest {
 
     @Test
     fun catchUpAdvancesMultipleGraphemesWithinSpeedCap() {
-        // 240 字/秒的速度上限 × 单帧最大 50ms，一帧最多推进 12 个字素。
+        // At the 240 graphemes/second speed cap × 50ms max per frame, one frame advances at most 12 graphemes.
         assertEquals(
             15f,
             advanceSmoothReveal(
@@ -224,7 +224,7 @@ class SmoothTextRevealPolicyTest {
     @Test
     fun markdownDocumentCollapsesSourceBlankLinesIntoSemanticBlocks() {
         val snapshot = StreamingGfmParserSession().parse(
-            source = "第一段\n\n\n第二段",
+            source = "First\n\n\nSecond",
             isComplete = true,
         )
 

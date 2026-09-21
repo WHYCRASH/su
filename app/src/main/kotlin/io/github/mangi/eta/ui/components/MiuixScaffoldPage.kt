@@ -25,8 +25,9 @@ import top.yukonga.miuix.kmp.utils.overScrollVertical
 import top.yukonga.miuix.kmp.utils.scrollEndHaptic
 
 /**
- * Eta 二级列表页的统一骨架：手机折叠大标题、宽屏固定小标题、顶栏毛玻璃、横屏安全区、
- * 宽屏内容居中、滚动边界触感与越界回弹均由此处统一提供。
+ * Shared skeleton for Eta second-level list pages: a large folding-phone title, a fixed small title on wide screens,
+ * a frosted top bar, landscape cutout handling, centered wide-screen content, scroll-edge haptics, and overscroll
+ * bounce are all provided here.
  */
 @Composable
 fun MiuixScaffoldPage(
@@ -57,7 +58,7 @@ fun MiuixScaffoldPage(
         },
     ) { innerPadding ->
         WidePageContent { sidePadding ->
-            // 保留 MiuixTheme 注入的默认越界工厂，让短内容页也能回弹到顶栏采样区。
+            // Keep the default overscroll factory injected by MiuixTheme so short pages still bounce into the top-bar sampling area.
             LazyColumn(
                 state = listState,
                 modifier = Modifier
@@ -84,8 +85,8 @@ fun MiuixScaffoldPage(
 }
 
 /**
- * 自定义内容二级页的低层骨架。调用方负责把顶部 padding、横向安全区与 nested scroll
- * 接入自己的内容；[sidePadding] 用于在宽屏限制实际内容宽度，滚动容器本身仍应保持全宽。
+ * Lower-level skeleton for custom-content second-level pages. Callers wire top padding, lateral safe areas, and nested scroll
+ * into their own content; [sidePadding] limits the content width on wide screens while the scroll container itself stays full width.
  */
 @Composable
 fun MiuixScaffold(

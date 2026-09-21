@@ -12,7 +12,7 @@ import kotlin.math.round
 import kotlin.math.roundToInt
 import org.json.JSONObject
 
-/** 按需提供手机当前采用的时间环境与最近系统位置。 */
+/** Provides the phone's current time setting and latest system location on demand. */
 internal object DeviceContextTool {
     fun current(
         context: Context,
@@ -29,7 +29,7 @@ internal object DeviceContextTool {
             .put("timezone", localTime.zone.id)
             .put(
                 "weekday",
-                localTime.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.SIMPLIFIED_CHINESE),
+                localTime.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.ENGLISH),
             )
             .put("location", location.toJson())
             .toString()

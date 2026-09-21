@@ -3,7 +3,7 @@ package io.github.mangi.eta.agent.model
 import org.json.JSONArray
 import org.json.JSONObject
 
-/** 将 Eta 会话消息投影为 OpenAI-compatible 请求所需的系统指令结构。 */
+/** Projects su session messages into the system-instruction shape OpenAI-compatible requests need. */
 internal object OpenAiRequestMessages {
     fun forChatCompletions(source: JSONArray): JSONArray {
         val system = collectInstructions(source, SYSTEM_ROLES)

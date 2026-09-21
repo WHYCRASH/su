@@ -13,11 +13,11 @@ import org.junit.Test
 class SubAgentTraceTest {
     @Test fun runningAndCompletedAreNotConfusedAndEvidenceIsNotInSummary() {
         val formatter = AgentTraceFormatter()
-        assertEquals("子代理执行中", formatter.summarizeResult("delegate_task",
+        assertEquals("Sub-agent running", formatter.summarizeResult("delegate_task",
             AgentModelClient.ToolResult("{\"ok\":true,\"status\":\"running\"}")))
         val result = formatter.summarizeResult("get_task_result",
             AgentModelClient.ToolResult("{\"ok\":true,\"status\":\"completed\",\"result\":\"private evidence\"}", sensitive = true))
-        assertTrue(result.contains("等待主代理审核"))
+        assertTrue(result.contains("Waiting for main agent review"))
         assertFalse(result.contains("private evidence"))
     }
 

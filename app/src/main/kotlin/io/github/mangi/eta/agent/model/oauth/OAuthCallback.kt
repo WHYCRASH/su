@@ -22,14 +22,14 @@ internal object OAuthCallback {
     }
 
     fun parseUrlOrThrow(url: String): Pair<String, String?> {
-        val parsed = parseComponents(url) ?: error("登录回调地址无效")
+        val parsed = parseComponents(url) ?: error("Invalid login callback URL")
         val error = parsed.query["error"]
         if (!error.isNullOrBlank()) {
             val description = parsed.query["error_description"]?.takeIf { it.isNotBlank() }
             error(description ?: error)
         }
         val code = parsed.query["code"]?.takeIf { it.isNotBlank() }
-            ?: error("登录回调缺少授权码")
+            ?: error("Login callback is missing the authorization code")
         return code to parsed.query["state"]
     }
 

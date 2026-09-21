@@ -13,7 +13,7 @@ class AgentSummaryTextFragmentsTest {
     }
 
     @Test fun allWhitespaceAndBoundaryMarkersSurvive() {
-        val text = "  开头\n\n</history-fragment>\n```代码```\t尾部  "
+        val text = "  start\n\n</history-fragment>\n```code```\tend  "
         val ranges = split(text, 4)
         assertEquals(text, ranges.joinToString("") { text.substring(it.start, it.end) })
         assertEquals(0, ranges.first().start)
@@ -22,7 +22,7 @@ class AgentSummaryTextFragmentsTest {
     }
 
     @Test fun unicodeSurrogatePairsNeverSplit() {
-        val text = "😀甲𠀀乙😀"
+        val text = "😀A𠀀B😀"
         val ranges = split(text, 1)
         assertEquals(5, ranges.size)
         assertEquals(text, ranges.joinToString("") { text.substring(it.start, it.end) })
@@ -31,12 +31,12 @@ class AgentSummaryTextFragmentsTest {
 
     @Test fun noRoomFailsInsteadOfEmptyInfiniteLoop() {
         val e = assertThrows(IllegalArgumentException::class.java) { split("a", 0) }
-        assertTrue(e.message!!.contains("预算不足"))
+        assertTrue(e.message!!.contains("input budget"))
     }
 
     @Test fun excessiveFragmentsFailRatherThanSilentlyTruncating() {
         val e = assertThrows(IllegalArgumentException::class.java) { split("abcdef", 1, 5) }
-        assertTrue(e.message!!.contains("分块过多"))
+        assertTrue(e.message!!.contains("Too many summary fragments"))
     }
 
     @Test fun cancellationIsCheckedInsideBinarySearch() {
@@ -51,7 +51,7 @@ class AgentSummaryTextFragmentsTest {
     }
 
     @Test fun utf16OffsetsCanBeIncludedInRealBudget() {
-        val source = "中😀".repeat(200)
+        val source = "Middle😀".repeat(200)
         val ranges = AgentSummaryTextFragments.split(source, 32, {}, {
             AgentContextBudget.countTokens("offset=${it.start}..${it.end}\n" + source.substring(it.start, it.end)) <= 50
         })

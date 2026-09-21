@@ -1,6 +1,6 @@
 package io.github.mangi.eta.agent.runtime
 
-/** 同时存活的 Runtime run。替换只发生在同一个 runId 上，不会取消其他会话。 */
+/** Concurrently live runtime runs. Replacement only happens on the same runId and never cancels other sessions. */
 internal class AgentRuntimeSessionRegistry {
     private val lock = Any()
     private val sessions = linkedMapOf<String, AgentRuntimeSession>()

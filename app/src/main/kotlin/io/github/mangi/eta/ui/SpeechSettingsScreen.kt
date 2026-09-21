@@ -1,6 +1,6 @@
 package io.github.mangi.eta.ui
 
-import io.github.mangi.eta.agent.voice.doubao.DoubaoVoiceConfig
+import io.github.mangi.eta.agent.voice.VoiceInputConfig
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -30,27 +30,21 @@ internal fun SpeechSettingsScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val view = LocalView.current
     val state by OfflineSpeechPack.state.collectAsState()
-    val config by DoubaoVoiceConfig.state.collectAsState()
-    var page by remember { mutableStateOf<String?>(null) }
-    androidx.activity.compose.BackHandler(enabled = page != null) { page = null }
-    if (page != null) {
-        DoubaoVoiceSettings(page = page!!, onBack = { page = null })
-        return
-    }
+    val config by VoiceInputConfig.state.collectAsState()
     var confirmDownload by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { DoubaoVoiceConfig.load(context); OfflineSpeechPack.initialize(context) }
+    LaunchedEffect(Unit) { VoiceInputConfig.load(context); OfflineSpeechPack.initialize(context) }
     MiuixScaffoldPage(title = stringResource(R.string.speech_title), onBack = onBack) {
         item(key = "speech_enable") {
             Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
                 SwitchPreference(
                     title = stringResource(R.string.speech_enable),
-                    summary = "点击聊天输入框的语音按钮，把说话变成文字。",
+                    summary = "Tap the voice button in the chat input field to turn speech into text.",
                     insideMargin = PaddingValues(16.dp),
                     checked = config.inputEnabled,
                     enabled = true,
                     onCheckedChange = { enabled ->
                         TouchHaptics.click(view)
-                        DoubaoVoiceConfig.save(context, config.copy(inputEnabled = enabled))
+                        VoiceInputConfig.save(context, config.copy(inputEnabled = enabled))
                     },
                 )
             }
@@ -85,14 +79,8 @@ internal fun SpeechSettingsScreen(onBack: () -> Unit) {
                 }
             }
         }
-        item(key = "recognition_method") {
-            Card(Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
-                ArrowPreference(title = "识别方式", summary = if (config.cloudAsr) "豆包识别 · 需要联网" else "本机识别 · 无需账户",
-                    insideMargin = PaddingValues(16.dp), onClick = { page = "asr" })
-            }
-        }
         item(key = "speech_privacy") {
-            Text(if (config.cloudAsr) "点击后收音，音频发送至豆包识别；文字留在输入框，不自动发送。离开聊天或切到后台停止收音。" else stringResource(R.string.speech_privacy),
+            Text(stringResource(R.string.speech_privacy),
                 modifier = Modifier.padding(horizontal = 28.dp, vertical = 8.dp),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,

@@ -6,9 +6,9 @@ import io.github.mangi.eta.agent.tool.AgentToolCapabilities
 import org.json.JSONArray
 
 /**
- * 估算下一轮请求里不在对话历史中的固定开销：系统提示、Skills/记忆注入、工具 JSON Schema。
+ * Estimate the fixed overhead in the next round's request that is not part of the conversation history: system prompt, Skills/memory injection, tool JSON Schema.
  *
- * 第一轮还没有账单时，把它加进本地估算；已有账单时只把「当前开销 - 账单当时开销」当作差额。
+ * With no bill yet in the first round, add it to the local estimate; once billed, only count the "current overhead minus overhead at billing time" delta.
  */
 internal object AgentRequestOverhead {
     fun estimate(

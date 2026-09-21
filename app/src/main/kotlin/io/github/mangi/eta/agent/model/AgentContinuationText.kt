@@ -36,8 +36,9 @@ internal class AgentContinuationText(prefix: String) {
         val visibleChars = candidate.filterNot { it.isWhitespace() }
         if (visibleChars.isEmpty()) return false
         val ideographs = visibleChars.filter { it.isIdeograph() }
-        // "这" at the pause point is a seam. "好。" is a short acknowledgement:
-        // the period counts as a visible character, but it is not a repeated clause.
+        // A single ideograph at the pause point is a seam; a two-character acknowledgement (an
+        // ideograph plus its terminator) is not: the terminator counts as a visible character but
+        // it is not a repeated clause.
         if (ideographs.length <= 1 && visibleChars.length <= 2) {
             return candidate.length == 1 && ideographs.length == 1
         }

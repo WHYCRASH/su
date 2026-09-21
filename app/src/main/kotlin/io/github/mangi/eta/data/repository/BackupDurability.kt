@@ -46,7 +46,7 @@ internal object BackupDurability {
         val parent = requireNotNull(directory.parentFile)
         mkdirs(parent)
         if (!directory.mkdir() && !directory.isDirectory) {
-            error("无法创建恢复目录：${directory.name}")
+            error("Unable to create restore directory: ${directory.name}")
         }
         syncDirectory(parent)
     }
@@ -54,7 +54,7 @@ internal object BackupDurability {
     fun sameFileSystem(source: File, target: File) {
         val ancestor = generateSequence(target.absoluteFile) { it.parentFile }.first { it.exists() }
         require(Os.stat(source.absolutePath).st_dev == Os.stat(ancestor.absolutePath).st_dev) {
-            "恢复目标跨文件系统，未开始修改数据"
+            "Restore target crosses file systems; no data has been modified"
         }
     }
 
@@ -73,7 +73,7 @@ internal object BackupDurability {
                 throw failure
             }
             if (target.exists() && target != source) {
-                check(target.delete() || !target.exists()) { "无法覆盖恢复目标：${target.name}" }
+                check(target.delete() || !target.exists()) { "Unable to overwrite restore target: ${target.name}" }
             }
             if (!source.renameTo(target)) {
                 Files.move(source.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING)
@@ -84,7 +84,7 @@ internal object BackupDurability {
     }
 
     fun digest(file: File): String {
-        require(file.isFile && !Files.isSymbolicLink(file.toPath())) { "恢复文件不是普通文件" }
+        require(file.isFile && !Files.isSymbolicLink(file.toPath())) { "Restore file is not a regular file" }
         val digest = MessageDigest.getInstance("SHA-256")
         file.inputStream().use { input ->
             val buffer = ByteArray(64 * 1024)

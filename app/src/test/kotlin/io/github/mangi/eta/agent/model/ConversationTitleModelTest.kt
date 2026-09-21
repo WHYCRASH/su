@@ -28,8 +28,8 @@ class ConversationTitleModelTest {
     }
 
     @Test fun titleIsSingleLineUnquotedAndBounded() {
-        assertEquals("图像识别", ConversationTitleModel.normalize("  “图像识别”\n解释  "))
-        assertEquals(24, ConversationTitleModel.normalize("长".repeat(50)).length)
+        assertEquals("Image recognition", ConversationTitleModel.normalize("  “Image recognition”\nExplanation  "))
+        assertEquals(24, ConversationTitleModel.normalize("Long".repeat(50)).length)
         assertThrows(IllegalArgumentException::class.java) { ConversationTitleModel.normalize("  ") }
     }
 }

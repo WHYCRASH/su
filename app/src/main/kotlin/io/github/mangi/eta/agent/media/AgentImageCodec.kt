@@ -16,9 +16,9 @@ internal object AgentImageCodec {
         source: String,
         mimeHint: String = "image/jpeg"
     ): AgentModelClient.ModelImage {
-        require(bytes.isNotEmpty()) { "图片内容为空" }
-        require(bytes.size <= MAX_AGENT_IMAGE_BYTES) { "图片数据过大：${bytes.size}" }
-        // 全局发原图：直接 base64 原始 bytes，不 decode+re-encode（零损失），只读尺寸/mime
+        require(bytes.isNotEmpty()) { "Image content is empty" }
+        require(bytes.size <= MAX_AGENT_IMAGE_BYTES) { "Image data too large: ${bytes.size}" }
+        // Send the original image as-is: base64 the raw bytes directly without decode+re-encode (zero loss); only read dimensions/mime
         val opts = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeByteArray(bytes, 0, bytes.size, opts)
         val recognizedImage = bytes.hasSupportedImageMagic()
@@ -35,14 +35,14 @@ internal object AgentImageCodec {
         )
     }
 
-    /** 用户附件始终保持原始字节、编码和像素尺寸。 */
+    /** User attachments always keep their original bytes, encoding, and pixel dimensions. */
     fun fromAttachmentBytes(
         bytes: ByteArray,
         source: String,
         mimeHint: String = "image/jpeg",
     ): AgentModelClient.ModelImage = fromBytes(bytes, source, mimeHint)
 
-    /** 屏幕观察图会进模型请求，必须有界压缩；坐标空间用压缩后的宽高。 */
+    /** Screen-observation images go into model requests and must be bounded-compressed; the coordinate space uses the compressed width and height. */
     fun fromScreenBytes(
         bytes: ByteArray,
         source: String,
@@ -50,7 +50,7 @@ internal object AgentImageCodec {
     ): AgentModelClient.ModelImage {
         AgentModelImageEncoder.toolVision(bytes, source, mimeHint)?.let { return it }
         val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-            ?: error("无法解码屏幕截图")
+            ?: error("Cannot decode the screenshot")
         return try {
             AgentModelImageEncoder.screenContext(bitmap, source)
         } finally {
@@ -69,14 +69,14 @@ internal object AgentImageCodec {
     ): AgentModelClient.ModelImage = AgentModelImageEncoder.screenContext(bitmap, source)
 
     /**
-     * 为聊天列表生成独立的小预览。模型仍从 [image.reference] 读取原图，预览不会参与模型输入。
+     * Generate a separate small preview for the chat list. The model still reads the original image from [image.reference]; the preview never becomes model input.
      */
     fun previewFromReference(
         context: Context,
         image: AgentModelClient.ModelImage,
     ): AgentModelClient.ModelImage? = AgentModelImageEncoder.preview(context, image)
 
-    /** 文件工具图片会在发送模型前压缩，避免多张原图撑大 OpenAI 兼容请求体。 */
+    /** File-tool images are compressed before being sent to the model so multiple originals do not bloat the OpenAI-compatible request body. */
     fun fromToolFile(file: File, source: String): AgentModelClient.ModelImage? = runCatching {
         AgentModelImageEncoder.toolVision(file.readBytesLimited(), source)
     }.getOrNull()
@@ -140,8 +140,8 @@ internal object AgentImageCodec {
     }
 
     /**
-     * 部分 ROM 的 Photo Picker 只实现 typed asset 或文件描述符读取。
-     * 依次尝试标准流、typed asset 和文件描述符，避免选图成功后附件被静默丢弃。
+     * Some ROMs' photo pickers only implement typed-asset or file-descriptor reads.
+     * Try the standard stream, typed asset, and file descriptor in order so a successful pick never silently drops the attachment.
      */
     private fun readContentUri(
         context: Context,
@@ -170,8 +170,8 @@ internal object AgentImageCodec {
     }
 
     /**
-     * 为跨进程请求解析图片。远程 URL 与已有 data URL 直接保留；本地 URI/路径只读取元数据，
-     * 正文稍后由 [io.github.mangi.eta.agent.runtime.AgentRuntimeImageTransfer] 通过文件描述符传输。
+     * Resolve images for cross-process requests. Remote URLs and existing data URLs pass through untouched; only metadata is read for local URIs/paths,
+     * with bodies transferred later by [io.github.mangi.eta.agent.runtime.AgentRuntimeImageTransfer] via file descriptor.
      */
     fun fromTransferReference(
         context: Context?,
@@ -211,7 +211,7 @@ internal object AgentImageCodec {
         val length = context.contentResolver.openAssetFileDescriptor(uri, "r")?.use { descriptor ->
             descriptor.length
         } ?: -1L
-        require(length <= MAX_AGENT_IMAGE_BYTES || length < 0L) { "图片文件过大：$length" }
+        require(length <= MAX_AGENT_IMAGE_BYTES || length < 0L) { "Image file too large: $length" }
         val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         context.contentResolver.openInputStream(uri)?.use { input ->
             BitmapFactory.decodeStream(input, null, options)
@@ -236,7 +236,7 @@ internal object AgentImageCodec {
         source: String,
     ): AgentModelClient.ModelImage? = runCatching {
         val length = file.length()
-        require(file.isFile && length in 1..MAX_AGENT_IMAGE_BYTES.toLong()) { "图片文件不可读或过大" }
+        require(file.isFile && length in 1..MAX_AGENT_IMAGE_BYTES.toLong()) { "Image file is unreadable or too large" }
         val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeFile(file.absolutePath, options)
         AgentModelClient.ModelImage(
@@ -250,7 +250,7 @@ internal object AgentImageCodec {
     }.getOrNull()
 
     private fun File.readBytesLimited(): ByteArray {
-        require(length() <= MAX_AGENT_IMAGE_BYTES.toLong()) { "图片文件过大：${length()}" }
+        require(length() <= MAX_AGENT_IMAGE_BYTES.toLong()) { "Image file too large: ${length()}" }
         return readBytes()
     }
 
@@ -262,7 +262,7 @@ internal object AgentImageCodec {
             val read = read(buffer)
             if (read < 0) break
             total += read
-            require(total <= MAX_AGENT_IMAGE_BYTES) { "图片数据过大：$total" }
+            require(total <= MAX_AGENT_IMAGE_BYTES) { "Image data too large: $total" }
             output.write(buffer, 0, read)
         }
         return output.toByteArray()

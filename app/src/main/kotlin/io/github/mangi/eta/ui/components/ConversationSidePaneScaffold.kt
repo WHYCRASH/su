@@ -214,8 +214,8 @@ fun ConversationSidePaneScaffold(
         val target = if (visible) DrawerValue.Open else DrawerValue.Closed
         if (drawerState.targetValue == target) return@LaunchedEffect
         if (!visible && drawerState.currentValue == DrawerValue.Open) {
-            // 从底部按钮切页：抽屉是完全打开的，瞬时合上再让新页入场。
-            // 手势收回时 currentValue 会先变成 Closed，这里不会走到。
+            // Switching pages from the bottom button: the drawer is fully open, so snap it shut before the new page enters.
+            // When dismissed by gesture, currentValue already flips to Closed first, so this path is not reached.
             drawerState.snapTo(target)
             return@LaunchedEffect
         }
@@ -229,8 +229,8 @@ fun ConversationSidePaneScaffold(
     LaunchedEffect(drawerState) {
         snapshotFlow { drawerState.currentValue to drawerState.isAnimationRunning }
             .collectLatest { (value, running) ->
-                // 快滑时 currentValue 会在 settle 开始就切换。立刻改 visible 会让
-                // 聊天页在惯性动画中间整页重组，看起来就是顿一下。
+                // On a fast fling, currentValue flips as soon as settling starts. Updating visible immediately would
+                // recompose the whole chat page mid-fling animation, which reads as a stutter.
                 if (running) return@collectLatest
                 if (value == DrawerValue.Open) {
                     if (!currentVisible) currentOnOpen()
@@ -373,7 +373,7 @@ private fun ConversationPanePanel(
         Column(
             modifier = Modifier
                 .fillMaxHeight()
-                // 搜索框在顶部，键盘不必把底部 dock 和会话输入一起顶上来。
+                // The search box sits at the top, so the keyboard does not need to push the bottom dock and session input up together.
                 .windowInsetsPadding(WindowInsets.safeDrawing.exclude(WindowInsets.ime))
                 .consumeWindowInsets(WindowInsets.ime)
                 .padding(horizontal = DrawerMetrics.PaneHorizontalPadding),
@@ -1161,8 +1161,8 @@ private object DrawerMotionSetters {
     }.getOrNull()
 
     fun apply(state: DrawerState) {
-        // 只改菜单按钮触发的开合。手势松手后的 settle 沿用 Material3 默认弹簧，
-        // 才能吃进快滑速度；短 tween 会把惯性掐成匀速，看起来就是顿一下。
+        // Only overrides the open/close driven by the menu button. Settling after a gesture release keeps the Material3
+        // default spring so fling velocity is preserved; a short tween would flatten inertia into constant speed, which reads as a stutter.
         openSetter?.invoke(state, DrawerOpenMotion)
         closeSetter?.invoke(state, DrawerCloseMotion)
     }

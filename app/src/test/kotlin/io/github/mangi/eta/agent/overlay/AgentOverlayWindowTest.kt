@@ -17,7 +17,7 @@ class AgentOverlayWindowTest {
         val controller = Robolectric.buildService(AgentRuntimeService::class.java).create()
         try {
             val service = controller.get()
-            for ((method, title) in listOf("orbLayoutParams" to "Eta Agent Orb", "bubbleLayoutParams" to "Eta Agent Controls")) {
+            for ((method, title) in listOf("orbLayoutParams" to "su Agent Orb", "bubbleLayoutParams" to "su Agent Controls")) {
                 val lp = AgentRuntimeService::class.java.getDeclaredMethod(method).apply { isAccessible = true }.invoke(service) as WindowManager.LayoutParams
                 assertEquals(WindowManager.LayoutParams.WRAP_CONTENT, lp.width)
                 assertEquals(WindowManager.LayoutParams.WRAP_CONTENT, lp.height)

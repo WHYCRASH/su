@@ -4,7 +4,7 @@ import android.content.Context
 import io.github.mangi.eta.data.repository.LinuxEnvironmentSettingsRepository
 import java.io.File
 
-/** 两个 Linux rootfs 共用的磁盘布局和就绪判定。 */
+/** Disk layout and readiness checks shared by the two Linux rootfs images. */
 internal object LinuxEnvironmentPaths {
     const val READY_MARKER = ".eta-environment-ready"
 
@@ -35,7 +35,7 @@ internal object LinuxEnvironmentPaths {
         return File(rootfsPath, READY_MARKER).isFile
     }
 
-    /** 标记存在即视为已安装；读得到内容时再核对修订。Root 解包后 App 可能暂时读不到正文。 */
+    /** The presence of the marker means it's considered installed; verify the revision when the contents can be read. After Root finishes unpacking, App may not be able to read the body for a while. */
     fun markerSatisfied(marker: File, expectedLine: String): Boolean {
         if (!marker.isFile) return false
         val lines = runCatching { marker.readLines() }.getOrNull() ?: return true

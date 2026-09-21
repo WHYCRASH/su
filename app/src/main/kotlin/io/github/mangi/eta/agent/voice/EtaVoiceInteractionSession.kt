@@ -9,10 +9,10 @@ import android.service.voice.VoiceInteractionSession
 import android.view.View
 
 /**
- * 系统数字助理的入口桥接。
+ * Entry bridge for the system digital assistant.
  *
- * 系统会为本类创建 TYPE_VOICE_INTERACTION 窗口，但 Eta 的实际界面由自己的
- * TYPE_APPLICATION_OVERLAY 窗口承载，避免把厂商助手动画和输入层级绑定到系统会话窗口。
+ * The system creates a TYPE_VOICE_INTERACTION window for this class, but Eta's actual UI is hosted by its own
+ * TYPE_APPLICATION_OVERLAY window, so vendor assistant animations and input layers are not tied to the system session window.
  */
 internal class EtaVoiceInteractionSession(context: Context) : VoiceInteractionSession(context) {
     private val controlReceiver = object : BroadcastReceiver() {
@@ -51,7 +51,7 @@ internal class EtaVoiceInteractionSession(context: Context) : VoiceInteractionSe
     }
 
     override fun onDestroy() {
-        // 浮窗拥有独立生命周期；系统会话重建不代表用户关闭了助理。
+        // The overlay has an independent lifecycle; a system session rebuild does not mean the user dismissed the assistant.
         context.unregisterReceiver(controlReceiver)
         super.onDestroy()
     }

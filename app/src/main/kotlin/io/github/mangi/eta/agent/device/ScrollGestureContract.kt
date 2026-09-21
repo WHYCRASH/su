@@ -9,7 +9,7 @@ internal enum class ScrollAxis {
 }
 
 /**
- * 滚动方向表示希望显示的新内容所在方向，而不是手指移动方向。
+ * The scroll direction is the direction of the new content to reveal, not the finger's travel direction.
  */
 internal enum class ScrollDirection(
     val axis: ScrollAxis,

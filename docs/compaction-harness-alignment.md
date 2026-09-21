@@ -33,7 +33,7 @@ Reference inspected: deepseek-ai/deepseek-harness commit
 - Runtime logs start, failure stage/checkpoint and committed result, including
   preflight failures before any network summary request.
 
-## Intentional Eta adaptations
+## Intentional su adaptations
 
 - Continuation tail uses retainRatio 0.16 (DeepSeek harness). 128k -> 20.5k, 500k -> 80k.
   These are selection budgets, not permission to split tool batches or truncate a

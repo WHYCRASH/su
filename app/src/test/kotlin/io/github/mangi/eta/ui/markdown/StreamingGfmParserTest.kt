@@ -13,24 +13,24 @@ import org.junit.Test
 class StreamingGfmParserTest {
     @Test
     fun numericCitationClusterIsStrippedBeforeParse() {
-        val raw = "[[10]](<https://github.com/a>) [[9]](<https://github.com/b>) [[1]](<https://github.com/c>)先看 DeepSeek harness"
+        val raw = "[[10]](<https://github.com/a>) [[9]](<https://github.com/b>) [[1]](<https://github.com/c>)See the DeepSeek harness first"
         assertEquals(
-            "先看 DeepSeek harness",
+            "See the DeepSeek harness first",
             NumericCitationMarkup.strip(raw),
         )
         val snapshot = StreamingGfmParserSession().parse(raw, isComplete = true)
         assertFalse(snapshot.renderedSource.contains("[[10]]"))
-        assertTrue(snapshot.renderedSource.contains("先看 DeepSeek harness"))
+        assertTrue(snapshot.renderedSource.contains("See the DeepSeek harness first"))
     }
 
     @Test
     fun headingIsParsedAsHeadingFromFirstStreamingSnapshot() {
         val snapshot = StreamingGfmParserSession().parse(
-            source = "## 标题",
+            source = "## Title",
             isComplete = false,
         )
 
-        assertEquals("## 标题", snapshot.renderedSource)
+        assertEquals("## Title", snapshot.renderedSource)
         assertEquals(MarkdownElementTypes.ATX_2, snapshot.state.node.children.single().type)
     }
 
@@ -39,19 +39,19 @@ class StreamingGfmParserTest {
         assertEquals(
             "",
             StreamingGfmProjection.project(
-                source = "| 指标 | 数值 |",
+                source = "| Metric | Value |",
                 isComplete = false,
             ),
         )
         assertEquals(
             "",
             StreamingGfmProjection.project(
-                source = "| 指标 | 数值 |\n| --",
+                source = "| Metric | Value |\n| --",
                 isComplete = false,
             ),
         )
 
-        val confirmed = "| 指标 | 数值 |\n| --- | --- |"
+        val confirmed = "| Metric | Value |\n| --- | --- |"
         val snapshot = StreamingGfmParserSession().parse(
             source = confirmed,
             isComplete = false,
@@ -63,7 +63,7 @@ class StreamingGfmParserTest {
 
     @Test
     fun ordinaryPipeTextIsReleasedWhenNextLineCannotBeATableDelimiter() {
-        val source = "请选择 A | B\n这不是分隔行"
+        val source = "Pick A | B\nThis is not a delimiter row"
 
         assertEquals(
             source,
@@ -74,33 +74,33 @@ class StreamingGfmParserTest {
     @Test
     fun incompleteStrongDelimiterUsesVirtualEofClosure() {
         val snapshot = StreamingGfmParserSession().parse(
-            source = "说明 **压力",
+            source = "Note **pressure",
             isComplete = false,
         )
 
-        assertEquals("说明 **压力**", snapshot.renderedSource)
+        assertEquals("Note **pressure**", snapshot.renderedSource)
         assertNotNull(snapshot.state.node.findRecursively(MarkdownElementTypes.STRONG))
     }
 
     @Test
     fun incompleteInlineCodeUsesVirtualEofClosure() {
         val snapshot = StreamingGfmParserSession().parse(
-            source = "执行 `adb shell",
+            source = "Run `adb shell",
             isComplete = false,
         )
 
-        assertEquals("执行 `adb shell`", snapshot.renderedSource)
+        assertEquals("Run `adb shell`", snapshot.renderedSource)
         assertNotNull(snapshot.state.node.findRecursively(MarkdownElementTypes.CODE_SPAN))
     }
 
     @Test
     fun incompleteLinkIsNotPublishedAsRawMarkdown() {
         val snapshot = StreamingGfmParserSession().parse(
-            source = "参考 [官方文档](https://example.com/do",
+            source = "See [docs](https://example.com/do",
             isComplete = false,
         )
 
-        assertEquals("参考 ", snapshot.renderedSource)
+        assertEquals("See ", snapshot.renderedSource)
         assertFalse(snapshot.renderedSource.contains('['))
     }
 
@@ -119,7 +119,7 @@ class StreamingGfmParserTest {
 
     @Test
     fun completionParsesExactOriginalSourceWithoutVirtualCharacters() {
-        val source = "未闭合 **标记"
+        val source = "Unclosed **markup"
         val snapshot = StreamingGfmParserSession().parse(
             source = source,
             isComplete = true,
@@ -132,13 +132,13 @@ class StreamingGfmParserTest {
     @Test
     fun identicalStreamingParseKeepsAstIdentity() {
         val session = StreamingGfmParserSession()
-        val first = session.parse("正文", isComplete = false)
-        assertEquals(null, nextStreamingSnapshot(first, session.parse("正文", isComplete = false)))
-        val completed = nextStreamingSnapshot(first, session.parse("正文", isComplete = true))
+        val first = session.parse("Body", isComplete = false)
+        assertEquals(null, nextStreamingSnapshot(first, session.parse("Body", isComplete = false)))
+        val completed = nextStreamingSnapshot(first, session.parse("Body", isComplete = true))
         assertEquals(true, completed?.isComplete)
         assertTrue(completed?.state === first.state)
-        val grown = nextStreamingSnapshot(first, session.parse("正文和增量", isComplete = false))
-        assertEquals("正文和增量", grown?.originalSource)
+        val grown = nextStreamingSnapshot(first, session.parse("Body plus delta", isComplete = false))
+        assertEquals("Body plus delta", grown?.originalSource)
         assertEquals(first, nextStreamingSnapshot(null, first))
     }
 

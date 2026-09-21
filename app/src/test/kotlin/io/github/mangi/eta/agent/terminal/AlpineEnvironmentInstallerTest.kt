@@ -114,20 +114,10 @@ class AlpineEnvironmentInstallerTest {
             ManagedLinuxTool.NODE,
             LinuxPackageProfiles.NODE.spec(LinuxDistribution.DEBIAN).managedTool,
         )
-        // Node 官方 arm64 二进制依赖 libatomic.so.1，Debian 规格必须补装 libatomic1。
+        // Node's official arm64 binaries depend on libatomic.so.1, so the Debian spec must also install libatomic1.
         assertTrue(
             LinuxPackageProfiles.NODE.spec(LinuxDistribution.DEBIAN).packages.contains("libatomic1"),
         )
-        // Kimi Code 是纯 JavaScript 的 npm 包，跑在 Node profile 之上；始终装最新正式版。
-        val kimi = LinuxPackageProfiles.KIMI
-        assertEquals(LinuxPackageProfiles.NODE, kimi.dependsOn)
-        LinuxDistribution.entries.forEach { distribution ->
-            val script = kimi.spec(distribution).setupScript.orEmpty()
-            assertTrue(script.contains("npm install -g"))
-            assertTrue(script.contains("@moonshot-ai/kimi-code@latest"))
-            assertTrue(script.contains("--prefix /usr/local"))
-            assertTrue(script.contains("registry.npmmirror.com"))
-        }
         LinuxDistribution.entries.forEach { distribution ->
             assertTrue(LinuxPackageProfiles.SSH.spec(distribution).packages.isNotEmpty())
         }

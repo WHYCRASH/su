@@ -1,6 +1,6 @@
 package io.github.mangi.eta.agent.device
 
-/** `wm size` 的 override 才是 input、screencap 与 UIAutomator 使用的当前逻辑坐标系。 */
+/** Only the `wm size` override is the current logical coordinate system used by input, screencap, and UIAutomator. */
 internal object AndroidDisplaySizeParser {
     fun parse(output: String): Pair<Int, Int>? =
         parseLabel(output, "Override size") ?: parseLabel(output, "Physical size")

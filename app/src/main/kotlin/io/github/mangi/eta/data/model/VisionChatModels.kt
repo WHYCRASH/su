@@ -1,9 +1,9 @@
 package io.github.mangi.eta.data.model
 
 /**
- * 聊天默认按「能看图」处理，避免每个新模型都改名单。
- * 只排除已知纯文本 / 生图模型。目录的 image 模态常误标，不再单独当真。
- * 模型编辑里的「支持视觉」写入 visionOverride，优先于这里的自动判断。
+ * Treat chat as image-capable by default so each new model does not need an allowlist change.
+ * Only exclude known text-only / image-generation models. Catalog image modalities are often mislabeled, so they are no longer trusted on their own.
+ * The "vision support" toggle in model editing writes visionOverride, which takes precedence over this automatic judgment.
  */
 internal object VisionChatModels {
     private val NEGATIVE = listOf(

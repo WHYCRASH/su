@@ -5,28 +5,28 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SpeechVoicesTest {
-    private val mimo = SpeechVoices.catalog(SpeechEngine.MIMO).map { it.id }
+    private val catalogIds = SpeechVoices.catalog(SpeechEngine.OPENAI).map { it.id }
 
     @Test fun keepsSavedVoiceWhileProviderCatalogIsStillLoading() {
         assertFalse(
             SpeechVoices.shouldReplaceStoredVoice(
                 cloud = true,
-                providerId = "mimo",
+                providerId = "provider-1",
                 providerReady = false,
-                storedVoice = "冰糖",
-                catalogIds = SpeechVoices.catalog(SpeechEngine.OPENAI).map { it.id },
+                storedVoice = "alloy",
+                catalogIds = catalogIds,
             ),
         )
     }
 
-    @Test fun keepsSavedMimoVoiceAfterCatalogLoads() {
+    @Test fun keepsSavedVoiceThatBelongsToTheLoadedCatalog() {
         assertFalse(
             SpeechVoices.shouldReplaceStoredVoice(
                 cloud = true,
-                providerId = "mimo",
+                providerId = "provider-1",
                 providerReady = true,
-                storedVoice = "冰糖",
-                catalogIds = mimo,
+                storedVoice = "alloy",
+                catalogIds = catalogIds,
             ),
         )
     }
@@ -35,10 +35,10 @@ class SpeechVoicesTest {
         assertTrue(
             SpeechVoices.shouldReplaceStoredVoice(
                 cloud = true,
-                providerId = "mimo",
+                providerId = "provider-1",
                 providerReady = true,
                 storedVoice = "",
-                catalogIds = mimo,
+                catalogIds = catalogIds,
             ),
         )
     }
@@ -47,10 +47,31 @@ class SpeechVoicesTest {
         assertTrue(
             SpeechVoices.shouldReplaceStoredVoice(
                 cloud = true,
-                providerId = "mimo",
+                providerId = "provider-1",
                 providerReady = true,
-                storedVoice = "alloy",
-                catalogIds = mimo,
+                storedVoice = "retired-voice",
+                catalogIds = catalogIds,
+            ),
+        )
+    }
+
+    @Test fun systemModeAndEmptyCatalogNeverTouchTheStoredVoice() {
+        assertFalse(
+            SpeechVoices.shouldReplaceStoredVoice(
+                cloud = false,
+                providerId = "provider-1",
+                providerReady = true,
+                storedVoice = "",
+                catalogIds = catalogIds,
+            ),
+        )
+        assertFalse(
+            SpeechVoices.shouldReplaceStoredVoice(
+                cloud = true,
+                providerId = "provider-1",
+                providerReady = true,
+                storedVoice = "retired-voice",
+                catalogIds = emptyList(),
             ),
         )
     }

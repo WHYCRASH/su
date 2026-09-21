@@ -1,22 +1,38 @@
-# 悬浮球与会话滚动性能
+# Overlay orb and conversation scroll performance
 
-## 实机证据（优化前）
+## On-device evidence (before optimization)
 
-采样时同时存在 184×184 小球、1216×2640 全屏装饰窗口及会话 Activity。
-三段连续采样间隔中，会话新增 767 帧 / 149 卡顿帧（19.4%）；两个匿名浮层分别 760 / 203（26.7%）、760 / 210（27.6%）。匿名帧统计不强行映射具体窗口。
-8 秒 atrace 中 Activity 绘制 446 次、两个浮层合计 893 次；主线程 postAndWait 累计约 3436 ms（墙钟等待，不能视为独占 CPU 时间）。该次主线程 doFrame 平均 10.34 ms、p95 12.99 ms、最大 40.66 ms。
-原始本机诊断位于 /workspace/overlay-scroll-diag/，未提交到仓库；日志不作为性能改善百分比依据。
+The sample covered three windows at once: a 184×184 orb, a 1216×2640 full-screen
+decor window, and the conversation Activity. Across three consecutive sampling
+intervals, the conversation added 767 frames / 149 janky frames (19.4%); the two
+anonymous overlay layers showed 760 / 203 (26.7%) and 760 / 210 (27.6%) respectively.
+Anonymous frame stats are not force-mapped to specific windows. In 8 seconds of atrace,
+the Activity drew 446 times and the two overlays 893 times combined; main-thread
+postAndWait totaled about 3436 ms (wall-clock wait, not exclusive CPU time). That run's
+main-thread doFrame averaged 10.34 ms, p95 12.99 ms, max 40.66 ms. The raw on-device
+diagnostics live in /workspace/overlay-scroll-diag/ and are not committed to the repo;
+the logs are not a basis for percentage improvement claims.
 
-## 修改
+## Changes
 
-- 移除额外全屏黑色压暗和旋转模糊光圈窗口，而非仅隐藏像素后继续动画。
-- 保留 56 dp 小球、展开操作气泡、暂停/继续/停止/补充和最终结果卡片。
-- 小球保持呼吸效果，但由单调时钟计时，50 ms 更新一次（最多 20 Hz），不再订阅屏幕每帧无限动画。
-- 呼吸值只在绘制阶段读取，不驱动组件重组/布局；drawWithCache 复用径向渐变。
-- 非运行态不创建持续循环，退出组合时协程取消。
-- 小球仅订阅阶段，不随工具详情、轮次变化刷新。窗口标记 Eta Agent Orb / Controls / Result 便于后续归因。
+- Remove the extra full-screen black dim and the rotating blur halo window instead of
+  just hiding pixels while the animation keeps running.
+- Keep the 56 dp orb, the expanded action bubble, pause/resume/stop/supplement controls,
+  and the final result card.
+- The orb keeps its breathing effect, but driven by a monotonic clock at 50 ms updates
+  (20 Hz max) instead of subscribing to every screen frame with an infinite animation.
+- Breathing values are read only at draw time and do not drive recomposition/layout;
+  drawWithCache reuses the radial gradient.
+- No continuous loop is created outside the running state; the coroutine is cancelled
+  when leaving the composition.
+- The orb subscribes only to the phase, not to tool-detail or round changes. Window tags
+  Eta Agent Orb / Controls / Result make later attribution easier.
 
-## 验证
+## Verification
 
-覆盖呼吸范围和频率、绘制更新不触发重组、暂停/结束/失败静止、恢复及卸载取消、小尺寸窗口和无全屏光晕窗口；原有可见性与控制动作测试继续执行。
-实机改善尚待安装优化包，在相同会话与相同滑动条件下复测，不能将单测通过当成帧率提升。
+Covers breathing range and frequency, draw updates not triggering recomposition,
+stillness on pause/end/failure, resume and unload cancellation, small window sizes, and
+no full-screen halo window; the existing visibility and control-action tests keep
+running. On-device improvement still needs a retest with the optimized build under the
+same conversation and swipe conditions; passing unit tests must not be reported as a
+frame-rate gain.

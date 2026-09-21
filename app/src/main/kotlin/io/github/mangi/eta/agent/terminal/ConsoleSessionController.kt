@@ -4,11 +4,11 @@ import io.github.mangi.eta.core.AgentLogger
 import kotlin.concurrent.thread
 
 /**
- * 控制台会话控制器：PTY 字节流原样透传，无状态行协议、无输出截断。
+ * Console session controller: the PTY byte stream passes through untouched, with no status-line protocol and no output truncation.
  *
- * 与 [UserTerminalController] 的差别在于交互模型：控制台面向全屏 TUI 与交互式 CLI，
- * 输入直接写 stdin（含方向键、Ctrl 组合键的转义字节），输出由调用方喂给
- * [TerminalScreenBuffer] 维护屏幕网格。多个控制台会话并存，按 sessionId 路由。
+ * Unlike [UserTerminalController], the interaction model targets fullscreen TUIs and interactive CLIs:
+ * input goes straight to stdin (including arrow-key and Ctrl-combo escape bytes), and the caller feeds output to
+ * [TerminalScreenBuffer] to maintain the screen grid. Multiple console sessions coexist, routed by sessionId.
  */
 internal class ConsoleSessionController(
     private val logger: AgentLogger,
@@ -64,18 +64,18 @@ internal class ConsoleSessionController(
         synchronized(sessionLock) {
             pruneDeadSessionsLocked()
             if (sessions.size >= MAX_SESSIONS) {
-                return OpenResult.Failed("SESSION_LIMIT_REACHED", "会话数量已达上限")
+                return OpenResult.Failed("SESSION_LIMIT_REACHED", "Session count has reached the limit")
             }
             val environmentRootfsPath = rootfsPath(environment)
             val identity = identity ?: if (environment.isLinux) TerminalRuntime.defaultIdentity(environment, environmentRootfsPath) else if (rootAvailable()) "root" else "user"
-            if (identity !in setOf("root", "user")) return OpenResult.Failed("INVALID_ARGUMENT", "执行身份无效")
-            if (environment.isLinux && identity == "user" && LinuxEnvironmentPaths.backendOf(environmentRootfsPath) != LinuxExecutionBackend.PROOT) return OpenResult.Failed("LINUX_ENVIRONMENT_REQUIRES_ROOT", "所选 Linux 环境需要 Root")
-            if (environment.isLinux && identity == "root" && LinuxEnvironmentPaths.backendOf(environmentRootfsPath) == LinuxExecutionBackend.PROOT) return OpenResult.Failed("INVALID_IDENTITY", "免 Root Linux 使用普通应用身份")
-            if (identity == "root" && !rootAvailable()) return OpenResult.Failed("ROOT_REQUIRED", "Root 授权不可用")
+            if (identity !in setOf("root", "user")) return OpenResult.Failed("INVALID_ARGUMENT", "Invalid execution identity")
+            if (environment.isLinux && identity == "user" && LinuxEnvironmentPaths.backendOf(environmentRootfsPath) != LinuxExecutionBackend.PROOT) return OpenResult.Failed("LINUX_ENVIRONMENT_REQUIRES_ROOT", "The selected Linux environment requires root")
+            if (environment.isLinux && identity == "root" && LinuxEnvironmentPaths.backendOf(environmentRootfsPath) == LinuxExecutionBackend.PROOT) return OpenResult.Failed("INVALID_IDENTITY", "Rootless Linux uses the regular app identity")
+            if (identity == "root" && !rootAvailable()) return OpenResult.Failed("ROOT_REQUIRED", "Root authorization is unavailable")
             if (environment.isLinux &&
                 !LinuxEnvironmentPaths.rootfsReady(environmentRootfsPath)
             ) {
-                return OpenResult.Failed("LINUX_ENVIRONMENT_NOT_READY", "Linux 工具环境尚未安装")
+                return OpenResult.Failed("LINUX_ENVIRONMENT_NOT_READY", "The Linux tool environment is not installed yet")
             }
             val process = processSupervisor.startShellProcess(
                 identity = identity,
@@ -91,7 +91,7 @@ internal class ConsoleSessionController(
                 pty = true,
                 ptyCols = cols,
                 ptyRows = rows,
-            ) ?: return OpenResult.Failed("PROCESS_START_FAILED", "无法启动控制台进程，请检查所选环境和终端组件")
+            ) ?: return OpenResult.Failed("PROCESS_START_FAILED", "Cannot start the console process; check the selected environment and terminal components")
 
             val sessionId = "c${++nextSessionNumber}"
             val newSession = PtySession(environment, process, identity)
@@ -105,7 +105,7 @@ internal class ConsoleSessionController(
                         onOutput(sessionId, buffer.copyOf(read))
                     }
                 } catch (_: Exception) {
-                    // 进程死亡或关闭时读端断开，交给 waiter 统一上报退出。
+                    // When the process dies or closes, the read end disconnects; the waiter reports the exit.
                 }
             }
             newSession.waiterThread = thread(name = "console-pty-waiter", isDaemon = true) {
@@ -114,8 +114,8 @@ internal class ConsoleSessionController(
                 processSupervisor.retireExitedProcess(process)
                 onExit(sessionId)
             }
-            // 落到环境默认工作目录；clear 清掉这条引导命令本身的回显。
-            // 用户工具的安装器常把 PATH 写进 profile；控制台 shell 不是 login shell，这里显式补齐。
+            // Land in the environment's default working directory; clear wipes this bootstrap command's own echo.
+            // User-tool installers often write PATH into profile; the console shell is not a login shell, so source it explicitly here.
             val defaultCwd = if (environment.isLinux) "/workspace" else TerminalRuntime.workspace(identity)
             val bootstrap = "mkdir -p ${shellQuote(defaultCwd)}; " +
                 "[ -f /etc/profile ] && . /etc/profile; " +
@@ -130,7 +130,7 @@ internal class ConsoleSessionController(
         }
     }
 
-    /** 向指定控制台会话写入输入字节（键盘文本、方向键/功能键转义序列）。会话不可用时静默丢弃。 */
+    /** Write input bytes (typed text, arrow/function-key escape sequences) to the given console session. Silently dropped when the session is unavailable. */
     fun write(sessionId: String, bytes: ByteArray) {
         val current = synchronized(sessionLock) { sessions[sessionId] } ?: return
         if (current.closed || !current.process.isAlive) return
@@ -148,7 +148,7 @@ internal class ConsoleSessionController(
 
     fun write(sessionId: String, text: String) = write(sessionId, text.toByteArray(Charsets.UTF_8))
 
-    /** 关闭单个会话；只回收该进程树，不影响其它会话，也不触发 supervisor 全局关闭。 */
+    /** Close a single session; reclaims only that process tree without affecting other sessions or triggering a global supervisor shutdown. */
     fun closeSession(sessionId: String) {
         synchronized(sessionLock) {
             closeSessionLocked(sessionId)
@@ -172,7 +172,7 @@ internal class ConsoleSessionController(
         processSupervisor.unregisterProcess(current.process)
     }
 
-    /** 回收已退出的会话槽位，避免死会话占用并发上限。 */
+    /** Reclaim exited session slots so dead sessions don't occupy the concurrency limit. */
     private fun pruneDeadSessionsLocked() {
         val deadIds = sessions.filterValues { it.closed || !it.process.isAlive }.keys.toList()
         deadIds.forEach { closeSessionLocked(it) }

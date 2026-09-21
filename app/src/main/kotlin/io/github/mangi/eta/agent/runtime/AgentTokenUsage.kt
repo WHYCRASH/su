@@ -15,8 +15,8 @@ internal data class AgentTokenUsage(
             cachedTokens == null
 
     /**
-     * 当前请求占用的窗口：对齐 ST「输入」。
-     * cache 已包含在 prompt 里；completion 是本轮输出，下一轮才会进 prompt。
+     * The window occupied by the current request: aligned with ST "Input".
+     * cache is already included in the prompt; completion is this round's output and will only enter the prompt in the next round.
      */
     fun occupancyTokens(): Int? {
         inputTokens?.takeIf { it > 0 }?.let { return it }

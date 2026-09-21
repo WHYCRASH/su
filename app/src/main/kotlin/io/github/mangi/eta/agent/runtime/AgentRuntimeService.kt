@@ -56,9 +56,9 @@ import top.yukonga.miuix.kmp.theme.darkColorScheme
 import top.yukonga.miuix.kmp.theme.lightColorScheme
 
 /**
- * 模块进程内的通用 Agent Runtime。
+ * General-purpose Agent Runtime inside the module process.
  *
- * Hook 入口只发送请求和接收结果；模型调用、工具执行、运行状态浮窗都在本服务中完成。
+ * The Hook entry point only sends requests and receives results; model calls, tool execution, and the running-status floating window all happen in this service.
  */
 internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegistryOwner {
 
@@ -135,8 +135,8 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
     }
 
     override fun onDestroy() {
-        failPendingStarts("Agent Runtime 服务已停止")
-        sessions.cancelAll("Agent Runtime 服务已停止")
+        failPendingStarts("Agent Runtime service has stopped")
+        sessions.cancelAll("Agent Runtime service has stopped")
         overlayRunId = null
         mainHandler.removeCallbacksAndMessages(null)
         resultCardView?.let { view -> runCatching { windowManager?.removeView(view) } }
@@ -169,7 +169,7 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
                 AgentRuntimeWire.MSG_START_RUN -> {
                     val data = msg.data
                     if (data == null) {
-                        finishWithFailure("Agent Runtime 请求缺少消息体", msg.replyTo)
+                        finishWithFailure("Agent Runtime request is missing the message body", msg.replyTo)
                         return
                     }
                     val incoming = runCatching {
@@ -178,13 +178,13 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
                         AndroidAgentLogger.warnThrottled("runtime_invalid_start_request") {
                             "Agent runtime rejected invalid start request: type=${throwable.safeLogType()}"
                         }
-                        finishWithFailure("Agent Runtime 请求格式无效", msg.replyTo)
+                        finishWithFailure("Agent Runtime request format is invalid", msg.replyTo)
                         return
                     }
                     val request = incoming.request
                     if (request.runId.isBlank() || (request.prompt.isBlank() && incoming.images.isEmpty())) {
                         incoming.close()
-                        finishWithFailure("Agent Runtime 请求缺少 runId 或用户输入", msg.replyTo)
+                        finishWithFailure("Agent Runtime request is missing runId or user input", msg.replyTo)
                         return
                     }
                     ingestRunRequest(incoming, msg.replyTo)
@@ -254,7 +254,7 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
     ) {
         val runId = incoming.request.runId
         pendingStartRequests.remove(runId)?.let { previous ->
-            failPendingStart(previous, "已被同一任务的新请求替换")
+            failPendingStart(previous, "Replaced by a new request for the same task")
         }
         val pending = PendingStartRequest(incoming, replyTo)
         pendingStartRequests[runId] = pending
@@ -293,10 +293,10 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
                         finishWithFailure(
                             when (throwable) {
                                 is AgentRuntimeImageTransfer.ImageTransferException ->
-                                    throwable.message ?: "Agent Runtime 无法读取图片"
+                                    throwable.message ?: "Agent Runtime cannot read the image"
                                 is RuntimeConfigUnavailableException ->
-                                    "请先在 Eta 中配置可用的模型"
-                                else -> "Agent Runtime 无法准备请求"
+                                    "Configure an available model in Eta first"
+                                else -> "Agent Runtime cannot prepare the request"
                             },
                             replyTo,
                         )
@@ -310,21 +310,21 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
         request: AgentRuntimeWire.RunRequest,
         replyTo: Messenger? = null,
     ) {
-        sessions.get(request.runId)?.cancel("已被同一任务的新请求替换")
+        sessions.get(request.runId)?.cancel("Replaced by a new request for the same task")
         val session = AgentRuntimeSession(
             runId = request.runId,
             eventSink = { event -> sendEventTo(replyTo, event, request.runId) },
             resultSink = { result -> sendResultTo(replyTo, result) },
         )
-        // Root 入口保留原有绑定服务生命周期；新增 FGS 不能成为厂商后台入口的新前置权限。
+        // The Root entry point keeps the existing bound-service lifecycle; the new FGS must not become a new prerequisite permission for vendor background entry points.
         val allowBoundFallback = RootAccess.isGranted
         val executionHeld = AgentExecutionService.acquire(
             this, "run:${request.runId}", allowBoundFallback = allowBoundFallback,
-        ) { session.cancel("已停止") }
+        ) { session.cancel("Stopped") }
         if (!executionHeld && (!allowBoundFallback || AgentExecutionService.backupMaintenance)) {
             session.complete(AgentRuntimeWire.RunResult(
                 runId = request.runId, ok = false, content = "",
-                error = "无法启动后台执行服务，请返回 Eta 后重试",
+                error = "Unable to start the background execution service; return to Eta and try again",
             )) {}
             return
         }
@@ -449,7 +449,7 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
         result: AgentRuntimeWire.RunResult,
         events: List<AgentEvent>,
     ) {
-        // outbox 是终态与在途 checkpoint 之间的提交点；失败时保留 checkpoint 供下次恢复。
+        // The outbox is the commit point between the final state and in-flight checkpoints; on failure, the checkpoint is kept for the next resume.
         persistCompletedRun(request, result)
         runCatching { persistArchivedRun(request, result, events) }
             .onFailure { throwable ->
@@ -491,7 +491,7 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
                     enterFinalState(
                         AgentOverlayState(
                             phase = AgentOverlayPhase.FAILED,
-                            status = if (result.error == "已停止") {
+                            status = if (result.error == "Stopped") {
                                 AgentOverlayStatus.Stopped
                             } else {
                                 AgentOverlayStatus.RunFailed
@@ -708,7 +708,7 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
     private fun cancelRun(runId: String) {
         if (runId.isBlank()) return
         pendingStartRequests.remove(runId)?.let { pending ->
-            failPendingStart(pending, "已停止")
+            failPendingStart(pending, "Stopped")
             return
         }
         val session = sessions.get(runId) ?: return
@@ -831,13 +831,13 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
 
     private fun showOverlay() {
         if (orbView != null) return
-        // TYPE_ACCESSIBILITY_OVERLAY 免 SYSTEM_ALERT_WINDOW 权限；仅回退态（无障碍未启用）才需检查
+        // TYPE_ACCESSIBILITY_OVERLAY avoids the SYSTEM_ALERT_WINDOW permission; only the fallback state (accessibility not enabled) needs the check
         if (AgentAccessibilityService.current() == null && !Settings.canDrawOverlays(this)) return
         val wm = overlayContext().getSystemService(Context.WINDOW_SERVICE) as? WindowManager ?: return
         windowManager = wm
 
         // No full-screen decorative window: it shared the UI/RenderThread with chat scrolling.
-        // ── 光球窗口：始终显示，右侧中下 ──────────────────────────────
+        // ── Orb window: always visible, right side, lower middle ──────────────────────────────
         val orb = createOverlayComposeView {
             AgentOverlayOrb(
                 phase = orbPhase.value,
@@ -855,7 +855,7 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
         orbParams = orbLp
         orb.visibility = View.VISIBLE
 
-        // ── 小气泡窗口：展开态显示，跟随光球，窗口外触摸穿透 ─────────
+        // ── Small bubble window: shown when expanded, follows the orb, touch passes through outside the window ─────────
         if (!collapsed.value) {
             showBubble(wm)
         }
@@ -922,8 +922,8 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
             setViewTreeSavedStateRegistryOwner(this@AgentRuntimeService)
             setContent {
                 MiuixTheme(colors = if (isNightMode()) darkColorScheme() else lightColorScheme()) {
-                    // 部分 ROM 会给 TYPE_ACCESSIBILITY_OVERLAY 分配软件 Canvas；Miuix 的
-                    // RuntimeShader 只检查系统版本，因此系统浮层统一使用其普通圆角回退。
+                    // Some ROMs assign a software Canvas to TYPE_ACCESSIBILITY_OVERLAY; Miuix's
+                    // RuntimeShader only checks the system version, so system overlays uniformly use its plain rounded-corner fallback.
                     CompositionLocalProvider(LocalSquircleEnabled provides false) {
                         content()
                     }
@@ -952,8 +952,8 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
                 WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
             PixelFormat.TRANSLUCENT
         ).apply {
-            title = "Eta Agent Orb"
-            // 右侧中下，贴近右边缘
+            title = "su Agent Orb"
+            // Right side, lower middle, close to the right edge
             gravity = Gravity.END or Gravity.TOP
             x = dpToPx(8)
             y = (resources.displayMetrics.heightPixels * 0.6f).toInt()
@@ -971,8 +971,8 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
                 WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
             PixelFormat.TRANSLUCENT
         ).apply {
-            title = "Eta Agent Controls"
-            // 跟随光球：右侧中下，窗口外触摸穿透
+            title = "su Agent Controls"
+            // Follows the orb: right side, lower middle, touch passes through outside the window
             gravity = Gravity.END or Gravity.TOP
             x = dpToPx(72)
             y = (resources.displayMetrics.heightPixels * 0.6f).toInt()
@@ -990,8 +990,8 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
                 WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
             PixelFormat.TRANSLUCENT
         ).apply {
-            title = "Eta Agent Result"
-            // 半屏底部居中，窗口外触摸穿透
+            title = "su Agent Result"
+            // Half-screen, bottom-centered, touch passes through outside the window
             gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL
             x = 0
             y = 0
@@ -999,8 +999,8 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
         }
 
     private fun overlayType(): Int =
-        // 无障碍服务可用时用 TYPE_ACCESSIBILITY_OVERLAY（免 SYSTEM_ALERT_WINDOW 权限，且截图
-        // filterValidWindows 可过滤）；需用无障碍服务 context 创建，否则 BadTokenException
+        // When the accessibility service is available, use TYPE_ACCESSIBILITY_OVERLAY (avoids the SYSTEM_ALERT_WINDOW permission, and screenshots
+        // filterValidWindows can filter); it must be created with the accessibility service context, otherwise BadTokenException
         if (AgentAccessibilityService.current() != null)
             WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY
         else
@@ -1037,7 +1037,7 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
         state.value = finalState
 
         if (hasExecutedForegroundTool) {
-            // 撤掉光球和小气泡，改显半屏结果卡片，不自动关闭，用户手动关闭
+            // Remove the orb and the small bubble, show the half-screen result card instead, do not auto-close, the user closes it manually
             collapsed.value = true
             removeAmbientWindows()
             windowManager?.let(::showResultCard)
@@ -1074,14 +1074,8 @@ internal class AgentRuntimeService : Service(), LifecycleOwner, SavedStateRegist
         }
     }
 
-    private fun isMessageSenderAllowed(msg: Message): Boolean {
-        val uid = msg.sendingUid
-        if (uid == Process.myUid()) return true
-        val packages = runCatching {
-            packageManager.getPackagesForUid(uid)
-        }.getOrNull().orEmpty()
-        return packages.any { it in ModuleConfig.AGENT_RUNTIME_ENTRY_PACKAGES }
-    }
+    private fun isMessageSenderAllowed(msg: Message): Boolean =
+        msg.sendingUid == Process.myUid()
 
     private fun isNightMode(): Boolean {
         val mode = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK

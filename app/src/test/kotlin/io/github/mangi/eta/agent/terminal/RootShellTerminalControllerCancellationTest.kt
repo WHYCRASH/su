@@ -107,7 +107,7 @@ class RootShellTerminalControllerCancellationTest {
                 ?.groupValues
                 ?.get(1)
                 ?.toLong()
-                ?: error("async 输出缺少 child PID")
+                ?: error("async output is missing the child PID")
 
             assertTrue(waitUntilProcessExits(childPid))
         } finally {
@@ -135,7 +135,7 @@ class RootShellTerminalControllerCancellationTest {
             if (!worker.isAlive) break
             Thread.sleep(10)
         }
-        error("未观察到 sleep 子进程")
+        error("No sleep child process observed")
     }
 
     private fun waitUntilProcessExits(pid: Long): Boolean {
@@ -172,7 +172,7 @@ class RootShellTerminalControllerCancellationTest {
             if (!result.getBoolean("running")) return result
             Thread.sleep(10)
         } while (System.nanoTime() < deadline)
-        error("async job 未在预期时间内结束")
+        error("async job did not finish in time")
     }
 
     private fun isProcessRunning(pid: Long): Boolean =

@@ -1,5 +1,6 @@
 package io.github.mangi.eta.ui.model
 
+import io.github.mangi.eta.agent.model.AgentContextCompactor
 import io.github.mangi.eta.agent.model.AgentModelClient
 import io.github.mangi.eta.agent.model.AgentSensitiveToolPolicy
 import org.json.JSONArray
@@ -44,13 +45,18 @@ $result"""
             if (message.role != "tool" || message.toolCallId !in wanted) return@forEach
             val call = calls[message.turnId to message.toolCallId] ?: return@forEach
             val sensitive = AgentSensitiveToolPolicy.isSensitive(call.name) ||
-                message.content.contains("敏感工具参数与原始结果") ||
+                message.content.contains("Sensitive tool arguments and raw result") ||
                 runCatching { JSONObject(call.argumentsJson).optBoolean("redacted") }.getOrDefault(false)
             identities.forEach identityLoop@ { (id, identity) ->
                 if (identity.call != call.id || identity.name != call.name) return@identityLoop
                 if (sensitive) { redacted += id; return@identityLoop }
                 // A compacted placeholder is not original evidence; look in the verified archive instead.
-                if (message.content.contains("[Eta tool output pruned;") || message.content.isEmpty()) return@identityLoop
+                if (message.content.isEmpty() ||
+                    message.content.contains(AgentContextCompactor.TOOL_PRUNED_PREFIX) ||
+                    message.content.contains(AgentContextCompactor.LEGACY_TOOL_PRUNED_PREFIX)
+                ) {
+                    return@identityLoop
+                }
                 val original = Original(call.argumentsJson, message.content, source)
                 val list = candidates.getOrPut(id) { mutableListOf() }
                 if (list.none { it.turn == message.turnId && it.original.arguments == original.arguments && it.original.result == original.result }) {

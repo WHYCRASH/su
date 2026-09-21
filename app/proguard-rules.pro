@@ -20,30 +20,35 @@
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
 
-# libxposed 通过 META-INF/xposed/java_init.list 中的类名字符串加载模块入口；
-# 允许入口类混淆时，需要同步改写 java_init.list，避免 release 裁剪后模块失效。
+# libxposed loads the module entry from the class-name strings in
+# META-INF/xposed/java_init.list; if the entry class is obfuscated, rewrite
+# java_init.list in sync so the module still works in release builds after shrinking.
 -dontwarn io.github.libxposed.annotation.**
 -adaptresourcefilecontents META-INF/xposed/java_init.list
 -keep,allowoptimization,allowobfuscation class io.github.mangi.eta.ModuleMain {
     public <init>();
 }
 
-# R8 默认规则已覆盖 Compose 运行时；Miuix 图标是普通 Kotlin 代码，允许 R8 裁掉未使用图标。
-# -dontwarn 仅抑制 KMP 依赖在 Android 侧可能出现的可选平台 warning，不阻止裁剪。
+# The R8 default rules already cover the Compose runtime; Miuix icons are plain
+# Kotlin code, so R8 may strip unused icons.
+# -dontwarn only suppresses the optional-platform warnings that KMP dependencies
+# may emit on the Android side; it does not block shrinking.
 -dontwarn top.yukonga.miuix.**
 
-# libxposed service 通过静态调用和 manifest provider 接入，交给 R8/Android 默认规则保留可达代码。
+# The libxposed service is wired through static calls and a manifest provider;
+# leave reachable code to the R8/Android default rules.
 -dontwarn io.github.libxposed.service.**
 
-# 配置 key 是字符串常量并通过静态调用访问，不需要保留类名或成员名。
+# Configuration keys are string constants accessed through static calls;
+# no need to keep class or member names.
 
-# ── Release 日志策略 ────────────────────────────────────────────────────────
-# 仅删除 Eta 自有代码中的 Android VERBOSE/DEBUG 调用；INFO/WARN/ERROR 必须保留，
-# 第三方依赖的日志策略由依赖自身决定。
+# ── Release logging policy ────────────────────────────────────────────────────────
+# Only strip Android VERBOSE/DEBUG calls in su's own code; INFO/WARN/ERROR must be kept,
+# and third-party dependencies keep their own logging policy.
 -maximumremovedandroidloglevel 3 class io.github.mangi.eta.** { *; }
 
-# XposedModule.log 不是 android.util.Log，R8 无法通过上面的规则识别。
-# debug supplier 是纯观察 API；禁止在 supplier 内执行任何业务副作用。
+# XposedModule.log is not android.util.Log, so R8 cannot recognize it through the rule above.
+# The debug supplier is a pure observation API; never perform business side effects inside a supplier.
 -assumenosideeffects interface io.github.mangi.eta.core.AgentLogger {
     public abstract void debug(kotlin.jvm.functions.Function0);
 }
@@ -54,10 +59,11 @@
     public void debug(kotlin.jvm.functions.Function0);
 }
 
-# ── 序列化与网络依赖 ─────────────────────────────────────────────────────────
-# DataStore、kotlinx.serialization、OkHttp 与 Okio 均自带精确的 consumer rules；
-# 不在 App 层重复保留整个类或包，避免阻断裁剪、内联和混淆。
-# 保留源码与行号属性，便于使用 release mapping 还原线上堆栈。
+# ── Serialization and networking dependencies ──────────────────────────────────────
+# DataStore, kotlinx.serialization, OkHttp, and Okio each ship precise consumer rules;
+# do not keep whole classes or packages at the app layer, which would block shrinking,
+# inlining, and obfuscation.
+# Keep the source and line-number attributes so release mappings can restore production stacks.
 -keepattributes SourceFile,LineNumberTable
 
 # JNI looks up configuration fields/classes by their upstream names.

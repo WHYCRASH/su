@@ -16,7 +16,7 @@ class ProviderComponentsTest {
     fun providerDraftSaverPreservesUnsavedConfiguration() {
         val draft = ProviderConfigDraft(
             headers = listOf(ProviderHeaderDraft(header = io.github.mangi.eta.data.model.CustomHeader("User-Agent", "test-client"))),
-            name = "临时提供商",
+            name = "Temporary provider",
             baseUrl = "https://api.example.com/v1",
             apiKey = "temporary-key",
             isEnabled = false,
@@ -54,7 +54,6 @@ class ProviderComponentsTest {
             ProviderSourceTypes.STEPFUN to R.drawable.provider_logo_stepfun,
             ProviderSourceTypes.SILICONFLOW to R.drawable.provider_logo_siliconflow,
             ProviderSourceTypes.OPENROUTER to R.drawable.provider_logo_openrouter,
-            ProviderSourceTypes.DOUBAO_SPEECH to R.drawable.model_logo_doubao,
         )
 
         expected.forEach { (sourceType, logo) ->
@@ -72,12 +71,12 @@ class ProviderComponentsTest {
     fun customProviderUsesRecognizedBaseUrlAndUnknownSourceFallsBack() {
         val recognized = CustomProviderSetting(
             id = "custom-deepseek",
-            name = "DeepSeek 副本",
+            name = "DeepSeek copy",
             baseUrl = "https://api.deepseek.com/v1",
         )
         val unknown = CustomProviderSetting(
             id = "custom-unknown",
-            name = "自定义",
+            name = "Custom",
             baseUrl = "https://api.example.com/v1",
         )
 

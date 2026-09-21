@@ -1,6 +1,6 @@
 package io.github.mangi.eta.agent.runtime
 
-/** 由客户端 Main Handler 按接收顺序调用，隔离历史恢复与实时事件的交付。 */
+/** Called by the client Main Handler in receive order; isolates history replay from live-event delivery. */
 internal class AgentRuntimeAttachDelivery(
     private val onReplay: ((List<AgentEvent>) -> Unit)? = null,
     private val onEvent: (AgentEvent) -> Unit,
@@ -40,7 +40,7 @@ internal class AgentRuntimeAttachDelivery(
         if (state == State.CLOSED) return
         val needsReplay = state == State.REPLAYING
         state = State.CLOSED
-        // 旧服务的成功响应在释放 Session 锁后发送，终态可能先到；先恢复历史再交付终态。
+        // The old service sends its success response after releasing the Session lock, so the terminal state may arrive first; replay history before delivering it.
         if (needsReplay) deliverReplay()
         onResult(result)
     }

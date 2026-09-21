@@ -1,33 +1,33 @@
-# 单会话归档修复状态（未发布）
+# Single-conversation archive fix status (unreleased)
 
-工作区实现，尚未提交、推送、编译或运行 JUnit/Robolectric。不是发布说明。
+Working-tree implementation; not yet committed, pushed, compiled, or run under JUnit/Robolectric. Not release notes.
 
-## 本轮实现
+## What this round implements
 
-- `eta-conversation` 清单升级到 schema 2（不是 App 版本变更）。附件条目包含可迁移引用、ZIP 条目名、大小、SHA-256。
-- 从用户附件结构、Eta 文件引用块、用户/助手 Markdown 链接目的地、会话 history 和 context checkpoint 的结构化媒体收集附件；代码块和普通正文路径不做全局替换。不再整目录打包图片，不用正文正则猜导入文件。
-- 缺失附件、目录附件、应用附件目录以外的本地引用、无法识别的旧引用显式拒绝，不把部分归档当成功。外部 HTTP(S) 引用只保留链接，不下载其内容；内嵌 data URL 保留在清单里。
-- 导出时用占位附件引用替换可识别结构和正文链接，导入后映射到新路径。SHA-256 在 ZIP 写入实际字节时验证，防止预检后的同长度修改悄悄进入归档。
-- 导入始终复制为新会话：会话 ID、消息 ID、附件私有目录重新分配；DAO 使用 ABORT 而不是 REPLACE。清空原模型绑定、文件夹、置顶和已应用 runtime run ID，保持对话正文和模型历史。用户须在目标设备选择模型后继续。
-- 新件位于持久 imports/<新会话ID>/ 下，不放入可被系统清理的图片 cache。重复导入互不覆盖；旧版 v1 按引用迁移，只安装被引用附件，file:// 与绝对路径别名共用同一安装文件。
-- 单会话恢复日志只记录新会话 ID 和新文件 undo，不再为小会话加载所有提供商、技能、记忆和会话快照。崩溃未提交时启动恢复只移除本次新增会话及文件。
-- UI 归档期间冻结会话修改入口，普通持久化请求延后处理；导出前强制保存并 await Boolean 结果。持久化与归档操作互斥，runtime 恢复和模型能力更新延迟处理；导入及数据库回读放在不可取消区间，避免取消后用旧 UI 状态覆盖数据库。
-- 文件选择器目标 ID/标题改为 rememberSaveable；增加范围、隐私与导入方式说明。先在应用私有目录完成 ZIP 并重新解包验证，再打开目标 URI 写入；失败/取消尝试删除目标，不支持删除时提示文件可能残缺。临时文件在 finally 清理。
-- 文本 JSON 会话清单也按 format 区分；没有归档文件支持的本地引用依旧拒绝导入。
+- The `eta-conversation` manifest moves to schema 2 (not an app version change). Attachment entries carry migratable references, ZIP entry names, sizes, and SHA-256.
+- Attachments are collected from user attachment structures, Eta file-reference blocks, user/assistant Markdown link destinations, conversation history, and structured media in context checkpoints; code blocks and ordinary body-text paths get no global replacement. No more packing whole image directories, no more guessing imported files with body-text regexes.
+- Missing attachments, directory attachments, local references outside the app attachment directory, and unrecognized legacy references are explicitly refused — a partial archive is never reported as success. External HTTP(S) references keep only the link; their content is never downloaded; inline data URLs stay in the manifest.
+- On export, recognized structures and body-text links are replaced with placeholder attachment references and remapped to new paths after import. SHA-256 is verified as actual bytes are written to the ZIP so same-length post-precheck modifications cannot slip silently into the archive.
+- Import always copies into a new conversation: conversation ID, message IDs, and the attachment private directory are reallocated; the DAO uses ABORT instead of REPLACE. Original model bindings, folders, pins, and applied runtime run IDs are cleared; conversation body text and model history are kept. The user must pick a model on the target device to continue.
+- New files land under persistent imports/<new-conversation-ID>/, never in the image cache the system may clean. Repeat imports never overwrite each other; legacy v1 imports migrate by reference, installing only referenced attachments, with file:// and absolute-path aliases sharing one installed file.
+- The single-conversation restore log records only the new conversation ID plus new-file undo — small conversations no longer load all providers, skills, memories, and conversation snapshots. On uncommitted crashes, boot recovery removes only the newly added conversation and files from that attempt.
+- The UI freezes conversation-modification entry points during archiving and defers ordinary persistence requests; export forces a save first and awaits the Boolean result. Persistence and archive operations are mutually exclusive; runtime restore and model-capability updates are deferred; import and database re-reads sit in a non-cancellable section so cancellation cannot overwrite the database with stale UI state.
+- The file-picker target ID/title become rememberSaveable; scope, privacy, and import-method notes are added. The ZIP is first completed in the app-private directory and re-unpacked for verification before the destination URI is opened for writing; on failure/cancellation the target is deleted where possible, and where deletion is unsupported the user is warned the file may be incomplete. Temp files are cleaned in finally.
+- The text-JSON conversation manifest is also distinguished by format; local references with no archive-file support still refuse import.
 
-## 验证证据
+## Verification evidence
 
-- `git diff --check` 通过。
-- 对累计 53 个变更 Kotlin 文件进行词法括号检查通过。这不是 Kotlin 编译或类型检查。
-- 本轮新增 14 个测试方法：13 个单会话归档案例，1 个 ZIP 写入校验案例。累计新增测试文件中有 47 个测试方法；全部尚未运行。
-- 新增案例覆盖：文件名空格/括号、正文路径不误收集、历史/工具媒体/检查点、Markdown 与代码块分离、缺失/越界/目录附件、重复导入、坏清单/多余/缺失/篡改文件、v1 迁移与别名、实际仓库往返、无关会话超限、中断恢复。
-- 未操作手机真实会话数据库或备份文件，未改 versionName/versionCode，未产出新 APK。
+- `git diff --check` passes.
+- Lexical bracket checks over the accumulated 53 changed Kotlin files pass. This is not Kotlin compilation or type checking.
+- 14 new test methods this round: 13 single-conversation archive cases, 1 ZIP-write verification case. 47 new test methods across the accumulated new test files; none executed.
+- New cases cover: spaces/parentheses in file names, body-text paths never mis-collected, history/tool media/checkpoints, Markdown-vs-code-block separation, missing/out-of-scope/directory attachments, repeat imports, bad/extra/missing/tampered manifests, v1 migration and aliases, real-repository round trips, unrelated-conversation over-limit, interruption recovery.
+- No real conversation database or backup file on a phone touched; versionName/versionCode unchanged; no new APK produced.
 
-## 仍须验收/已知边界
+## Still to accept / known boundaries
 
-- JUnit/Robolectric、Room 生成代码、Compose 生命周期和完整 Android 编译均待 GitHub Actions 授权后验证；不能以静态检查代替通过测试。
-- 文件选择器支持 Activity/进程重建后恢复选择目标，但正在复制的导出作业不是持久化后台任务；强杀进程不会执行 finally，可能留下临时文件或部分目标文件。任意 DocumentsProvider 的提交无法保证原子性。
-- 缺失或无法迁移的旧附件不能凭空恢复。目录、外部绝对路径、未知媒体结构及部分特殊文件名不承诺支持；错误会要求先导入或重命名，而不是默默跳过。
-- 归档不加密，也不自动擦除对话/附件中的凭据；不提供 Markdown/HTML 分享格式或模型配置打包。
-- 全量备份的跨仓库锁、外部 root/挂载写入、断电/满盘/SELinux 故障验证仍属前轮未完成事项。本轮没有把它们宣称为已解决。
-- SHA-256 用于完整性核对，不是数字签名，也不证明外部归档可信。
+- JUnit/Robolectric, Room generated code, Compose lifecycle, and full Android compilation all wait on GitHub Actions authorization; static checks cannot stand in for passing tests.
+- The file picker survives Activity/process recreation to restore the chosen target, but an in-copy export job is not a persistent background task; killing the process skips finally and may leave temp files or partial target files. No DocumentsProvider commit can be guaranteed atomic.
+- Missing or unmigratable legacy attachments cannot be recovered out of thin air. Directories, external absolute paths, unknown media structures, and some special file names are not promised support; errors ask the user to import first or rename rather than silently skipping.
+- Archives are not encrypted and do not automatically scrub credentials from conversations/attachments; no Markdown/HTML share formats or model-config packaging.
+- Cross-repository locks for full backup, external root/mount writes, and power-loss/full-disk/SELinux fault verification remain open items from the previous round. This round does not claim them resolved.
+- SHA-256 is an integrity check, not a digital signature, and does not prove an external archive trustworthy.

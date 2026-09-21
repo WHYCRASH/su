@@ -8,7 +8,7 @@ import org.junit.Test
 
 class ConversationTimeLabelsTest {
     private val timeZone = TimeZone.getTimeZone("Asia/Shanghai")
-    private val locale = Locale.CHINA
+    private val locale = Locale.US
 
     @Test
     fun labelUsesClockTimeForToday() {
@@ -22,21 +22,21 @@ class ConversationTimeLabelsTest {
     fun labelUsesRelativeDayForRecentHistory() {
         val now = millis(2026, Calendar.JULY, 4, 19, 32)
 
-        assertEquals("昨天", label(millis(2026, Calendar.JULY, 3, 23, 59), now))
-        assertEquals("周一", label(millis(2026, Calendar.JUNE, 29, 8, 0), now))
+        assertEquals("Yesterday", label(millis(2026, Calendar.JULY, 3, 23, 59), now))
+        assertEquals("Mon", label(millis(2026, Calendar.JUNE, 29, 8, 0), now))
     }
 
     @Test
     fun labelUsesDateForOlderHistory() {
         val now = millis(2026, Calendar.JULY, 4, 19, 32)
 
-        assertEquals("6月20日", label(millis(2026, Calendar.JUNE, 20, 8, 0), now))
-        assertEquals("2025年12月31日", label(millis(2025, Calendar.DECEMBER, 31, 8, 0), now))
+        assertEquals("Jun 20", label(millis(2026, Calendar.JUNE, 20, 8, 0), now))
+        assertEquals("Dec 31, 2025", label(millis(2025, Calendar.DECEMBER, 31, 8, 0), now))
     }
 
     @Test
     fun labelFallsBackForInvalidTimestamp() {
-        assertEquals("最近", label(0L, millis(2026, Calendar.JULY, 4, 19, 32)))
+        assertEquals("Recent", label(0L, millis(2026, Calendar.JULY, 4, 19, 32)))
     }
 
     @Test
@@ -89,8 +89,8 @@ class ConversationTimeLabelsTest {
             locale = locale,
             timeZone = timeZone,
             use24HourClock = true,
-            yesterdayLabel = "昨天",
-            recentLabel = "最近",
+            yesterdayLabel = "Yesterday",
+            recentLabel = "Recent",
         )
 
     private fun millis(

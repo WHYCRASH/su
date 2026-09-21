@@ -72,10 +72,10 @@ import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.squircle.LocalSquircleEnabled
 
 /**
- * Eta 数字助理的用户界面窗口。
+ * UI window for the Eta digital assistant.
  *
- * 系统助理会话只负责承接电源键入口；这里固定使用全屏 TYPE_APPLICATION_OVERLAY，
- * 让输入法、动画和厂商助手式浮窗拥有同一个窗口生命周期。
+ * The system assistant session only handles the power-button entry; this always uses a fullscreen TYPE_APPLICATION_OVERLAY
+ * so the input method, animations, and vendor assistant-style floating windows share one window lifecycle.
  */
 internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStateRegistryOwner {
     private val lifecycleRegistry = LifecycleRegistry(this)
@@ -256,8 +256,8 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
                 appearance = appearance,
                 applyInterfaceScale = false,
             ) {
-                // ColorOS 在 Overlay 窗口切换期间可能短暂使用软件画布；RuntimeShader
-                // 无法在该画布绘制，因此浮窗统一使用 Miuix 的圆角回退路径。
+                // ColorOS may briefly use a software canvas while switching overlay windows; RuntimeShader
+                // cannot draw on that canvas, so floating windows always use the Miuix rounded-corner fallback path.
                 CompositionLocalProvider(LocalSquircleEnabled provides false) {
                     EtaVoicePanel(
                         state = uiState,
@@ -936,7 +936,7 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
         private const val HANDOFF_TIMEOUT_MS = 5_000L
         private const val HANDOFF_EXIT_DURATION_MS = 220L
         private const val HANDOFF_REQUEST_CODE = 0x455441
-        private const val LEGACY_STOPPED_ERROR = "已停止"
+        private const val LEGACY_STOPPED_ERROR = "Stopped"
         private const val SYNTHETIC_STOPPED = "eta_status:stopped"
         private const val SYNTHETIC_RUNTIME_FAILED = "eta_status:runtime_failed"
         private const val FOREGROUND_DISMISS_TIMEOUT_MS = 2_000L
@@ -946,8 +946,8 @@ internal class EtaAssistantOverlayService : Service(), LifecycleOwner, SavedStat
         private var activeService: EtaAssistantOverlayService? = null
 
         /**
-         * Eta 自己拥有入口浮层，直接关闭并等待具体 View detach；不能按包名猜测，
-         * 因为入口、Runtime 与结果浮层都属于同一个包。
+         * Eta owns its entry overlay, so close it directly and wait for the concrete View to detach; never guess by package name,
+         * because the entry, runtime, and result overlays all belong to the same package.
          */
         fun dismissForForegroundOperation(context: Context): Boolean {
             val service = activeService

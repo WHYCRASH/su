@@ -53,7 +53,7 @@ class LinuxFileExplorerTest {
             """
             directory|4096|1700000000|etc
             regular file|123|1700000001|hello world.txt
-            regular file|5|1700000002|中文名
+            regular file|5|1700000002|Chinese name
             """.trimIndent(),
         )
         assertEquals(3, entries.size)
@@ -64,7 +64,7 @@ class LinuxFileExplorerTest {
         val spaced = entries.first { it.name == "hello world.txt" }
         assertFalse(spaced.isDir)
         assertEquals(123L, spaced.sizeBytes)
-        assertTrue(entries.any { it.name == "中文名" })
+        assertTrue(entries.any { it.name == "Chinese name" })
     }
 
     @Test

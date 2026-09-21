@@ -20,7 +20,7 @@ class AgentMemoryStoreTest {
     @Test
     fun utf8LimitIsMeasuredInBytesAndFailedWritePreservesOldFile() {
         val store = store()
-        val original = store.replaceAll("安全内容")
+        val original = store.replaceAll("Safe content")
 
         assertEquals(12, original.byteSize)
         assertThrows(AgentMemoryException::class.java) {
@@ -37,44 +37,44 @@ class AgentMemoryStoreTest {
     @Test
     fun supportsPagingCaseInsensitiveSearchAndLineMetadata() {
         val store = store()
-        store.replaceAll("# 核心记忆\n喜欢 Kotlin\n## 项目\nEta Agent\n其他")
+        store.replaceAll("# Core Memory\nLikes Kotlin\n## Projects\nEta Agent\nOther")
 
         val page = store.read(startLine = 3, maxChars = 20)
         assertEquals(3, page.startLine)
-        assertTrue(page.content.startsWith("3: ## 项目"))
+        assertTrue(page.content.startsWith("3: ## Projects"))
         assertTrue(page.hasMore)
 
         val search = store.read(query = "eta agent", maxChars = 200)
         assertEquals(1, search.matchedLines)
         assertTrue(search.content.contains("4: Eta Agent"))
-        assertTrue(search.content.contains("3: ## 项目"))
-        assertTrue(search.content.contains("5: 其他"))
+        assertTrue(search.content.contains("3: ## Projects"))
+        assertTrue(search.content.contains("5: Other"))
         assertFalse(search.hasMore)
     }
 
     @Test
     fun mutationsAreAtomicRevisionCheckedAndCanDeleteOrClear() {
         val store = store()
-        val initial = store.replaceAll("# 核心记忆\n旧偏好\n## 项目\n旧项目")
+        val initial = store.replaceAll("# Core Memory\nOld preference\n## Projects\nOld project")
 
         val replaced = store.mutate(
             AgentMemoryMutation.ReplaceRange(
                 revision = initial.revision,
                 startLine = 2,
                 endLine = 2,
-                content = "新偏好",
+                content = "New preference",
             ),
         ) as AgentMemoryWriteResult.Success
-        assertEquals("# 核心记忆\n新偏好\n## 项目\n旧项目", replaced.snapshot.content)
+        assertEquals("# Core Memory\nNew preference\n## Projects\nOld project", replaced.snapshot.content)
 
         val conflict = store.mutate(
-            AgentMemoryMutation.Append(initial.revision, "## 冲突追加"),
+            AgentMemoryMutation.Append(initial.revision, "## Conflict Append"),
         ) as AgentMemoryWriteResult.Conflict
         assertEquals(replaced.snapshot.revision, conflict.snapshot.revision)
-        assertFalse(store.snapshot().content.contains("冲突追加"))
+        assertFalse(store.snapshot().content.contains("Conflict append"))
 
         val appended = store.mutate(
-            AgentMemoryMutation.Append(replaced.snapshot.revision, "## 新章节\n内容"),
+            AgentMemoryMutation.Append(replaced.snapshot.revision, "## New Section\nContent"),
         ) as AgentMemoryWriteResult.Success
         val deleted = store.mutate(
             AgentMemoryMutation.ReplaceRange(
@@ -84,7 +84,7 @@ class AgentMemoryStoreTest {
                 content = "",
             ),
         ) as AgentMemoryWriteResult.Success
-        assertFalse(deleted.snapshot.content.contains("旧项目"))
+        assertFalse(deleted.snapshot.content.contains("Old project"))
 
         val cleared = store.mutate(
             AgentMemoryMutation.Clear(deleted.snapshot.revision),

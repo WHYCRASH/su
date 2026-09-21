@@ -10,7 +10,7 @@ internal object ProviderClientFactory {
             config.baseUrl, config.openAiEndpointMode,
         )
         require(!io.github.mangi.eta.data.model.SpeechSynthesisModels.matches(config.model)) {
-            "专用语音合成模型不能用于对话或摘要，请在朗读设置中配置"
+            "A dedicated text-to-speech model can't be used for chat or summaries. Please configure one in Read Aloud settings"
         }
         val provider = when (config.providerType) {
             ProviderTypes.OPENAI_COMPATIBLE -> when (config.openAiEndpointMode) {
@@ -18,7 +18,7 @@ internal object ProviderClientFactory {
                 else -> OpenAiChatCompletionsProvider
             }
             ProviderTypes.ANTHROPIC -> AnthropicMessagesProvider
-            else -> error("不支持的 Provider 协议类型：${config.providerType}")
+            else -> error("Unsupported Provider protocol type: ${config.providerType}")
         }
         return UsageRecordingProvider(provider)
     }

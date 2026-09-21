@@ -13,10 +13,9 @@ internal data class LocalToolRequirement(
     val lsposedRequirement: LsposedRequirement = LsposedRequirement.NONE,
     val accessibility: Boolean = false,
     val systemAccess: ToolSystemAccess = ToolSystemAccess.NONE,
-    val colorOs: Boolean = false,
 )
 
-/** 展示、模型目录与执行边界共同使用的本地工具能力合同。未登记的工具不能发布。 */
+/** Capability contract for local tools shared by the UI, model catalog, and execution boundary. Unregistered tools are never published. */
 internal object AgentToolRequirements {
     private val definitions = buildMap {
         fun register(root: RootRequirement, vararg names: String) {
@@ -47,12 +46,10 @@ internal object AgentToolRequirements {
             RootRequirement.REQUIRED,
             "top_memory_apps", "top_storage_apps", "wifi_credentials", "read_sms_code",
             "get_logcat", "set_setting", "set_device_state", "app_state_control",
-            "list_alarms", "list_active_timers", "get_health_summary", "search_clipboard_history",
+            "get_health_summary",
             "search_media", "search_audio", "search_recordings", "search_files",
             "search_calendar_events", "search_contacts", "search_call_history", "search_messages",
-            "search_downloads", "search_coloros_notes", "search_coloros_recordings",
-            "search_recording_summaries", "search_coloros_memories", "search_saved_places",
-            "search_qq_chat_images", "search_wechat_chat_images",
+            "search_downloads",
         )
         listOf(
             "observe_screen", "tap", "tap_area", "tap_element", "long_press",
@@ -68,14 +65,6 @@ internal object AgentToolRequirements {
             "app_usage_summary" to ToolSystemAccess.USAGE,
             "get_current_location" to ToolSystemAccess.LOCATION,
         ).forEach { (name, access) -> put(name, getValue(name).copy(systemAccess = access)) }
-        listOf(
-            "search_coloros_notes", "search_coloros_recordings", "search_recording_summaries",
-            "search_coloros_memories", "search_saved_places",
-        ).forEach { name -> put(name, getValue(name).copy(colorOs = true)) }
-        // 系统记忆优先使用 Hook 桥接，框架失联时仍有独立的 Root 快照来源。
-        listOf("search_coloros_memories", "search_saved_places", "search_personal_orders").forEach { name ->
-            put(name, getValue(name).copy(lsposedRequirement = LsposedRequirement.OPTIONAL))
-        }
     }
 
     val toolNames: Set<String> get() = definitions.keys
@@ -97,7 +86,7 @@ internal object AgentToolRequirements {
         }
     }
 
-    /** 复制后收窄，不能修改下一轮或另一个 run 共用的原始 Schema。 */
+    /** Narrow on a copy; never mutate the original schema shared by the next round or another run. */
     fun project(tools: JSONArray, rootAvailable: Boolean): JSONArray = JSONArray().also { result ->
         for (index in 0 until tools.length()) {
             val original = tools.getJSONObject(index)
@@ -114,31 +103,31 @@ internal object AgentToolRequirements {
         val properties = function.getJSONObject("parameters").optJSONObject("properties")
         when (function.getString("name")) {
             "terminal" -> {
-                function.put("description", "在当前设备管理普通 Android Shell 或用户选择的 Linux 环境。" +
-                    "以 App UID 执行，支持会话、异步任务和后台服务；Linux 内的模拟身份不提供 Android 系统特权。" +
-                    "使用 open_and_exec 执行单次命令，open/exec 复用会话，daemon_start/list/logs/stop 管理后台服务。")
+                function.put("description", "Manage a plain Android shell or the user-selected Linux environment on this device." +
+                    "Runs as the app UID with sessions, async tasks, and background services; simulated identities inside Linux grant no Android privileges." +
+                    "Use open_and_exec for one-shot commands, open/exec to reuse sessions, and daemon_start/list/logs/stop for background services.")
                 properties?.getJSONObject("identity")
                     ?.put("enum", JSONArray().put("user"))
-                    ?.put("description", "宿主执行身份；当前仅支持 user，默认 user。")
+                    ?.put("description", "Host execution identity; only user is supported for now, default user.")
                 properties?.getJSONObject("environment")?.put("description",
-                    "android 使用普通 Android Shell；linux 使用用户选择的发行版和免 Root 后端。默认 android。")
+                    "android uses a plain Android shell; linux uses the user-selected distro with a rootless backend. Default android.")
                 properties?.getJSONObject("cwd")?.put("description",
-                    "工作目录。Android 默认使用 Eta 私有工作区，Linux 默认 /workspace。")
+                    "Working directory. Android defaults to the su private workspace, Linux defaults to /workspace.")
             }
             "run_command" -> {
                 function.put("description",
-                    "通过普通 Android Shell 执行单次非交互命令，以 App UID 运行；只能访问当前应用有权访问的资源。")
-                properties?.getJSONObject("cwd")?.put("description", "工作目录，默认使用 Eta 私有工作区。")
+                    "Run a single non-interactive command via a plain Android shell as the app UID; only resources the app may access are reachable.")
+                properties?.getJSONObject("cwd")?.put("description", "Working directory, defaulting to the su private workspace.")
             }
             "list_directory" -> {
-                function.put("description", "列出当前应用有权访问的目录，默认使用 Eta 私有工作区。")
+                function.put("description", "List directories the current app may access, defaulting to the su private workspace.")
                 properties?.optJSONObject("path")?.apply {
-                    put("description", "目录路径；未提供时使用 Eta 私有工作区。")
+                    put("description", "Directory path; defaults to the su private workspace when omitted.")
                     remove("default")
                 }
             }
             "read_image" -> properties?.getJSONObject("path")?.put("description",
-                "绝对图片或视频路径、file URI、已授权的 content URI，或聊天附件别名 /home/workdir/attachments/image.jpg；视频会抽取封面帧。")
+                "Absolute image or video path, file URI, authorized content URI, or chat-attachment alias /home/workdir/attachments/image.jpg; a cover frame is extracted for videos.")
             "press_key" -> properties?.getJSONObject("button")?.let { button ->
                 val values = button.getJSONArray("enum")
                 button.put("enum", JSONArray().also { allowed ->
@@ -147,10 +136,8 @@ internal object AgentToolRequirements {
                         if (!value.equals("PASTE", ignoreCase = true)) allowed.put(value)
                     }
                 })
-                button.put("description", "无障碍支持的系统按键；粘贴文本请使用 paste_text。")
+                button.put("description", "System keys supported by accessibility; use paste_text to paste text.")
             }
-            "search_personal_orders" -> function.put("description",
-                "从用户已授权保存的通知历史检索外卖、购物、快递、票券和出行订单。")
         }
     }
 }

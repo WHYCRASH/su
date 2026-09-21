@@ -40,7 +40,7 @@ internal fun ChatSelectableText(
         modifier = modifier.then(if (links.isEmpty()) Modifier else Modifier
             .semantics {
                 customActions = links.map { range ->
-                    CustomAccessibilityAction("打开 ${text.text.substring(range.start, range.end)}") {
+                    CustomAccessibilityAction("Open ${text.text.substring(range.start, range.end)}") {
                         open(range.item)
                         true
                     }

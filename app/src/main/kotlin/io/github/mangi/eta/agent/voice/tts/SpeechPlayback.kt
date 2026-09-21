@@ -92,23 +92,16 @@ internal object SpeechPlayback {
         start(context, owner, markdown)
     }
 
-    fun previewMimo(context: Context, voice: io.github.mangi.eta.agent.voice.mimo.MimoPersonalVoices.Voice, text: String) {
-        val owner = "mimo-preview:${voice.id}"
-        if (recordingToken != null) return
-        if (state.value.owner == owner) { stop(); return }
-        start(context, owner, text, overrideVoice = voice)
-    }
-
-    private fun start(context: Context, owner: String, markdown: String, diagnostic: io.github.mangi.eta.agent.voice.VoiceDiagnostics = io.github.mangi.eta.agent.voice.VoiceDiagnostics("tts"), overrideVoice: io.github.mangi.eta.agent.voice.mimo.MimoPersonalVoices.Voice? = null) {
+    private fun start(context: Context, owner: String, markdown: String, diagnostic: io.github.mangi.eta.agent.voice.VoiceDiagnostics = io.github.mangi.eta.agent.voice.VoiceDiagnostics("tts")) {
         stop()
         val token = epoch.next()
         val app = context.applicationContext
         // Capture preferences once: settings changed while loading must not mix provider/model/voice.
-        val cloud = overrideVoice != null || Prefs.getString(Prefs.Keys.AGENT_TTS_MODE) == "cloud"
+        val cloud = Prefs.getString(Prefs.Keys.AGENT_TTS_MODE) == "cloud"
         diagnostic.mark("tts.begin", "chars" to markdown.length, "cloud" to if (cloud) 1 else 0)
-        val providerId = overrideVoice?.providerId ?: Prefs.getString(Prefs.Keys.AGENT_TTS_MODEL_PROVIDER_ID)
+        val providerId = Prefs.getString(Prefs.Keys.AGENT_TTS_MODEL_PROVIDER_ID)
         val modelId = Prefs.getString(Prefs.Keys.AGENT_TTS_MODEL_ID)
-        val voiceId = overrideVoice?.id ?: Prefs.getString(Prefs.Keys.AGENT_TTS_VOICE).trim()
+        val voiceId = Prefs.getString(Prefs.Keys.AGENT_TTS_VOICE).trim()
         mutableState.value = SpeechPlaybackState(owner, preparing = true)
         job = scope.launch {
             // A new player cannot overlap the previous player's finally/shutdown.
@@ -118,36 +111,32 @@ internal object SpeechPlayback {
                     withContext(Dispatchers.IO) {
                         File(app.cacheDir, "speech-playback").listFiles()?.filter { it.extension in setOf("mp3", "wav", "ogg") }?.forEach { it.delete() }
                     }
-                    speechCheck(markdown.length <= SpeechSpeakableText.MAX_SOURCE_CHARS) { "回复过长，请分段朗读" }
+                    speechCheck(markdown.length <= SpeechSpeakableText.MAX_SOURCE_CHARS) { "Reply is too long, read it in parts" }
                     val sentences = withContext(Dispatchers.Default) { SpeechSpeakableText.sentences(markdown) }
-                    speechCheck(sentences.isNotEmpty()) { "这条回复没有可朗读的正文" }
+                    speechCheck(sentences.isNotEmpty()) { "This reply has no readable text" }
                     diagnostic.mark("tts.sentences", "count" to sentences.size)
                     withAudioFocus(app, token, diagnostic) {
                         if (!cloud) {
                             SystemSpeechSynthesizer().speak(app, sentences) { voice ->
-                                if (epoch.isCurrent(token)) mutableState.value = SpeechPlaybackState(owner, source = "系统本地音色 · $voice")
+                                if (epoch.isCurrent(token)) mutableState.value = SpeechPlaybackState(owner, source = "System voice · $voice")
                             }
                         } else {
                             val config = withContext(Dispatchers.IO) {
                                 val provider = ProviderRepository.providerById(providerId)
                                     ?.takeIf(SpeechSynthesisModels::isReadAloudProvider)
-                                    ?: throw SpeechPlaybackFailure("该提供商不支持此朗读接入方式")
-                                if (voiceId.startsWith("mimo-local-")) io.github.mangi.eta.agent.voice.mimo.MimoPersonalVoices.load(app)
+                                    ?: throw SpeechPlaybackFailure("This provider does not support read-aloud")
                                 val model = SpeechSynthesisModels.mergeCatalog(provider).firstOrNull {
-                                    (if (overrideVoice != null) it.modelId == "mimo-v2.5-tts" else it.id == modelId) && it.isEnabled && SpeechSynthesisModels.isReadAloudModel(it, provider)
-                                } ?: throw SpeechPlaybackFailure("朗读模型已不可用，请重新配置或选择系统朗读")
+                                    it.id == modelId && it.isEnabled && SpeechSynthesisModels.isReadAloudModel(it, provider)
+                                } ?: throw SpeechPlaybackFailure("Read-aloud model is unavailable, reconfigure or use system speech")
                                 RuntimeConfigRepository.buildRuntimeConfig(provider, model)
                             }
-                            io.github.mangi.eta.agent.voice.doubao.PersonalVoices.load(app)
                             val voice = voiceId
-                            speechCheck(voice.isNotEmpty()) { "请先选择音色" }
+                            speechCheck(voice.isNotEmpty()) { "Select a voice first" }
                             val synth = CloudSpeechSynthesizer(diagnostic = diagnostic)
                             val label = when (SpeechEngineResolver.resolve(config.providerSourceType, config.baseUrl, config.model)) {
-                                SpeechEngine.DOUBAO -> "豆包语音"
-                                SpeechEngine.MIMO -> "小米语音"
                                 SpeechEngine.MINIMAX -> "MiniMax"
-                                SpeechEngine.STEP -> "阶跃语音"
-                                SpeechEngine.QWEN -> "通义语音"
+                                SpeechEngine.STEP -> "Step"
+                                SpeechEngine.QWEN -> "Qwen"
                                 SpeechEngine.GROQ -> "Groq"
                                 SpeechEngine.XAI -> "xAI"
                                 SpeechEngine.GEMINI -> "Gemini"
@@ -155,7 +144,7 @@ internal object SpeechPlayback {
                                 SpeechEngine.FISH -> "Fish Audio"
                                 SpeechEngine.COSYVOICE -> "CosyVoice"
                                 SpeechEngine.MOSS -> "MOSS-TTSD"
-                                SpeechEngine.OPENAI -> "云端 Speech"
+                                SpeechEngine.OPENAI -> "Cloud Speech"
                             }
                             supervisorScope {
                                 // At most current + next sentence buffered. Never restart from the beginning on failure.
@@ -174,7 +163,7 @@ internal object SpeechPlayback {
                     if (epoch.isCurrent(token)) mutableState.value = SpeechPlaybackState()
                 } catch (e: TimeoutCancellationException) {
                     diagnostic.mark("tts.timeout")
-                    if (epoch.isCurrent(token)) mutableState.value = SpeechPlaybackState(error = "朗读等待超时，请重试或检查系统语音引擎")
+                    if (epoch.isCurrent(token)) mutableState.value = SpeechPlaybackState(error = "Read-aloud timed out, retry or check the system speech engine")
                 } catch (e: CancellationException) {
                     diagnostic.mark("tts.cancelled")
                     throw e
@@ -183,7 +172,7 @@ internal object SpeechPlayback {
                     // Config/decoder exceptions may include URLs, never surface them verbatim.
                     if (epoch.isCurrent(token)) mutableState.value = SpeechPlaybackState(error = when (e) {
                         is SpeechPlaybackFailure -> e.message
-                        else -> "朗读失败，请检查引擎、网络、模型和音色"
+                        else -> "Read-aloud failed, check the engine, network, model and voice"
                     })
                 } finally {
                     if (epoch.isCurrent(token)) {
@@ -205,7 +194,7 @@ internal object SpeechPlayback {
             }.build()
         val focusResult = audio.requestAudioFocus(request)
         diagnostic.mark("focus.request", "result" to focusResult, "volume" to audio.getStreamVolume(AudioManager.STREAM_MUSIC))
-        speechCheck(focusResult == AudioManager.AUDIOFOCUS_REQUEST_GRANTED) { "暂时无法取得音频焦点，请稍后朗读" }
+        speechCheck(focusResult == AudioManager.AUDIOFOCUS_REQUEST_GRANTED) { "Cannot take audio focus right now, try reading aloud later" }
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
                 if (epoch.isCurrent(token)) stop()
@@ -225,12 +214,12 @@ internal object SpeechPlayback {
     private suspend fun playMp3(context: Context, bytes: ByteArray, diagnostic: io.github.mangi.eta.agent.voice.VoiceDiagnostics) {
         diagnostic.mark("player.prepare", "bytes" to bytes.size)
         val directory = File(context.cacheDir, "speech-playback")
-        val payload = DoubaoSpeech.decodeAudio(bytes)
+        val payload = SpeechProtocols.decodeAudio(bytes)
         val file = File(directory, "${UUID.randomUUID()}.${payload.extension}")
         val player = MediaPlayer()
         try {
             withContext(Dispatchers.IO) {
-                speechCheck(directory.isDirectory || directory.mkdirs()) { "无法创建临时音频目录" }
+                speechCheck(directory.isDirectory || directory.mkdirs()) { "Cannot create temporary audio directory" }
                 file.writeBytes(payload.bytes)
             }
             player.setAudioAttributes(audioAttributes)
@@ -242,14 +231,14 @@ internal object SpeechPlayback {
                         if (continuation.isActive) {
                             diagnostic.mark("player.prepared", "durationMs" to it.duration)
                             try { it.start(); diagnostic.mark("player.started") } catch (_: Exception) {
-                                if (continuation.isActive) continuation.resumeWithException(SpeechPlaybackFailure("音频播放器启动失败"))
+                                if (continuation.isActive) continuation.resumeWithException(SpeechPlaybackFailure("Audio player failed to start"))
                             }
                         }
                     }
                     player.setOnCompletionListener { diagnostic.mark("player.completed"); if (continuation.isActive) continuation.resume(Unit) }
                     player.setOnErrorListener { _, what, extra ->
                         diagnostic.mark("player.error", "what" to what, "extra" to extra)
-                        if (continuation.isActive) continuation.resumeWithException(SpeechPlaybackFailure("无法播放接口返回的音频"))
+                        if (continuation.isActive) continuation.resumeWithException(SpeechPlaybackFailure("Cannot play the audio returned by the service"))
                         true
                     }
                     player.prepareAsync()

@@ -45,7 +45,7 @@ static int dimension(const char *value) {
 }
 
 static void terminate_group(pid_t child) {
-    /* 会话首进程退出后仍清理组内后台作业，避免关闭终端留下执行中的子进程。 */
+    /* Clean up remaining background jobs in the group after the session leader exits, so closing the terminal leaves no running child processes. */
     kill(-child, SIGTERM);
     kill(child, SIGTERM);
     usleep(100000);
@@ -74,7 +74,7 @@ int main(int argc, char **argv) {
     sigaction(SIGWINCH, &action, NULL);
     signal(SIGPIPE, SIG_IGN);
 
-    /* 父进程可能在注册死亡信号前退出，注册后再核对一次以封闭竞态。 */
+    /* The parent may exit before the death signal is registered; re-check after registering to close the race. */
     pid_t parent = getppid();
     if (prctl(PR_SET_PDEATHSIG, SIGTERM) < 0 || parent == 1 || getppid() != parent) return 71;
     int master = posix_openpt(O_RDWR | O_NOCTTY | O_CLOEXEC);
@@ -131,7 +131,7 @@ int main(int argc, char **argv) {
             if (!ioctl(STDIN_FILENO, TIOCGWINSZ, &current) && current.ws_row && current.ws_col)
                 ioctl(master, TIOCSWINSZ, &current);
         }
-        /* 先观察退出、最后再回收，清理进程组期间不会复用会话首进程的 PID。 */
+        /* Observe the exit first and reap last, so the session leader's PID cannot be recycled while the process group is being cleaned up. */
         siginfo_t child_info = {0};
         if (!child_exited && !waitid(P_PID, child, &child_info, WEXITED | WNOHANG | WNOWAIT)
             && child_info.si_pid == child) child_exited = 1;
@@ -154,7 +154,7 @@ int main(int argc, char **argv) {
             ssize_t read_size = read(STDIN_FILENO, buffer, sizeof(buffer));
             if (read_size < 0 && errno == EINTR) continue;
             if (read_size <= 0) {
-                /* 输入管道关闭按终端 EOF 处理，仍读取最后一批输出。 */
+                /* A closed input pipe counts as terminal EOF; still drain the final batch of output. */
                 const unsigned char eof = 4;
                 write_all(master, &eof, 1);
                 input_open = 0;

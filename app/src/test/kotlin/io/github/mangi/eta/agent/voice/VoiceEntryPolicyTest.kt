@@ -1,21 +1,18 @@
 package io.github.mangi.eta.agent.voice
 
-import io.github.mangi.eta.agent.voice.doubao.DoubaoVoiceConfig
 import org.junit.Assert.*
 import org.junit.Test
 
 class VoiceEntryPolicyTest {
-    @Test fun allEightCombinationsExposeOnlyEnabledModes() {
-        for (bits in 0..7) {
-            val config = DoubaoVoiceConfig.Config(
+    @Test fun allFourCombinationsExposeOnlyEnabledModes() {
+        for (bits in 0..3) {
+            val config = VoiceInputConfig.Config(
                 inputEnabled = bits and 1 != 0,
                 conversationEnabled = bits and 2 != 0,
-                duplexEnabled = bits and 4 != 0,
             )
             val expected = buildList {
                 if (bits and 1 != 0) add(VoiceEntryMode.DICTATION)
                 if (bits and 2 != 0) add(VoiceEntryMode.UNIVERSAL)
-                if (bits and 4 != 0) add(VoiceEntryMode.DOUBAO_DUPLEX)
             }
             assertEquals(expected, VoiceEntryPolicy.modes(config))
             assertEquals(expected.singleOrNull(), VoiceEntryPolicy.directMode(config))
@@ -27,11 +24,10 @@ class VoiceEntryPolicyTest {
     }
 
     @Test fun allCombinationsRespectLastChoiceWithoutEnablingDisabledModes() {
-        for (bits in 0..7) {
-            val config = DoubaoVoiceConfig.Config(
+        for (bits in 0..3) {
+            val config = VoiceInputConfig.Config(
                 inputEnabled = bits and 1 != 0,
                 conversationEnabled = bits and 2 != 0,
-                duplexEnabled = bits and 4 != 0,
             )
             val available = VoiceEntryPolicy.modes(config)
             VoiceEntryMode.entries.forEach { last ->
@@ -42,19 +38,24 @@ class VoiceEntryPolicyTest {
         }
     }
 
-    @Test fun multipleEnabledModesUseTheRememberedConversationOnNextClick() {
-        val config = DoubaoVoiceConfig.Config(inputEnabled = true, conversationEnabled = true, duplexEnabled = true)
+    @Test fun multipleEnabledModesUseTheRememberedModeOnNextClick() {
+        val config = VoiceInputConfig.Config(inputEnabled = true, conversationEnabled = true)
         assertEquals(VoiceEntryMode.UNIVERSAL, VoiceEntryPolicy.directMode(config, "universal"))
-        assertEquals(VoiceEntryMode.DOUBAO_DUPLEX, VoiceEntryPolicy.directMode(config, "doubao_duplex"))
         assertEquals(VoiceEntryMode.DICTATION, VoiceEntryPolicy.directMode(config, "dictation"))
         assertNull(VoiceEntryPolicy.directMode(config, ""))
         assertTrue(VoiceEntryPolicy.canChoose(config))
     }
 
-    @Test fun disabledHistoryOpensChooserUnlessOnlyOneModeRemains() {
-        val two = DoubaoVoiceConfig.Config(inputEnabled = true, conversationEnabled = true, duplexEnabled = false)
-        assertNull(VoiceEntryPolicy.directMode(two, "doubao_duplex"))
-        assertEquals(VoiceEntryMode.UNIVERSAL, VoiceEntryPolicy.directMode(two.copy(inputEnabled = false), "doubao_duplex"))
-        assertNull(VoiceEntryPolicy.directMode(two.copy(inputEnabled = false, conversationEnabled = false), "doubao_duplex"))
+    @Test fun historyOfADisabledModeOpensChooserUnlessOnlyOneModeRemains() {
+        val two = VoiceInputConfig.Config(inputEnabled = true, conversationEnabled = true)
+        assertNull(VoiceEntryPolicy.directMode(two, "universal-disabled"))
+        assertNull(VoiceEntryPolicy.directMode(two, ""))
+
+        val dictationOnly = VoiceInputConfig.Config(inputEnabled = true, conversationEnabled = false)
+        assertEquals(VoiceEntryMode.DICTATION, VoiceEntryPolicy.directMode(dictationOnly, "universal"))
+        assertFalse(VoiceEntryPolicy.canChoose(dictationOnly))
+
+        val nothingEnabled = VoiceInputConfig.Config(inputEnabled = false, conversationEnabled = false)
+        assertNull(VoiceEntryPolicy.directMode(nothingEnabled, "dictation"))
     }
 }

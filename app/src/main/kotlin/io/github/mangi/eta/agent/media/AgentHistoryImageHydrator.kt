@@ -7,7 +7,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import org.json.JSONTokener
 
-/** 把持久化的 image_file / video_file 在发往模型前还原成视觉输入，或仅保留文件路径；纯文本模型不能通过 read_image 获得视觉能力。 */
+/** Restore persisted image_file / video_file to visual input before sending to the model, or keep only the file path; a text-only model cannot gain vision capability via read_image. */
 internal object AgentHistoryImageHydrator {
     const val TYPE_IMAGE_FILE = AgentConversationCodec.IMAGE_FILE_TYPE
     const val TYPE_VIDEO_FILE = AgentConversationCodec.VIDEO_FILE_TYPE
@@ -98,14 +98,14 @@ internal object AgentHistoryImageHydrator {
         if (!changed) return message
         val listings = buildList {
             if (!supportsVision && restoredImagePaths.isNotEmpty()) {
-                addAll(restoredImagePaths.map { path -> "[用户图片] $path" })
+                addAll(restoredImagePaths.map { path -> "[User image] $path" })
             }
             if (!supportsVideo && restoredVideoPaths.isNotEmpty()) {
                 addAll(restoredVideoPaths.map { path ->
                     val duration = restoredVideoDurationsMs[path]
-                        ?.let { "\n时长 ${AgentVideoCodec.formatDuration(it)}" }
+                        ?.let { "\nDuration ${AgentVideoCodec.formatDuration(it)}" }
                         .orEmpty()
-                    "[用户视频] $path$duration"
+                    "[User video] $path$duration"
                 })
             }
         }

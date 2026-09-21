@@ -60,7 +60,6 @@ import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.KeyboardVoice
 import androidx.compose.material.icons.rounded.RecordVoiceOver
-import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Stop
 import androidx.compose.runtime.Composable
@@ -109,6 +108,7 @@ import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.media.AgentVideoCodec
 import io.github.mangi.eta.agent.model.AgentContextBudget
 import io.github.mangi.eta.agent.voice.VoiceEntryMode
+import io.github.mangi.eta.agent.voice.VoiceInputConfig
 import io.github.mangi.eta.agent.voice.VoiceModeState
 import io.github.mangi.eta.agent.voice.VoiceModePhase
 import io.github.mangi.eta.agent.model.AgentModelClient
@@ -146,7 +146,7 @@ private val ThinkingIconSize = 21.dp
 private val InputContainerShape = RoundedCornerShape(20.dp)
 
 /**
- * Agent 输入器始终保持同一空间结构，聚焦、输入和执行过程只改变状态，不搬动操作入口。
+ * The Agent input composer always keeps the same spatial structure; focusing, typing, and execution only change state and never move the action entry point.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -249,8 +249,8 @@ internal fun AgentChatInputBar(
     val view = LocalView.current
     val drawerBlocksIme = LocalConversationDrawerBlocksIme.current
     LaunchedEffect(isEditingMessage) {
-        // 编辑模式切换由业务状态驱动；日常输入使用会话拥有的 TextFieldState，
-        // 不让每个字符触发消息列表和 Markdown 重组。
+        // Edit mode switching is driven by business state; normal input uses the session-owned TextFieldState,
+        // so that each character doesn't trigger message list and Markdown recomposition.
         if (draftField == null && (isEditingMessage || wasEditingMessage)) {
             textFieldState.setTextAndPlaceCursorAtEnd(input)
         }
@@ -560,7 +560,7 @@ internal fun AgentChatInputBar(
                                             "stop" -> stringResource(R.string.chat_stop)
                                             "continue" -> if (isPaused) {
                                                 stringResource(R.string.chat_continue) +
-                                                    "，" + stringResource(R.string.chat_continue_abort)
+                                                    "," + stringResource(R.string.chat_continue_abort)
                                             } else {
                                                 stringResource(R.string.chat_continue)
                                             }
@@ -606,7 +606,7 @@ internal fun AgentChatInputBar(
 
 }
 
-/** 思考强度选择保持为单一图标，当前状态仅通过图标颜色区分。 */
+/** Reasoning effort selection remains a single icon, and the current state is indicated only by icon color. */
 @Composable
 private fun ThinkingEffortChip(
     effort: ReasoningEffort,
@@ -783,7 +783,7 @@ internal fun discreteSliderIndexForTap(x: Float, width: Float, count: Int): Int 
 
 
 /**
- * 横向跟随 Chip，竖向则避开整个输入面板；默认下拉定位只会避开 Chip 自身。
+ * Horizontally it follows the Chip, while vertically it avoids the entire input panel; the default dropdown positioning only avoids the Chip itself.
  */
 @Composable
 private fun PendingImageStrip(
@@ -915,7 +915,7 @@ internal fun resolveChatComposerSendMode(
     isCompressingContext: Boolean = false,
     canContinueDisconnected: Boolean = false,
 ): String = when {
-    // 压缩进行中禁止追加/续写，避免一边压缩一边输出。流式时仍可停止。
+    // Appending/continuation is disabled while compaction is in progress, to avoid outputting while compacting. Stopping is still allowed during streaming.
     isCompressingContext && isStreaming -> "stop"
     isCompressingContext -> "idle"
     (isStreaming || isPaused) && hasSteerContent -> "send"
@@ -951,12 +951,12 @@ private fun VoiceEntryButton(
         val mode = pendingMode
         pendingMode = null
         if (granted && mode != null && io.github.mangi.eta.agent.voice.VoiceEntryPolicy.enabled(
-                io.github.mangi.eta.agent.voice.doubao.DoubaoVoiceConfig.state.value, mode)) onStartVoiceMode(mode)
+                VoiceInputConfig.state.value, mode)) onStartVoiceMode(mode)
         else if (!granted && mode != null) Toast.makeText(context, R.string.speech_permission_denied, Toast.LENGTH_LONG).show()
     }
     fun startMode(mode: VoiceEntryMode) {
         if (!io.github.mangi.eta.agent.voice.VoiceEntryPolicy.enabled(
-                io.github.mangi.eta.agent.voice.doubao.DoubaoVoiceConfig.state.value, mode)) return
+                VoiceInputConfig.state.value, mode)) return
         rememberMode(mode)
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
             onStartVoiceMode(mode)
@@ -965,17 +965,16 @@ private fun VoiceEntryButton(
             permission.launch(Manifest.permission.RECORD_AUDIO)
         }
     }
-    val config by io.github.mangi.eta.agent.voice.doubao.DoubaoVoiceConfig.state.collectAsState()
+    val config by VoiceInputConfig.state.collectAsState()
     val modes = io.github.mangi.eta.agent.voice.VoiceEntryPolicy.modes(config)
     val canChoose = io.github.mangi.eta.agent.voice.VoiceEntryPolicy.canChoose(config)
     val directMode = io.github.mangi.eta.agent.voice.VoiceEntryPolicy.directMode(config, lastSelected)
     val directLabel = when (directMode) {
         VoiceEntryMode.DICTATION -> R.string.voice_mode_dictation
         VoiceEntryMode.UNIVERSAL -> R.string.voice_mode_universal
-        VoiceEntryMode.DOUBAO_DUPLEX -> R.string.voice_mode_doubao
         null -> R.string.voice_mode_choose
     }
-    LaunchedEffect(Unit) { io.github.mangi.eta.agent.voice.doubao.DoubaoVoiceConfig.load(context) }
+    LaunchedEffect(Unit) { VoiceInputConfig.load(context) }
     LaunchedEffect(modes) {
         if (!canChoose) picker = false
         if (pendingMode !in modes) pendingMode = null
@@ -1047,9 +1046,8 @@ private fun VoiceEntryButton(
         onDismiss = { picker = false },
         onSelect = { mode ->
             picker = false
-            pendingMode = null
             if (!interactionBlocked && io.github.mangi.eta.agent.voice.VoiceEntryPolicy.enabled(
-                    io.github.mangi.eta.agent.voice.doubao.DoubaoVoiceConfig.state.value, mode)) {
+                    VoiceInputConfig.state.value, mode)) {
                 TouchHaptics.click(view)
                 // Choosing changes the default only; a separate tap starts capture or a call.
                 rememberMode(mode)
@@ -1074,7 +1072,6 @@ private fun VoiceEntryPickerDialog(
         listOf(
             Triple(VoiceEntryMode.DICTATION, Icons.Rounded.KeyboardVoice, R.string.voice_mode_dictation),
             Triple(VoiceEntryMode.UNIVERSAL, Icons.Rounded.RecordVoiceOver, R.string.voice_mode_universal),
-            Triple(VoiceEntryMode.DOUBAO_DUPLEX, Icons.Rounded.GraphicEq, R.string.voice_mode_doubao),
         ).filter { it.first in modes }.forEach { (mode, icon, label) ->
             DropdownMenuItem(
                 modifier = Modifier.heightIn(min = 40.dp),
@@ -1108,11 +1105,7 @@ private fun VoiceModeStatusPanel(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
-                imageVector = if (state.mode == VoiceEntryMode.DOUBAO_DUPLEX) {
-                    Icons.Rounded.GraphicEq
-                } else {
-                    Icons.Rounded.RecordVoiceOver
-                },
+                imageVector = Icons.Rounded.RecordVoiceOver,
                 contentDescription = null,
                 modifier = Modifier.size(20.dp),
                 tint = if (state.error == null) MiuixTheme.colorScheme.primary else MiuixTheme.colorScheme.error,

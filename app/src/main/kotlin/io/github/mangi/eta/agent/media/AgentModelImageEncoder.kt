@@ -20,9 +20,9 @@ import kotlin.math.sqrt
 internal const val MAX_AGENT_IMAGE_BYTES = 12 * 1024 * 1024
 internal const val MAX_AGENT_VIDEO_BYTES = 32 * 1024 * 1024
 
-/** 仅负责为工具截图和聊天预览生成独立的图片副本。 */
+/** Only generates independent image copies for tool screenshots and chat previews. */
 internal object AgentModelImageEncoder {
-    // WebP 无损模式的 quality 表示编码努力，不会丢失像素信息。
+    // In lossless WebP mode, quality means encoding effort; no pixel data is lost.
     private const val SCREEN_WEBP_EFFORT = 75
     private const val PREVIEW_JPEG_QUALITY = 80
 
@@ -74,7 +74,7 @@ internal object AgentModelImageEncoder {
             bounds = inspectBounds(bytes, mimeHint),
             profile = screenProfile,
         )
-        // Root screencap 已经是压缩图片；只在无损 WebP 确实更小时替换它。
+        // Root screencaps are already compressed images; only replace them when lossless WebP is actually smaller.
         return encoded?.takeIf { it.bytes < bytes.size }
     }
 
@@ -84,14 +84,14 @@ internal object AgentModelImageEncoder {
     ): AgentModelClient.ModelImage =
         encodeBitmap(bitmap, source, screenProfile, flattenAlpha = false)
 
-    /** 助理入口截图直接进入网络请求，使用视觉模型尺寸避免全屏无损图撑大请求体。 */
+    /** Assistant-entry screenshots go directly into network requests; vision-model sizing keeps full-screen lossless images from bloating the request body. */
     fun screenContext(
         bitmap: Bitmap,
         source: String,
     ): AgentModelClient.ModelImage =
         encodeBitmap(bitmap, source, toolVisionProfile, flattenAlpha = true)
 
-    /** 文件工具图片仅在发送模型前缩放压缩，保持多图请求的体积可控。 */
+    /** File-tool images are only downscaled and compressed right before sending to the model, keeping multi-image requests small. */
     fun toolVision(
         bytes: ByteArray,
         source: String,
@@ -160,7 +160,7 @@ internal object AgentModelImageEncoder {
         profile: EncodingProfile,
         flattenAlpha: Boolean,
     ): AgentModelClient.ModelImage {
-        require(!bitmap.isRecycled && bitmap.width > 0 && bitmap.height > 0) { "图片位图不可用" }
+        require(!bitmap.isRecycled && bitmap.width > 0 && bitmap.height > 0) { "Image bitmap is unavailable" }
         val encodedBitmap = renderBitmap(
             bitmap = bitmap,
             target = targetSize(bitmap.width, bitmap.height, profile),
@@ -173,11 +173,11 @@ internal object AgentModelImageEncoder {
             ).coerceAtLeast(32 * 1024)
             val output = ByteArrayOutputStream(initialCapacity)
             check(encodedBitmap.compress(profile.format, profile.quality, output)) {
-                "图片编码失败"
+                "Image encoding failed"
             }
             val encoded = output.toByteArray()
             require(encoded.isNotEmpty() && encoded.size <= MAX_AGENT_IMAGE_BYTES) {
-                "图片数据过大：${encoded.size}"
+                "Image data too large: ${encoded.size}"
             }
             return AgentModelClient.ModelImage(
                 reference = "data:${profile.mimeType};base64,${Base64.encodeToString(encoded, Base64.NO_WRAP)}",
@@ -220,8 +220,8 @@ internal object AgentModelImageEncoder {
     }
 
     private fun inspectBounds(bytes: ByteArray, mimeHint: String): ImageBounds {
-        require(bytes.isNotEmpty()) { "图片内容为空" }
-        require(bytes.size <= MAX_AGENT_IMAGE_BYTES) { "图片数据过大：${bytes.size}" }
+        require(bytes.isNotEmpty()) { "Image content is empty" }
+        require(bytes.size <= MAX_AGENT_IMAGE_BYTES) { "Image data too large: ${bytes.size}" }
         val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
         return ImageBounds(
@@ -294,7 +294,7 @@ internal object AgentModelImageEncoder {
         if (uri.scheme == "content") {
             return {
                 context.contentResolver.openInputStream(uri)
-                    ?: error("无法打开本地图片")
+                    ?: error("Unable to open the local image")
             }
         }
         val file = when (uri.scheme) {

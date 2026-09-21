@@ -1,17 +1,33 @@
-# 消息时间戳
+# Message timestamps
 
-设置 → 外观 → 消息时间戳，默认关闭。开关仅决定是否展示，不影响时间记录。
+Settings → Appearance → Message timestamps, off by default. The switch only controls
+display; it does not affect time recording.
 
-只在成功完成的一轮回复的末尾操作栏右侧展示，格式 yyyy-MM-dd HH:mm，按设备时区格式化。流式生成中、工具过程、错误提示及没有可靠时间的旧消息不补时间。
+Timestamps appear only in the action bar at the end of a successfully completed reply
+round, on the right side, formatted as yyyy-MM-dd HH:mm in the device time zone.
+No timestamp is backfilled for in-progress streaming, tool progress, error notices,
+or old messages without a reliable time.
 
-生成完成时间由 Runtime 的 RunFinished 事件记录，经 IPC 和持久事件 JSON 传到界面；最终回复保存 generatedAtMillis。回复恢复使用已有时间或完成事件的时间，不能用恢复／打开页面时间代替。图片／视频生成使用对应任务完成时间。
+Completion time is recorded from the Runtime's RunFinished event, travels to the UI
+through IPC and persisted event JSON, and is stored as generatedAtMillis on the final
+reply. Restoring a reply reuses its stored time or the completion event's time; the
+restore/page-open time must never stand in. Image/video generation uses the
+corresponding task completion time.
 
-数据库 27 → 28 只新增 nullable generated_at_millis 列，不回填旧记录；会话保存、导入导出通过消息实体携带时间。外观设置通过原 DataStore 和备份链路保存。
+Database migration 27 → 28 only adds a nullable generated_at_millis column and does
+not backfill old records; conversation save/import/export carries the time through
+the message entity. The appearance setting is stored through the existing DataStore
+and backup chain.
 
-新增测试：完成时间回放、最后回复定位、不修改旧轮次、不伪造旧消息时间、时区格式及终态恢复。扩展现有 Room 迁移、会话保存读取和外观设置持久化用例。已检查 XML、差异及 SQLite 迁移 SQL；尚未执行 Kotlin/Android 单测与 APK 编译。
+New tests: completion-time replay, last-reply positioning, leaving older rounds untouched, no
+fabricated times for old messages, time-zone formatting, and terminal-state restore.
+Existing Room migration, conversation save/load, and appearance-setting persistence
+cases are extended. XML, diffs, and the SQLite migration SQL are checked; Kotlin/Android
+unit tests and APK compilation have not been run yet.
 
-同时移除“识别方式 → 豆包识别”页底部的获取 Key／音色 ID 说明和 API Key 权限说明，保留控制台入口。
+## Build verification
 
-## 构建验证
-
-2026-09-20：提交 `00c3849`，GitHub Actions `35505059621` 成功，1,759 项单测全部通过（无失败、错误或跳过）；包含本文回归用例。签名 APK 5.3.0 已交付手机下载目录，未自动安装，未进行安装后 UI 验收。
+2026-09-20: commit `00c3849`, GitHub Actions `35505059621` green, all 1,759 unit tests
+passed (no failures, errors, or skips), including this doc's regression cases. The signed
+5.3.0 APK was delivered to the phone's download folder; it was not auto-installed and
+no post-install UI acceptance was performed.

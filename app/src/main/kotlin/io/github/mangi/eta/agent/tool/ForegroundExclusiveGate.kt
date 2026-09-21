@@ -6,10 +6,10 @@ import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
 /**
- * 屏幕与共享浏览器按「当前这条消息 / 这次 run」互斥。
+ * Screen and shared browser are mutually exclusive per "current message / this run".
  *
- * 某个会话一旦开始操作屏幕，就一直占到这次 run 结束；其他会话在真正执行屏幕工具前排队，
- * 等整段任务结束再开始，而不是按单个 tap / observe 插花。
+ * Once a conversation starts operating the screen, it holds it until the end of this run; other conversations queue before truly executing screen tools,
+ * waiting for the whole task to finish before starting, instead of interleaving per single tap / observe.
  */
 internal object ForegroundExclusiveGate {
     private val lock = ReentrantLock()

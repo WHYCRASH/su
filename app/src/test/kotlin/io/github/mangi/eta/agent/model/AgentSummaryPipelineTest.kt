@@ -255,8 +255,8 @@ class AgentSummaryPipelineTest {
             }))
         }
         assertEquals(1, calls)
-        assertTrue(error.message.orEmpty().contains("生成上限=16000"))
-        assertTrue(error.message.orEmpty().contains("已重试=0"))
+        assertTrue(error.message.orEmpty().contains("generation limit=16000"))
+        assertTrue(error.message.orEmpty().contains("retried=0"))
         assertEquals(snapshot, source)
     }
 
@@ -365,31 +365,31 @@ class AgentSummaryPipelineTest {
 
     @Test fun chineseHeadingsAndFencesAreCoercedIntoCheckpoint() {
         val raw = """```markdown
-好的，下面是摘要。
-[对话摘要]
-## 主要请求与意图
-- 修压缩
-## 关键技术概念
+Okay, here is the summary.
+[Conversation Summary]
+## Primary Requests and Intent
+- Fix compaction
+## Key Technical Concepts
 - compaction
-## 文件与代码
+## Files and Code
 - /workspace/Eta
-## 错误与修复
-- 存档 failed
-## 待办工作
-- 重试
-## 当前工作
-- 已回滚
-## 下一步
-- 修校验
-## 关键上下文
-- 不要丢原文
+## Errors and Fixes
+- Archive failed
+## Pending Work
+- Retry
+## Current Work
+- Rolled back
+## Next Steps
+- Fix validation
+## Key Context
+- Don't lose the original text
 ```""".trimIndent()
         val coerced = AgentContextCompactor.coerceSummary(raw)
         assertNotNull(coerced)
         AgentContextCompactor.validateSummary(coerced!!)
-        assertTrue(coerced.startsWith(AgentContextCompactor.SUMMARY_PREFIX_ZH))
+        assertTrue(coerced.startsWith(AgentContextCompactor.SUMMARY_PREFIX))
         assertTrue(coerced.contains("## Critical Context"))
-        assertTrue(coerced.contains("存档 failed"))
+        assertTrue(coerced.contains("Archive failed"))
         assertFalse(coerced.contains("```"))
     }
 
@@ -397,7 +397,7 @@ class AgentSummaryPipelineTest {
         var calls = 0
         val result = AgentContextCompactor.compress(history(), AgentContextCompactor.Config(1, config(), provider {
             calls++
-            if (calls == 1) response("下面是摘要\n目标：继续任务")
+            if (calls == 1) response("Here is the summary\nGoal: Continue the task")
             else {
                 assertTrue(it.messages.toString().contains("Rewrite the checkpoint"))
                 assertFalse(it.messages.toString().contains("OLD "))
@@ -421,7 +421,7 @@ class AgentSummaryPipelineTest {
                     throw AgentModelFailure(
                         "HTTP_400",
                         false,
-                        "DeepSeek reasoning_effort 只支持 low、medium、high、xhigh、max",
+                        "DeepSeek reasoning_effort only supports low, medium, high, xhigh, max",
                     )
                 else -> {
                     assertEquals(ReasoningEffort.LOW, it.config.reasoningEffort)

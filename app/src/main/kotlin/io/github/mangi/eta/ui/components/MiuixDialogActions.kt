@@ -15,17 +15,17 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 import io.github.mangi.eta.R
 
 /**
- * 弹窗底部按钮行：取消在左、确认在右，平分整行。
- * 遵循 Miuix 官方示例的双按钮惯例，全 App 弹窗统一使用。
+ * Dialog bottom button row: cancel on the left, confirm on the right, splitting the row evenly.
+ * Follows the two-button convention from the official Miuix samples; every app dialog uses it.
  *
- * @param confirmText 确认按钮文案。
- * @param onCancel 取消回调。
- * @param onConfirm 确认回调。
- * @param modifier 根修饰符。
- * @param cancelText 取消按钮文案。
- * @param cancelEnabled 取消按钮是否可用。
- * @param confirmEnabled 确认按钮是否可用。
- * @param destructive 确认是否为破坏性操作（使用 error 配色）。
+ * @param confirmText Confirm button text.
+ * @param onCancel Cancel callback.
+ * @param onConfirm Confirm callback.
+ * @param modifier Root modifier.
+ * @param cancelText Cancel button text.
+ * @param cancelEnabled Whether the cancel button is enabled.
+ * @param confirmEnabled Whether the confirm button is enabled.
+ * @param destructive Whether confirm is a destructive action (uses the error color).
  */
 @Composable
 fun MiuixDialogActions(

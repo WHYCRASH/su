@@ -41,13 +41,13 @@ class AgentOversizedSummaryTest {
         assertTrue(text.contains("not calls to execute"))
         return text.substring(start, start + length)
     }
-    private fun tail() = AgentModelClient.ConversationMessage("user", "当前任务，必须完整保留 😀", turnId = "live-turn")
+    private fun tail() = AgentModelClient.ConversationMessage("user", "Current task, must be preserved in full 😀", turnId = "live-turn")
 
     @Test fun hugeMentionAbove128kIsReadInFullWithoutChangingSourceOrTail() {
-        val referenced = "开头证据" + "中".repeat(55_000) + "middle" + "a".repeat(195_000) + "结尾证据😀"
+        val referenced = "Leading evidence" + "Middle".repeat(55_000) + "middle" + "a".repeat(195_000) + "Trailing evidence😀"
         val content = "# Conversations mentioned by the user:\n" +
-            JSONArray().put(JSONObject().put("id", "history").put("title", "旧会话").put("transcript", referenced)) +
-            "\n\n当前请求：修复 TTS。"
+            JSONArray().put(JSONObject().put("id", "history").put("title", "Old conversation").put("transcript", referenced)) +
+            "\n\nCurrent request: fix TTS."
         val first = AgentModelClient.ConversationMessage("user", content)
         assertTrue(AgentContextBudget.countMessage(first) > 128_000)
         val source = listOf(first, tail())
@@ -67,7 +67,7 @@ class AgentOversizedSummaryTest {
     }
 
     @Test fun replayOffsetsStayCorrectAfterAnOversizedMessage() {
-        val source = listOf(AgentModelClient.ConversationMessage("user", "中".repeat(10_000)),
+        val source = listOf(AgentModelClient.ConversationMessage("user", "Middle".repeat(10_000)),
             AgentModelClient.ConversationMessage("assistant", "FOLLOWING ORIGINAL MESSAGE"), tail())
         val system = JSONObject().put("role", "system").put("content", "ORIGINAL SYSTEM")
         val raw = JSONArray().put(AgentConversationCodec.toJsonObject(source[0])).put(AgentConversationCodec.toJsonObject(source[1]))
@@ -94,9 +94,9 @@ class AgentOversizedSummaryTest {
 
     @Test fun hugeToolBatchBecomesInertEvidenceNotOrphanProtocolCalls() {
         val calls = JSONArray().put(JSONObject().put("id", "call-A").put("type", "function").put("function",
-            JSONObject().put("name", "terminal").put("arguments", JSONObject().put("command", "中".repeat(7000)).toString())))
+            JSONObject().put("name", "terminal").put("arguments", JSONObject().put("command", "Middle".repeat(7000)).toString())))
         val source = listOf(AgentModelClient.ConversationMessage("assistant", toolCallsJson = calls.toString()),
-            AgentModelClient.ConversationMessage("tool", "RESULT-A " + "结果".repeat(3000), toolCallId = "call-A"), tail())
+            AgentModelClient.ConversationMessage("tool", "RESULT-A " + "Result".repeat(3000), toolCallId = "call-A"), tail())
         val pieces = mutableListOf<String>()
         val result = AgentContextCompactor.compress(source, AgentContextCompactor.Config(1, model(8192), provider {
             fragment(it)?.let(pieces::add)
@@ -111,7 +111,7 @@ class AgentOversizedSummaryTest {
     }
 
     @Test fun structuredTextFragmentsDoNotCarryImageBase64() {
-        val content = JSONArray().put(JSONObject().put("type", "text").put("text", "文本".repeat(8000)))
+        val content = JSONArray().put(JSONObject().put("type", "text").put("text", "Text".repeat(8000)))
             .put(JSONObject().put("type", "image_url").put("image_url", JSONObject().put("url", "data:image/jpeg;base64," + "A".repeat(40_000))))
         val first = AgentModelClient.ConversationMessage("user", contentJson = content.toString())
         val source = listOf(first, tail())
@@ -126,18 +126,18 @@ class AgentOversizedSummaryTest {
     }
 
     @Test fun excessiveFragmentsAreRejectedBeforeAnyProviderRequest() {
-        val source = listOf(AgentModelClient.ConversationMessage("user", "中".repeat(160_000)), tail())
+        val source = listOf(AgentModelClient.ConversationMessage("user", "Middle".repeat(160_000)), tail())
         var calls = 0
         val error = assertThrows(IllegalArgumentException::class.java) {
             AgentContextCompactor.compress(source, AgentContextCompactor.Config(1, model(8192), provider { calls++; response() }), keepStartOverride = 1)
         }
-        assertTrue(error.message!!.contains("分块过多"))
+        assertTrue(error.message!!.contains("Too many summary fragments"))
         assertEquals(0, calls)
-        assertEquals(160_000, source.first().content.length)
+        assertEquals(960_000, source.first().content.length)
     }
 
     @Test fun providerFailureInLaterFragmentNeverReplacesOriginalHistory() {
-        val source = listOf(AgentModelClient.ConversationMessage("user", "中".repeat(10_000)), tail())
+        val source = listOf(AgentModelClient.ConversationMessage("user", "Middle".repeat(10_000)), tail())
         val before = source.toList()
         var calls = 0
         assertThrows(java.io.IOException::class.java) {
@@ -152,7 +152,7 @@ class AgentOversizedSummaryTest {
 
     @Test fun cancellationAfterFirstFragmentDoesNotSendNextRequest() {
         val parent = AgentRunController()
-        val source = listOf(AgentModelClient.ConversationMessage("user", "中".repeat(10_000)), tail())
+        val source = listOf(AgentModelClient.ConversationMessage("user", "Middle".repeat(10_000)), tail())
         var calls = 0
         assertThrows(AgentRunCancelledException::class.java) {
             AgentContextCompactor.compress(source, AgentContextCompactor.Config(1, model(8192), provider {
@@ -160,11 +160,11 @@ class AgentOversizedSummaryTest {
             }), keepStartOverride = 1, controller = parent)
         }
         assertEquals(1, calls)
-        assertEquals(10_000, source.first().content.length)
+        assertEquals(60_000, source.first().content.length)
     }
 
     @Test fun protectedOversizedTailIsNotProjectedOrSplit() {
-        val protected = tail().copy(content = "TAIL_MUST_NOT_SEND" + "中".repeat(100_000))
+        val protected = tail().copy(content = "TAIL_MUST_NOT_SEND" + "Middle".repeat(100_000))
         val source = listOf(AgentModelClient.ConversationMessage("user", "old".repeat(5000)), protected)
         val result = AgentContextCompactor.compress(source, AgentContextCompactor.Config(1, model(8192), provider {
             assertFalse(it.messages.toString().contains("TAIL_MUST_NOT_SEND"))
@@ -174,7 +174,7 @@ class AgentOversizedSummaryTest {
     }
 
     @Test fun malformedOrIncompleteToolBatchesStillFailBeforeSending() {
-        val orphan = AgentModelClient.ConversationMessage("tool", "中".repeat(10_000), toolCallId = "missing")
+        val orphan = AgentModelClient.ConversationMessage("tool", "Middle".repeat(10_000), toolCallId = "missing")
         var calls = 0
         assertThrows(IllegalArgumentException::class.java) {
             AgentContextCompactor.compress(listOf(orphan, tail()), AgentContextCompactor.Config(1, model(8192), provider {
@@ -187,14 +187,14 @@ class AgentOversizedSummaryTest {
     @Test fun tinyWindowCannotMakeEmptyFragmentsOrSendOversizedPrompt() {
         var calls = 0
         assertThrows(IllegalArgumentException::class.java) {
-            AgentContextCompactor.compress(listOf(AgentModelClient.ConversationMessage("user", "中".repeat(1000)), tail()),
+            AgentContextCompactor.compress(listOf(AgentModelClient.ConversationMessage("user", "Middle".repeat(1000)), tail()),
                 AgentContextCompactor.Config(1, model(2048), provider { calls++; response() }), keepStartOverride = 1)
         }
         assertEquals(0, calls)
     }
 
     @Test fun staleReplayIsStillRejectedBeforePlanning() {
-        val source = listOf(AgentModelClient.ConversationMessage("user", "中".repeat(10_000)), tail())
+        val source = listOf(AgentModelClient.ConversationMessage("user", "Middle".repeat(10_000)), tail())
         val replay = AgentContextCompactor.ReplayContext(JSONArray(), JSONArray().put(JSONObject().put("role", "user").put("content", "stale")), JSONArray(), "s")
         var calls = 0
         assertThrows(IllegalArgumentException::class.java) {
@@ -203,12 +203,12 @@ class AgentOversizedSummaryTest {
         assertEquals(0, calls)
     }
     @Test fun mergeIsHierarchicalWhenIntermediateSummariesCannotFitOneRequest() {
-        val prefix = (1..4).map { AgentModelClient.ConversationMessage("user", "SOURCE-$it " + "中".repeat(2800)) }
+        val prefix = (1..4).map { AgentModelClient.ConversationMessage("user", "SOURCE-$it " + "Middle".repeat(2800)) }
         val source = prefix + tail()
         var calls = 0
         val result = AgentContextCompactor.compress(source, AgentContextCompactor.Config(1, model(8192), provider {
             calls++
-            response(if (calls <= 4) summary("\n- " + "中".repeat(1800)) else summary())
+            response(if (calls <= 4) summary("\n- " + "Middle".repeat(1800)) else summary())
         }), keepStartOverride = 4)
         assertEquals(9, calls) // 4 source requests, 4 bounded intermediate merges, 1 final merge.
         assertEquals(AgentContextCompactor.coerceSummary(summary()), result.first().content)
@@ -216,39 +216,39 @@ class AgentOversizedSummaryTest {
     }
 
     @Test fun nonReducingMergeFailsWithoutUnboundedRequestsOrPartialCommit() {
-        val prefix = (1..4).map { AgentModelClient.ConversationMessage("user", "SOURCE-$it " + "中".repeat(2800)) }
+        val prefix = (1..4).map { AgentModelClient.ConversationMessage("user", "SOURCE-$it " + "Middle".repeat(2800)) }
         val source = prefix + tail()
         val before = source.toList()
         var calls = 0
         val error = assertThrows(IllegalArgumentException::class.java) {
             AgentContextCompactor.compress(source, AgentContextCompactor.Config(1, model(8192), provider {
-                calls++; response(summary("\n- " + "中".repeat(1800)))
+                calls++; response(summary("\n- " + "Middle".repeat(1800)))
             }), keepStartOverride = 4)
         }
-        assertTrue(error.message!!.contains("分层摘要合并未缩小"))
+        assertTrue(error.message!!.contains("merge did not shrink the input"))
         assertEquals(8, calls)
         assertEquals(before, source)
     }
 
     @Test fun overlargeReplayOverheadFallsBackToTextWithoutSendingOriginalTools() {
-        val first = AgentModelClient.ConversationMessage("user", "历史".repeat(1000))
+        val first = AgentModelClient.ConversationMessage("user", "History".repeat(1000))
         val source = listOf(first, tail())
         val raw = JSONArray().put(AgentConversationCodec.toJsonObject(first))
-        val system = JSONArray().put(JSONObject().put("role", "system").put("content", "旧系统".repeat(5000)))
+        val system = JSONArray().put(JSONObject().put("role", "system").put("content", "Legacy system".repeat(5000)))
         val replay = AgentContextCompactor.ReplayContext(system, raw, JSONArray(), "overhead-session")
         var calls = 0
         AgentContextCompactor.compress(source, AgentContextCompactor.Config(1, model(8192), provider {
             calls++
             assertEquals(AgentContextCompactor.messageToSummaryText(first), fragment(it))
             assertNotEquals("overhead-session", it.sessionId)
-            assertFalse(it.messages.toString().contains("旧系统"))
+            assertFalse(it.messages.toString().contains("Legacy system"))
             response()
         }), keepStartOverride = 1, replay = replay)
         assertEquals(1, calls)
     }
 
     @Test fun laterFragmentTruncationStillRejectsRatherThanAcceptingPartialSummary() {
-        val source = listOf(AgentModelClient.ConversationMessage("user", "中".repeat(100_000)), tail())
+        val source = listOf(AgentModelClient.ConversationMessage("user", "Middle".repeat(100_000)), tail())
         var calls = 0
         assertThrows(IllegalArgumentException::class.java) {
             AgentContextCompactor.compress(source, AgentContextCompactor.Config(1, model(), provider {
@@ -257,26 +257,26 @@ class AgentOversizedSummaryTest {
             }), keepStartOverride = 1)
         }
         assertEquals(2, calls) // 128K summaries already reserve 16K; no larger output retry fits.
-        assertEquals(100_000, source.first().content.length)
+        assertEquals(600_000, source.first().content.length)
     }
 
     @Test fun shrinkingButStillUnmergeableOutputsStopAtDepthLimit() {
-        val prefix = (1..4).map { AgentModelClient.ConversationMessage("user", "SOURCE-$it " + "中".repeat(2800)) }
+        val prefix = (1..4).map { AgentModelClient.ConversationMessage("user", "SOURCE-$it " + "Middle".repeat(2800)) }
         val source = prefix + tail()
         var calls = 0
         val error = assertThrows(IllegalStateException::class.java) {
             AgentContextCompactor.compress(source, AgentContextCompactor.Config(1, model(8192), provider {
                 val stage = calls++ / 4
-                response(summary("\n- " + "中".repeat(1800 - stage * 10)))
+                response(summary("\n- " + "Middle".repeat(1800 - stage * 10)))
             }), keepStartOverride = 4)
         }
-        assertTrue(error.message!!.contains("安全层数限制"))
+        assertTrue(error.message!!.contains("safety level limit"))
         assertEquals(20, calls) // 4 source + 4 levels * 4 intermediate requests, then stop.
         assertEquals(prefix.first(), source.first())
     }
 
     @Test fun finalMergeFailureCannotCommitSuccessfulFragmentSummaries() {
-        val source = listOf(AgentModelClient.ConversationMessage("user", "中".repeat(10_000)), tail())
+        val source = listOf(AgentModelClient.ConversationMessage("user", "Middle".repeat(10_000)), tail())
         val before = source.toList()
         var pieces = 0
         var merges = 0
@@ -297,7 +297,7 @@ class AgentOversizedSummaryTest {
     }
 
     @Test fun ordinaryFittingPrefixStillUsesOneRequestWithoutFragments() {
-        val source = listOf(AgentModelClient.ConversationMessage("user", "普通正文".repeat(1000)), tail())
+        val source = listOf(AgentModelClient.ConversationMessage("user", "Ordinary body text".repeat(1000)), tail())
         var calls = 0
         val result = AgentContextCompactor.compress(source, AgentContextCompactor.Config(1, model(), provider {
             calls++

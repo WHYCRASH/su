@@ -40,17 +40,17 @@ internal fun LazyListScope.providerHeadersEditor(
     expanded: Boolean,
     onExpandedChange: (Boolean) -> Unit,
 ) {
-    // 请求头数量很少且必须收进同一张卡片，折叠/展开态整组重排，不拆成独立 Lazy 条目。
+    // Header counts are small and must live in a single card; the collapsed/expanded state rearranges as a group, never as separate Lazy items.
     item(key = "custom_headers") {
-        ProviderSection(title = "自定义请求头") {
+        ProviderSection(title = "Custom request headers") {
             val chevronRotation by animateFloatAsState(if (expanded) 180f else 0f)
             BasicComponent(
-                title = if (headers.isEmpty()) "未设置" else "已设置 ${headers.size} 项",
-                summary = "可覆盖 User-Agent；认证与传输请求头由系统管理。",
+                title = if (headers.isEmpty()) "Not set" else "${headers.size} configured",
+                summary = "Can override User-Agent; auth and transport headers are managed by the system.",
                 endActions = {
                     Icon(
                         imageVector = Icons.Rounded.ExpandMore,
-                        contentDescription = if (expanded) "收起" else "展开",
+                        contentDescription = if (expanded) "Collapse" else "Expand",
                         tint = MiuixTheme.colorScheme.onSurfaceVariantActions,
                         modifier = Modifier.rotate(chevronRotation),
                     )
@@ -77,7 +77,7 @@ internal fun LazyListScope.providerHeadersEditor(
                 }
                 HorizontalDivider()
                 BasicComponent(
-                    title = "添加请求头",
+                    title = "Add request header",
                     titleColor = BasicComponentDefaults.titleColor(color = MiuixTheme.colorScheme.primary),
                     startAction = {
                         Icon(
@@ -113,14 +113,14 @@ private fun ProviderHeaderRow(
             TextField(
                 value = row.header.name,
                 onValueChange = onNameChange,
-                label = "名称",
+                label = "Name",
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
             TextField(
                 value = row.header.value,
                 onValueChange = onValueChange,
-                label = "值",
+                label = "Value",
                 singleLine = true,
                 visualTransformation = if (visible) VisualTransformation.None else PasswordVisualTransformation(),
                 trailingIcon = {

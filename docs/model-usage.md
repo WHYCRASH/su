@@ -1,27 +1,47 @@
-# 模型用量统计口径
+# Model usage accounting
 
-模型用量页使用请求账本，不再按聊天消息保留的 Token 总量缩放。
-ProviderClientFactory 为每次模型调用生成独立 requestId；同一请求多次 usage 回调更新同一记录，
-不同请求即使同会话、同轮次或重试也分别累加。记录使用实际请求配置，不读取界面当前选中的模型。
+The model usage page reads from a request ledger; it no longer scales from the token
+totals kept on chat messages.
 
-覆盖主对话、子代理、摘要压缩、标题与辅助视觉的工厂请求。子代理关联父会话。
-已收到的 usage 先保存再派发界面事件；后续取消或异常不抹除它。未返回 usage 时不估算、不伪造。
-输入包含缓存，缓存不应再加到输入；输出已包含协议返回的推理 Token，不能重复累加。
-用量以请求开始时间归属日期；跨午夜请求可能与服务端结算时间不同。
+ProviderClientFactory mints an independent requestId per model call. Repeat usage
+callbacks for the same request update one record; different requests accumulate
+separately even in the same conversation, round, or retry. Records use the actual
+request configuration, never the model currently selected in the UI.
 
-旧版会话+轮次记录仍能读取，不清空、不按平台差额补值。被覆盖或未返回的历史 usage 无法自动重建。
-最多保留每模型最近 4000 条明细，累计总量独立保留；时间筛选依赖保留明细，早期范围可能不完整。
-平台账单还可能包括其他客户端、服务端重试或不同计费口径，不承诺客户端计数必然等于账单。
+Covers factory requests for the main conversation, subagents, summary compaction,
+title, and assistive vision. Subagents attribute to the parent conversation. Received
+usage is saved before UI events dispatch; later cancellation or failure never erases
+it. Missing usage is never estimated or fabricated. Input includes cache, and cache
+must not be added to input again; output already includes the protocol-reported
+reasoning tokens, which must not be accumulated twice. Usage belongs to the date the
+request started; cross-midnight requests may differ from the server billing date.
 
-验证：请求身份、流式更新幂等、失败后保留、UI 消费失败、缺失用量不估算、历史兼容、
-时间筛选及明细裁剪不降低累计总量；完整 Android 回归由 GitHub Actions 执行。
+Legacy conversation+round records stay readable: never cleared, never topped up by
+platform differences. Overwritten or never-returned history usage cannot be rebuilt
+automatically. At most the latest 4,000 line items per model are kept while cumulative
+totals are kept independently; date filtering depends on the kept items, so early ranges
+may be incomplete. Platform bills may also include other clients, server-side retries,
+or different accounting, so client counts are never promised to equal the bill.
 
-## 会话菜单累计
+Verification: request identity, streaming-update idempotence, post-failure retention,
+UI-consumption failure, no estimation on missing usage, history compatibility, time
+filtering, and item trimming without lowering cumulative totals; full Android
+regression runs on GitHub Actions.
 
-会话 Token 菜单订阅账本的 conversationTotalsV1，按整个会话累计，不按日期筛选。
-总量与最近 4000 条模型明细分开保存，同请求更新仅加差值，不随压缩、删消息或明细裁剪减少。
-usageConversationId 独立于网络 sessionId：标题、视觉辅助、压缩分块／合并／修复显式归到父会话；子代理沿用父会话归属。
+## Conversation menu totals
 
-升级启动时，在发起新请求之前读取旧消息及压缩标记中的累计，和现存请求账本去重地建立一次性基线。
-两者存在重叠，不能相加；按各字段保留最大已记录值，不按比例补全未知历史。
-迁移后只累加真实请求用量，重启不重新叠加。切换会话时校验订阅结果所属 ID，防止瞬间显示上个会话数字。
+The conversation token menu subscribes to the ledger's conversationTotalsV1 and
+accumulates over the whole conversation with no date filtering. Totals are stored
+separately from the latest 4,000 per-model line items; updates for the same request
+add only the delta and never shrink on compaction, message deletion, or item trimming.
+usageConversationId is independent of the network sessionId: title, vision-assist, and
+compaction chunk/merge/repair work attribute explicitly to the parent conversation,
+and subagents keep the parent conversation attribution.
+
+On upgrade, before issuing any new request, a one-time baseline is built by reading
+accumulated totals from old messages and compaction markers and deduplicating against
+the existing request ledger. The two overlap and must not be added; keep the maximum
+recorded value per field instead of proportionally backfilling unknown history. After
+migration only real request usage accumulates, and restarts never stack it again.
+Switching conversations validates the subscription result's owning ID so a stale number
+from the previous conversation never flashes.

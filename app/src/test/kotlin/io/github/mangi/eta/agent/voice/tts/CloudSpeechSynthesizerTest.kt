@@ -30,14 +30,14 @@ class CloudSpeechSynthesizerTest {
             val body = Buffer().also { request.body!!.writeTo(it) }.readUtf8()
             val json = JSONObject(body)
             assertEquals("tts-1", json.getString("model"))
-            assertEquals("你好", json.getString("input"))
+            assertEquals("hello", json.getString("input"))
             assertEquals("provider-voice", json.getString("voice"))
             assertEquals("mp3", json.getString("response_format"))
             assertFalse(json.has("tools"))
             assertFalse(json.has("messages"))
             assertFalse(body.contains("never send"))
         }
-        assertArrayEquals(mp3, CloudSpeechSynthesizer(http).synthesize(config, "你好", "provider-voice"))
+        assertArrayEquals(mp3, CloudSpeechSynthesizer(http).synthesize(config, "hello", "provider-voice"))
     }
     @Test fun relayAliasesSendCanonicalPresetVoicesToConfiguredHost() = runBlocking {
         for ((model, engine, prefix) in listOf(
@@ -51,29 +51,29 @@ class CloudSpeechSynthesizerTest {
                 assertEquals("$prefix:alex", body.getString("voice"))
             }
             val voice = SpeechVoices.catalog(engine, model).first().id
-            assertArrayEquals(mp3, CloudSpeechSynthesizer(http).synthesize(config.copy(model = model), "你好", voice))
+            assertArrayEquals(mp3, CloudSpeechSynthesizer(http).synthesize(config.copy(model = model), "hello", voice))
         }
     }
     @Test fun noUniversalVoiceIsSilentlyInvented() = runBlocking {
-        val message = failure { CloudSpeechSynthesizer(client()).synthesize(config, "你好", "") }
-        assertTrue(message.contains("音色"))
+        val message = failure { CloudSpeechSynthesizer(client()).synthesize(config, "hello", "") }
+        assertTrue(message.contains("voice"))
     }
     @Test fun htmlAndJsonSuccessAreRejected() = runBlocking {
         for (type in listOf("text/html", "application/json", "audio/mpeg")) {
-            val message = failure { CloudSpeechSynthesizer(client(type = type, bytes = "{\"error\":\"secret-key\"}".toByteArray())).synthesize(config, "你好", "a") }
+            val message = failure { CloudSpeechSynthesizer(client(type = type, bytes = "{\"error\":\"secret-key\"}".toByteArray())).synthesize(config, "hello", "a") }
             assertFalse(message.contains("secret-key"))
-            assertTrue(message.contains("音频"))
+            assertTrue(message.contains("audio"))
         }
     }
     @Test fun upstreamErrorBodyNeverLeaks() = runBlocking {
-        val message = failure { CloudSpeechSynthesizer(client(401, "text/html", "secret-key/private prose".toByteArray())).synthesize(config, "你好", "a") }
+        val message = failure { CloudSpeechSynthesizer(client(401, "text/html", "secret-key/private prose".toByteArray())).synthesize(config, "hello", "a") }
         assertTrue(message.contains("401"))
         assertFalse(message.contains("secret-key"))
         assertFalse(message.contains("private prose"))
     }
     @Test fun oversizedAudioIsRejected() = runBlocking {
-        val message = failure { CloudSpeechSynthesizer(client(bytes = ByteArray(CloudSpeechSynthesizer.MAX_AUDIO_BYTES + 1))).synthesize(config, "你好", "a") }
-        assertTrue(message.contains("大小"))
+        val message = failure { CloudSpeechSynthesizer(client(bytes = ByteArray(CloudSpeechSynthesizer.MAX_AUDIO_BYTES + 1))).synthesize(config, "hello", "a") }
+        assertTrue(message.contains("size"))
     }
     @Test fun cancellationCancelsTheActualCall() = runBlocking {
         val started = CountDownLatch(1)
@@ -87,7 +87,7 @@ class CloudSpeechSynthesizerTest {
             Response.Builder().request(chain.request()).protocol(Protocol.HTTP_1_1).code(200).message("test")
                 .header("Content-Type", "audio/mpeg").body(mp3.toResponseBody()).build()
         }.build()
-        val pending = async(Dispatchers.Default) { CloudSpeechSynthesizer(http).synthesize(config, "你好", "a") }
+        val pending = async(Dispatchers.Default) { CloudSpeechSynthesizer(http).synthesize(config, "hello", "a") }
         try {
             assertTrue(withContext(Dispatchers.IO) { started.await(3, TimeUnit.SECONDS) })
             withTimeout(2_000) { pending.cancelAndJoin() }

@@ -3,7 +3,7 @@ package io.github.mangi.eta.ui.haptics
 import androidx.annotation.StringRes
 import io.github.mangi.eta.R
 
-/** 触控反馈幅度。默认沿用系统 View 触感；低 / 中 / 高为自定义振幅。 */
+/** Haptic feedback strength. Default follows the system View haptics; low / medium / high use custom amplitudes. */
 internal enum class HapticIntensity(
     val wireValue: String,
     @StringRes val labelRes: Int,

@@ -2,7 +2,7 @@ package io.github.mangi.eta.agent.runtime
 
 import android.content.Context
 
-/** 将高频文本增量合并后写入 checkpoint，结构化边界则同步落盘。 */
+/** Merges high-frequency text deltas and writes them to the checkpoint, while structured boundaries are synchronously persisted to disk. */
 internal class AgentRunCheckpointRecorder private constructor(
     context: Context,
     private val runId: String,
@@ -45,7 +45,7 @@ internal class AgentRunCheckpointRecorder private constructor(
         append(checkpointEvent)
     }
 
-    /** 把最后一段增量提交到日志；日志由结果 ACK 或中断恢复负责删除。 */
+    /** Commits the last delta segment to the log; the log is deleted by the result ACK or interruption recovery. */
     fun seal() {
         flushPendingDelta()
     }

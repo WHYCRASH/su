@@ -36,6 +36,7 @@ import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.voice.offline.OfflineSpeechPack
 import io.github.mangi.eta.agent.voice.offline.OfflineSpeechSession
 import io.github.mangi.eta.agent.voice.offline.SpeechInputPolicy
+import io.github.mangi.eta.agent.voice.VoiceInputConfig
 import io.github.mangi.eta.agent.voice.offline.SpeechDraft
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 import kotlinx.coroutines.CancellationException
@@ -65,14 +66,14 @@ internal fun ChatSpeechIndicator(
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val scope = rememberCoroutineScope()
     val pack by OfflineSpeechPack.state.collectAsState()
-    val cloudConfig by io.github.mangi.eta.agent.voice.doubao.DoubaoVoiceConfig.state.collectAsState()
-    val speechEnabled = cloudConfig.inputEnabled
+    val voiceConfig by VoiceInputConfig.state.collectAsState()
+    val speechEnabled = voiceConfig.inputEnabled
     var job by remember { mutableStateOf<Job?>(null) }
     var active by remember { mutableStateOf(false) }
     var listening by remember { mutableStateOf(false) }
     var pendingPermission by remember { mutableStateOf(false) }
     var draft by remember { mutableStateOf<SpeechDraft?>(null) }
-    val allowed by rememberUpdatedState(speechEnabled && (if (cloudConfig.cloudAsr) cloudConfig.asrKey.isNotBlank() else pack.ready) && !interactionBlocked && !suspendCapture)
+    val allowed by rememberUpdatedState(speechEnabled && pack.ready && !interactionBlocked && !suspendCapture)
 
     fun stop() {
         pendingPermission = false
@@ -106,7 +107,7 @@ internal fun ChatSpeechIndicator(
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (failure: Exception) {
-                Toast.makeText(context, if (cloudConfig.cloudAsr) failure.message ?: "豆包 ASR 识别失败" else context.getString(R.string.speech_failed), Toast.LENGTH_LONG).show()
+                Toast.makeText(context, failure.message ?: context.getString(R.string.speech_failed), Toast.LENGTH_LONG).show()
             } catch (_: LinkageError) {
                 Toast.makeText(context, R.string.speech_failed, Toast.LENGTH_LONG).show()
             } finally {
@@ -125,7 +126,7 @@ internal fun ChatSpeechIndicator(
         if (granted && requested) latestStart()
         else if (!granted && requested) Toast.makeText(context, R.string.speech_permission_denied, Toast.LENGTH_LONG).show()
     }
-    LaunchedEffect(Unit) { io.github.mangi.eta.agent.voice.doubao.DoubaoVoiceConfig.load(context); OfflineSpeechPack.initialize(context) }
+    LaunchedEffect(Unit) { VoiceInputConfig.load(context); OfflineSpeechPack.initialize(context) }
     LaunchedEffect(allowed, resetKey) {
         stop() // Mode changes, drawer, edit, send/stream transition: invalidate permission and capture.
     }

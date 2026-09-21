@@ -39,8 +39,8 @@ internal sealed interface AgentEvent {
         val reasonDetail: String = "",
     ) : AgentEvent {
         val displayMessage: String
-            get() = "模型请求暂时中断，${delayMs / 1000} 秒后重试（$attempt/$maxAttempts）；此前工具结果已保留。" +
-                reasonDetail.takeIf { it.isNotBlank() }?.let { "\n原因：$it" }.orEmpty()
+            get() = "Model request was briefly interrupted; retrying in ${delayMs / 1000} seconds ($attempt/$maxAttempts); tool results so far have been kept." +
+                reasonDetail.takeIf { it.isNotBlank() }?.let { "\nReason: $it" }.orEmpty()
 
         override fun toLogLine(): String =
             "model_retry_scheduled round=$round, attempt=$attempt, delay_ms=$delayMs, code=${reasonCode.toSafeLogToken()}"
@@ -152,7 +152,7 @@ internal sealed interface AgentEvent {
         val resultSummary: String,
         val imageCount: Int,
         val imageBytes: Int,
-        /** 可选：旧版本 Runtime 不发送，消费端缺省时回退到摘要文本判断。 */
+        /** Optional: older Runtime versions do not send this; consumers fall back to summary-text detection when absent. */
         val success: Boolean? = null,
     ) : AgentEvent {
         override fun toLogLine(): String =
@@ -231,7 +231,7 @@ internal sealed interface AgentEvent {
 private const val MAX_LOGGED_TOOL_NAMES = 8
 private const val RESULT_CODE_MARKER = "code="
 
-/** 摘要字段分隔符：旧格式用逗号，人文化摘要用间隔号。 */
+/** Summary field separator: the old format uses a comma, humanized summaries use an interpunct. */
 private val RESULT_FIELD_SEPARATORS = listOf(", ", " · ")
 
 private fun String.toSafeResultLogFields(): String = buildString {

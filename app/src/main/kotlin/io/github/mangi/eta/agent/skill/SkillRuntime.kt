@@ -28,7 +28,7 @@ internal fun isSafeBuiltinSkillInstallation(targetDir: File): Boolean {
         skillFile.isFile
 }
 
-/** 内置技能 manifest 条目。 */
+/** Built-in skill manifest entry. */
 private data class BuiltinSkillAsset(
     val id: String = "",
     val name: String = "",
@@ -40,7 +40,7 @@ private data class BuiltinSkillAsset(
     val hasEvals: Boolean = false,
 )
 
-/** 注册表中的技能状态记录。 */
+/** Skill state record in the registry. */
 private data class SkillRegistryEntry(
     val enabled: Boolean = true,
     val source: String = USER_SOURCE,
@@ -48,7 +48,7 @@ private data class SkillRegistryEntry(
 )
 
 // =====================================================================================
-// SkillRegistryStore — 持久化技能安装元数据；技能正文仍保留在文件树中。
+// SkillRegistryStore — persists skill installation metadata; skill bodies stay in the file tree.
 // =====================================================================================
 
 private class SkillRegistryStore(
@@ -115,7 +115,7 @@ private class SkillRegistryStore(
 }
 
 // =====================================================================================
-// BuiltinSkillAssetStore — 从 assets 读取并安装内置技能
+// BuiltinSkillAssetStore — reads built-in skills from assets and installs them
 // =====================================================================================
 
 private class BuiltinSkillAssetStore(
@@ -175,7 +175,7 @@ private class BuiltinSkillAssetStore(
 
     fun installBuiltin(skillId: String, registryStore: SkillRegistryStore) {
         val builtin = findBuiltin(skillId)
-            ?: throw IllegalArgumentException("未找到内置 skill：$skillId")
+            ?: throw IllegalArgumentException("Built-in skill not found: $skillId")
         installBuiltinInternal(builtin)
         registryStore.set(
             skillId,
@@ -187,7 +187,7 @@ private class BuiltinSkillAssetStore(
         val targetDir = File(skillsRoot, builtin.id)
         if (Files.exists(targetDir.toPath(), LinkOption.NOFOLLOW_LINKS)) {
             if (!deleteSkillPathWithoutFollowingLinks(skillsRoot, targetDir)) {
-                error("无法安全清理内置 Skill 目录：${builtin.id}")
+                error("Cannot safely clean the built-in skill directory: ${builtin.id}")
             }
         }
         copyAssetRecursively(context.assets, builtin.assetPath, targetDir)
@@ -210,7 +210,7 @@ private class BuiltinSkillAssetStore(
 }
 
 // =====================================================================================
-// SkillIndexService — 扫描、索引、管理技能
+// SkillIndexService — scans, indexes, and manages skills
 // =====================================================================================
 
 class SkillIndexService(
@@ -228,8 +228,8 @@ class SkillIndexService(
     private var cachedManagementEntries: List<SkillIndexEntry>? = null
 
     /**
-     * 所有可读写索引的入口都先在同一把跨进程锁内完成待处理文件事务与 Room 快照恢复。
-     * 仅能读取文件、不具备 registry 恢复能力的 Loader 会由锁实现保持 fail-closed。
+     * Every entry point with read/write index access first completes pending file transactions and Room snapshot recovery under one cross-process lock.
+     * The Loader, which can only read files and cannot recover the registry, stays fail-closed via the lock implementation.
      */
     internal fun <T> withMutationLock(block: () -> T): T = SkillMutationLock.withLock(
         skillsRoot = skillsRoot,
@@ -275,7 +275,7 @@ class SkillIndexService(
         return withMutationLock {
             synchronized(indexLock) {
                 val entry = listSkillsForManagement().firstOrNull { it.id == skillId && it.installed }
-                    ?: throw IllegalArgumentException("未找到已安装 skill：$skillId")
+                    ?: throw IllegalArgumentException("Installed skill not found: $skillId")
                 registryStore.set(
                     entry.id,
                     SkillRegistryEntry(enabled = enabled, source = entry.source, installState = INSTALL_STATE_INSTALLED),
@@ -346,7 +346,7 @@ class SkillIndexService(
                     }.isSuccess
                     if (!rollbackComplete) {
                         throw SkillRecoveryRequiredException(
-                            "Skill 删除失败，且文件或 registry 尚未完整恢复",
+                            "Skill deletion failed, and files or registry were not fully restored",
                             error,
                         )
                     }
@@ -359,7 +359,7 @@ class SkillIndexService(
                             LinkOption.NOFOLLOW_LINKS,
                         )
                     ) {
-                        // 成功删除时备份内可能含历史 symlink，必须只 unlink，不能递归跟随。
+                        // On successful deletion the backup may contain historical symlinks; unlink only, never recurse through them.
                         deleteSkillPathWithoutFollowingLinks(workRoot, operation)
                     }
                 }
@@ -373,17 +373,17 @@ class SkillIndexService(
                 builtinStore.installBuiltin(skillId, registryStore)
                 invalidateIndexLocked()
                 findInstalledSkill(skillId)
-                    ?: throw IllegalStateException("安装内置 skill 后索引失败：$skillId")
+                    ?: throw IllegalStateException("Indexing failed after installing built-in skill: $skillId")
             }
         }
     }
 
-    /** 文件提交成功后，以单次 Room 事务登记用户 Skill，并同步清除索引缓存。 */
+    /** After the file commit succeeds, registers user skills in a single Room transaction and clears the index cache. */
     internal fun registerInstalledUserSkills(skillIds: List<String>) {
         withMutationLock {
             synchronized(indexLock) {
                 require(skillIds.none { builtinStore.findBuiltin(it) != null }) {
-                    "不能把内置 Skill 登记为用户 Skill"
+                    "Cannot register a built-in skill as a user skill"
                 }
                 val registry = registryStore.readStrict()
                 skillIds.distinct().forEach { skillId ->
@@ -399,7 +399,7 @@ class SkillIndexService(
         }
     }
 
-    /** 在正式目录发生任何移动前，持久化事务涉及 id 的完整旧 registry 状态。 */
+    /** Before any move in the canonical directory, persists the full old registry state for every id in the transaction. */
     internal fun captureRegistryRecoverySnapshots(
         skillIds: List<String>,
     ): List<SkillRegistryRecoverySnapshot> = synchronized(indexLock) {
@@ -420,7 +420,7 @@ class SkillIndexService(
         }
     }
 
-    /** 文件恢复完成后，以单次 Room 事务还原全部旧快照；失败时调用方保留 journal。 */
+    /** After file recovery completes, restores all old snapshots in a single Room transaction; on failure the caller keeps the journal. */
     internal fun restoreRecoveredRegistry(recovered: List<RecoveredSkillOperation>) {
         if (recovered.isEmpty()) return
         synchronized(indexLock) {
@@ -448,7 +448,7 @@ class SkillIndexService(
     private fun seedBuiltinSkillsLocked() {
         if (builtinsSeeded) return
         if (!skillsRoot.exists() && !skillsRoot.mkdirs()) {
-            error("无法创建 Skills 目录：${skillsRoot.absolutePath}")
+            error("Cannot create skills directory: ${skillsRoot.absolutePath}")
         }
         builtinStore.seedMissingBuiltins(registryStore)
         builtinsSeeded = true
@@ -484,7 +484,7 @@ class SkillIndexService(
         val canonicalRoot = skillsRoot.canonicalFile.toPath()
         return skillsRoot.walkTopDown()
             .onEnter { dir ->
-                // `.assistant` / `.visible` 是当前助手的发布拷贝，不能当成又一份已安装 Skill。
+                // `.assistant` / `.visible` are published copies of the current assistant, not another installed skill.
                 (dir == skillsRoot || !dir.name.startsWith(".")) &&
                     !shouldSkipSkillCopy(dir) &&
                     !Files.isSymbolicLink(dir.toPath()) &&
@@ -583,7 +583,7 @@ class SkillIndexService(
 }
 
 // =====================================================================================
-// SkillLoader — 加载技能正文和附属资源
+// SkillLoader — loads skill bodies and attached resources
 // =====================================================================================
 
 class SkillLoader(private val skillsRoot: File) {
@@ -630,7 +630,7 @@ class SkillLoader(private val skillsRoot: File) {
 }
 
 // =====================================================================================
-// SkillRuntime — 工厂入口
+// SkillRuntime — factory entry point
 // =====================================================================================
 
 internal const val ASSISTANT_SKILL_DIR = ".assistant"
@@ -682,7 +682,7 @@ object SkillRuntime {
             val runs = File(assistantSkillsDirectory(context, assistantId), ".runs")
             check(runs.mkdirs() || runs.isDirectory)
             cleanupAbandonedRunViews(context, runs)
-            check(runs.listFiles().orEmpty().size < 128) { "技能运行快照已达上限，请先清理已结束任务的快照" }
+            check(runs.listFiles().orEmpty().size < 128) { "Skill run snapshots reached the limit; clean up snapshots of finished tasks first" }
             val root = File(runs, java.util.UUID.randomUUID().toString())
             check(root.mkdirs())
             val leaseFile = java.io.RandomAccessFile(File(root, ".lease"), "rw")
@@ -726,7 +726,7 @@ object SkillRuntime {
         val runs = File(assistantSkillsDirectory(context, assistantId), ".runs")
         runs.listFiles().orEmpty().forEach { run ->
             File(run, "skills").listFiles().orEmpty().filter { it.name !in enabled }.forEach {
-                check(deleteSkillPathWithoutFollowingLinks(skillsRoot(context), it)) { "无法撤销技能目录" }
+                check(deleteSkillPathWithoutFollowingLinks(skillsRoot(context), it)) { "Cannot revoke the skill directory" }
             }
         }
     }
@@ -734,23 +734,23 @@ object SkillRuntime {
     fun pruneRunSkills(context: Context, root: File, allowed: Set<String>) =
         SkillMutationLock.withLock(skillsRoot(context)) {
             root.listFiles().orEmpty().filter { it.name !in allowed }.forEach {
-                check(deleteSkillPathWithoutFollowingLinks(skillsRoot(context), it)) { "无法撤销技能目录" }
+                check(deleteSkillPathWithoutFollowingLinks(skillsRoot(context), it)) { "Cannot revoke the skill directory" }
             }
         }
 
     private fun publishSkillView(context: Context, assistantId: String, entries: List<SkillIndexEntry>, view: File): List<SkillIndexEntry> {
-        require(entries.size <= 128) { "单次技能快照条目超过限制" }
+        require(entries.size <= 128) { "Skill snapshot exceeds the per-batch entry limit" }
         var publishedBytes = 0L
         val assistantRoot = assistantSkillsDirectory(context, assistantId)
-        require(!Files.isSymbolicLink(assistantRoot.toPath())) { "助手技能根目录不能是符号链接" }
+        require(!Files.isSymbolicLink(assistantRoot.toPath())) { "Assistant skill root must not be a symlink" }
         val dataRoot = File(assistantRoot, ".data")
-        require(!Files.isSymbolicLink(dataRoot.toPath())) { "助手技能数据根目录不能是符号链接" }
+        require(!Files.isSymbolicLink(dataRoot.toPath())) { "Assistant skill data root must not be a symlink" }
         check(dataRoot.mkdirs() || dataRoot.isDirectory)
         check(view.mkdirs() || view.isDirectory)
         // Host-only pointer. Linux mounts individual authorized data folders, not this whole root.
         val dataLink = File(view, "skill-data")
         if (!Files.exists(dataLink.toPath(), LinkOption.NOFOLLOW_LINKS)) Files.createSymbolicLink(dataLink.toPath(), dataRoot.toPath())
-        require(dataLink.canonicalFile == dataRoot.canonicalFile) { "技能数据目录归属不一致" }
+        require(dataLink.canonicalFile == dataRoot.canonicalFile) { "Skill data directory ownership mismatch" }
         val destRoot = File(view, "skills")
         check(destRoot.mkdirs() || destRoot.isDirectory)
         val keep = entries.map { it.id }.toSet()
@@ -758,9 +758,9 @@ object SkillRuntime {
             check(deleteSkillPathWithoutFollowingLinks(skillsRoot(context), it))
         }
         return entries.map { entry ->
-            require(entry.id.matches(Regex("[A-Za-z0-9][A-Za-z0-9._-]{0,199}"))) { "技能 ID 无效" }
+            require(entry.id.matches(Regex("[A-Za-z0-9][A-Za-z0-9._-]{0,199}"))) { "Invalid skill ID" }
             val privateData = File(dataRoot, entry.id)
-            require(!Files.isSymbolicLink(privateData.toPath())) { "技能数据目录不能是符号链接" }
+            require(!Files.isSymbolicLink(privateData.toPath())) { "Skill data directory must not be a symlink" }
             if (!privateData.exists()) {
                 val legacy = File(assistantRoot, "${entry.id}/data")
                 if (legacy.isDirectory && !Files.isSymbolicLink(legacy.toPath())) copySkillTree(legacy, privateData)
@@ -768,7 +768,7 @@ object SkillRuntime {
             }
             val dest = File(destRoot, entry.id)
             publishedBytes += syncSkillPackage(File(entry.rootPath), dest)
-            require(publishedBytes <= 256L * 1024 * 1024) { "技能快照超过 256 MiB" }
+            require(publishedBytes <= 256L * 1024 * 1024) { "Skill snapshot exceeds 256 MiB" }
             entry.copy(rootPath = dest.canonicalPath, skillFilePath = File(dest, "SKILL.md").canonicalPath, enabled = true)
         }
     }
@@ -802,7 +802,7 @@ object SkillRuntime {
     fun exportUserSkills(context: Context): Map<String, ByteArray> {
         val root = skillsRoot(context)
         if (!root.isDirectory) return emptyMap()
-        require(!Files.isSymbolicLink(root.toPath())) { "技能根目录不能是符号链接" }
+        require(!Files.isSymbolicLink(root.toPath())) { "Skill root must not be a symlink" }
         val skip = setOf(ASSISTANT_SKILL_DIR, VISIBLE_SKILL_DIR, ".eta-skill-installer")
         val budget = io.github.mangi.eta.data.repository.BackupBlobBudget()
         return budget.readTree(root) { file ->
@@ -818,21 +818,21 @@ object SkillRuntime {
         val targets = files.map { (relative, bytes) ->
             val normalized = io.github.mangi.eta.data.repository.BackupArchiveSafety.relativePath(relative)
             val first = normalized.substringBefore('/')
-            require(first !in skip && !first.startsWith(".")) { "技能备份包含受保护目录" }
+            require(first !in skip && !first.startsWith(".")) { "Skill backup contains a protected directory" }
             io.github.mangi.eta.data.repository.BackupArchiveSafety.target(root, normalized) to bytes
         }
-        check(root.mkdirs() || root.isDirectory) { "无法创建技能目录" }
+        check(root.mkdirs() || root.isDirectory) { "Cannot create the skill directory" }
         root.listFiles().orEmpty()
             .filter { it.isDirectory && it.name !in skip && !it.name.startsWith(".") }
-            .forEach { check(it.deleteRecursively()) { "无法清理旧技能" } }
+            .forEach { check(it.deleteRecursively()) { "Cannot clean old skills" } }
         targets.forEach { (target, bytes) ->
-            check(target.parentFile!!.mkdirs() || target.parentFile!!.isDirectory) { "无法创建技能目录" }
+            check(target.parentFile!!.mkdirs() || target.parentFile!!.isDirectory) { "Cannot create the skill directory" }
             target.writeBytes(bytes)
         }
     }
 
     private fun syncSkillPackage(source: File, dest: File): Long {
-        require(source.isDirectory && !Files.isSymbolicLink(source.toPath())) { "技能源目录无效" }
+        require(source.isDirectory && !Files.isSymbolicLink(source.toPath())) { "Invalid skill source directory" }
         val staging = File(dest.parentFile, ".stage-${java.util.UUID.randomUUID()}")
         val old = File(dest.parentFile, ".old-${java.util.UUID.randomUUID()}")
         check(staging.mkdirs())
@@ -849,16 +849,16 @@ object SkillRuntime {
                 }
             }.forEach { file ->
                 if (file == source || shouldSkipSkillCopy(file) || file.relativeTo(source).path.substringBefore(File.separator) == "data") return@forEach
-                require(++files <= 4096 && !Files.isSymbolicLink(file.toPath())) { "技能包条目过多或包含符号链接" }
+                require(++files <= 4096 && !Files.isSymbolicLink(file.toPath())) { "Skill package has too many entries or contains symlinks" }
                 if (file.isFile) bytes += file.length()
-                require(bytes <= 16L * 1024 * 1024) { "技能包超过 16 MiB" }
+                require(bytes <= 16L * 1024 * 1024) { "Skill package exceeds 16 MiB" }
                 val target = File(staging, file.relativeTo(source).path)
                 if (file.isDirectory) check(target.mkdirs() || target.isDirectory)
                 else {
-                    require(file.isFile) { "技能包包含特殊文件" }
+                    require(file.isFile) { "Skill package contains a special file" }
                     if (!file.canRead()) {
                         if (shouldSkipSkillCopy(file)) return@forEach
-                        error("技能文件不可读：${file.name}")
+                        error("Skill file is not readable: ${file.name}")
                     }
                     check(target.parentFile!!.mkdirs() || target.parentFile!!.isDirectory)
                     try {
@@ -869,7 +869,7 @@ object SkillRuntime {
                     }
                 }
             }
-            check(File(staging, "SKILL.md").isFile) { "技能正文缺失" }
+            check(File(staging, "SKILL.md").isFile) { "Skill body is missing" }
             val dataDir = File(staging, "data")
             check(dataDir.mkdirs() || dataDir.isDirectory)
             if (dest.exists()) moveSkillDirectoryAtomically(dest, old)
@@ -887,16 +887,16 @@ object SkillRuntime {
 
     private fun copySkillTree(source: File, dest: File) {
         if (shouldSkipSkillCopy(source)) return
-        require(!Files.isSymbolicLink(source.toPath())) { "技能复制不接受符号链接" }
+        require(!Files.isSymbolicLink(source.toPath())) { "Skill copy does not accept symlinks" }
         if (source.isDirectory) {
             if (!source.canRead()) return
             check(dest.mkdirs() || dest.isDirectory)
             source.listFiles().orEmpty().forEach { copySkillTree(it, File(dest, it.name)) }
         } else {
-            require(source.isFile) { "技能文件无效" }
+            require(source.isFile) { "Invalid skill file" }
             if (!source.canRead()) {
                 if (shouldSkipSkillCopy(source)) return
-                error("技能文件不可读：${source.name}")
+                error("Skill file is not readable: ${source.name}")
             }
             check(dest.parentFile!!.mkdirs() || dest.parentFile!!.isDirectory)
             try {

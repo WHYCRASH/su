@@ -11,7 +11,7 @@ import io.github.mangi.eta.ui.model.SystemNoticeMessageUi
 import io.github.mangi.eta.ui.model.UserMessageUi
 import io.github.mangi.eta.ui.model.decodeUserMessageImages
 
-/** 将 Runtime outbox 的结果幂等折叠回 App 会话。 */
+/** Idempotently fold Runtime outbox results back into the App session. */
 internal object AgentPendingResultRecovery {
     data class Outcome(
         val state: AgentChatHomeUiState,
@@ -74,7 +74,7 @@ internal object AgentPendingResultRecovery {
                 )
                 else -> SystemNoticeMessageUi(
                     id = resultId,
-                    code = if (result.error == "已停止") SystemNoticeCode.Stopped else SystemNoticeCode.RuntimeFailed,
+                    code = if (result.error == "Stopped") SystemNoticeCode.Stopped else SystemNoticeCode.RuntimeFailed,
                     detail = result.error,
                 )
             }
@@ -135,10 +135,10 @@ internal object AgentPendingResultRecovery {
             val userMessage = UserMessageUi(id = id, content = supplement.text,
                 images = media.previews, imageSources = media.sources,
                 imageIsVideo = media.videoFlags, imageDurationsMs = media.durationsMs)
-            // 实时追加必须接到当前列表末尾：steering 在本 turn 结束后才注入，
-            // 用户消息应出现在正在生成的回答下面。插到流式助手前面时，
-            // 跟底滚动会把补充挡在上一条用户消息下面，要等生成完才看得见。
-            // 恢复路径才需要插到最终助手之前，对齐已完成的 transcript。
+            // Real-time appends must go to the end of the current list: steering is only injected after this turn ends,
+            // The user message should appear below the answer currently being generated. When inserted before the streaming assistant,
+            // Follow-bottom scrolling will leave the supplement hidden below the previous user message; it won't be visible until generation is complete.
+            // Only the restore path needs to insert it before the final assistant message, aligning with the completed transcript.
             if (!beforeLatestAssistant) {
                 updated = updated + userMessage
                 return@forEach

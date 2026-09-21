@@ -8,7 +8,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.node.DelegatableNode
 
-/** 设置列表用：去掉 Material 默认的按压涟漪和阴影。 */
+/** For settings lists: drop Material's default press ripple and shadow. */
 internal object NoRippleIndication : IndicationNodeFactory {
     override fun create(interactionSource: InteractionSource): DelegatableNode = object : Modifier.Node() {}
 

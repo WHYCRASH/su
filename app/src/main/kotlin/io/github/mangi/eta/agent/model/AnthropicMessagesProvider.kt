@@ -251,7 +251,7 @@ internal object AnthropicMessagesProvider : AgentProviderClient {
         if (!sawMessageStop) {
             val hasToolCalls = blocks.values.any { it.type == "tool_use" && it.name.isNotBlank() }
             if (content.isBlank() && reasoning.isBlank() && !hasToolCalls) {
-                throw AgentModelFailure.incompleteStream("Anthropic SSE 流未正常结束")
+                throw AgentModelFailure.incompleteStream("Anthropic SSE stream did not end normally")
             }
             if (finishReason.isNullOrBlank()) {
                 finishReason = if (hasToolCalls) "tool_calls" else "end_turn"
@@ -295,7 +295,7 @@ internal object AnthropicMessagesProvider : AgentProviderClient {
         return when (type) {
             "error" -> throw AgentModelFailure.stream(
                 json.optJSONObject("error") ?: JSONObject(),
-                "Anthropic SSE 返回错误",
+                "Anthropic SSE returned an error",
             )
             "message_start" -> EventResult(usage = parseUsage(json.optJSONObject("message")?.optJSONObject("usage")))
             "content_block_start" -> {

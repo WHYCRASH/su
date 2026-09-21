@@ -6,12 +6,12 @@ import org.intellij.markdown.flavours.gfm.GFMFlavourDescriptor
 import org.intellij.markdown.parser.MarkdownParser
 
 /**
- * 面向追加式模型输出的 GFM 解析会话。
+ * GFM parse session for append-style model output.
  *
- * 每次提交都在调用线程完成一次完整 GFM 解析；调用方应把会话限制在后台串行
- * dispatcher。完整解析让块级语法遵循同一套 CommonMark/GFM 规则，而不是由 UI
- * 猜测节点类型。流尚未结束时，仅在虚拟 EOF 上补齐仍在等待闭合的结构，虚拟字符
- * 不会写回消息，也不会进入最终快照。
+ * Every commit runs one full GFM parse on the calling thread; callers should confine the session to a
+ * background serial dispatcher. Full parsing keeps block syntax on one CommonMark/GFM rule set instead of
+ * having the UI guess node types. While the stream is open, structures still awaiting closure are completed
+ * only against a virtual EOF; virtual characters are never written back to the message or the final snapshot.
  */
 internal class StreamingGfmParserSession {
     private val flavour = GFMFlavourDescriptor()
@@ -22,8 +22,8 @@ internal class StreamingGfmParserSession {
     fun parse(source: String, isComplete: Boolean): StreamingGfmSnapshot {
         val source = NumericCitationMarkup.strip(source)
         if (!source.startsWith(acceptedSource)) {
-            // 会话恢复或上游修正消息时重新建立基线；解析器本身没有可泄漏到新文档
-            // 的语法状态，后续快照仍保持追加式处理。
+            // Re-baseline on session restore or upstream message correction; the parser holds no syntax
+            // state that could leak into the new document, so later snapshots stay append-style.
             acceptedSource = ""
         }
         acceptedSource = source
@@ -72,12 +72,13 @@ internal fun nextStreamingSnapshot(
 }
 
 /**
- * 为真实 EOF 和“暂时没有更多字符”的流式 EOF 建立不同语义。
+ * Give the real EOF and the streaming "no more characters for now" EOF different semantics.
  *
- * - 表格在分隔行确认前不发布候选表头，避免先按普通段落显示竖线。
- * - 未闭合链接保留在解析器缓冲区，避免把半截目标地址暴露给 UI。
- * - 已确认开始的围栏代码、代码 span 和强调结构使用只存在于解析快照中的
- *   虚拟闭合符，使其从第一次可判定时就保持同一种节点类型。
+ * - Tables do not publish a candidate header until the delimiter row confirms it, so pipes are not first
+ *   shown as a plain paragraph.
+ * - Unclosed links stay in the parser buffer instead of exposing a half-written target URL to the UI.
+ * - Fenced code, code spans, and emphasis confirmed as started use virtual closers that exist only in
+ *   the parse snapshot, keeping one node type from the first moment they can be identified.
  */
 internal object StreamingGfmProjection {
     fun project(source: String, isComplete: Boolean): String {
@@ -354,8 +355,8 @@ internal object StreamingGfmProjection {
 
 
 /**
- * Grok 等模型会在段首堆 `[[10]](<url>) [[9]](<url>)`。
- * 链文本只是数字，渲染成 [10] [9] … [1]，观感很差。显示前去掉这类编号引用。
+ * Models like Grok pile `[[10]](<url>) [[9]](<url>)` at the start of a paragraph.
+ * The link text is just digits, rendering as [10] [9] … [1], which looks bad. Strip such numbered references before display.
  */
 internal object NumericCitationMarkup {
     private val CLUSTER = Regex(

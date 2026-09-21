@@ -33,7 +33,6 @@ class AppRouteSerializationTest {
             AppRoute.ModelProviderDetail("provider"),
             AppRoute.ModelProviderNew(NewProviderType.OpenAiCompatible),
             AppRoute.ModelProviderNew(NewProviderType.Anthropic),
-            AppRoute.ModelProviderNew(NewProviderType.DoubaoSpeech),
             AppRoute.ModelProviderNew(NewProviderType.CompatibleSpeech),
             AppRoute.SubAgents,
         )

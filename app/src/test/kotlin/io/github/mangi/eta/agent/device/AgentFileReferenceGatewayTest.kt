@@ -27,7 +27,7 @@ class AgentFileReferenceGatewayTest {
     fun appReadableFilesAndDirectoriesNeverAskForRoot() {
         val file = temporaryFolder.newFile("report.txt").apply { writeText("ordinary file") }
         val gateway = AgentFileReferenceGateway(rootAvailable = { false }) {
-            error("普通路径不应执行 Root 校验")
+            error("Ordinary paths must not run root checks")
         }
         val result = gateway.resolveAbsolutePath(file.absolutePath, AgentFileReferenceKind.File)
             as AgentFileReferenceGateway.Resolution.Success
@@ -47,14 +47,14 @@ class AgentFileReferenceGatewayTest {
     fun documentWithNoFilesystemPathIsImportedIntoPersistentWorkspace() {
         val context = RuntimeEnvironment.getApplication()
         val uri = Uri.parse("content://cloud.example/document/report")
-        shadowOf(context.contentResolver).registerInputStream(uri, ByteArrayInputStream("授权内容".toByteArray()))
+        shadowOf(context.contentResolver).registerInputStream(uri, ByteArrayInputStream("authorized content".toByteArray()))
         val gateway = AgentFileReferenceGateway(context, NoOpLogger, rootAvailable = { false })
 
         val result = gateway.resolveDocumentUri(uri, AgentFileReferenceKind.File)
             as AgentFileReferenceGateway.Resolution.Success
         val imported = File(result.reference.absolutePath)
         assertTrue(imported.path.startsWith(File(context.filesDir, "terminal-user/workspace/imports").path + "/"))
-        assertEquals("授权内容", imported.readText())
+        assertEquals("authorized content", imported.readText())
         imported.parentFile?.deleteRecursively()
     }
 
@@ -260,7 +260,7 @@ class AgentFileReferenceGatewayTest {
         val gateway = AgentFileReferenceGateway(
             rootAvailable = { true },
             resolveDocumentPath = { null },
-            executeRootCommand = { error("不应执行 Root 校验") },
+            executeRootCommand = { error("Must not run root checks") },
         )
 
         assertFailure(

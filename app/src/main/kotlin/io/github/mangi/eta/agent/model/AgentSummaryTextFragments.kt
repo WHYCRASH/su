@@ -10,13 +10,13 @@ internal object AgentSummaryTextFragments {
         checkCancellation: () -> Unit,
         fits: (Range) -> Boolean,
     ): List<Range> {
-        require(maxFragments > 0) { "摘要分块过多，请使用更大窗口的摘要模型；原历史保持不变" }
-        require(source.isNotEmpty()) { "没有可分片的历史文本" }
+        require(maxFragments > 0) { "Too many summary fragments; use a summary model with a larger window; original history unchanged" }
+        require(source.isNotEmpty()) { "No history text available to split" }
         val result = mutableListOf<Range>()
         var start = 0
         while (start < source.length) {
             checkCancellation()
-            require(result.size < maxFragments) { "摘要分块过多，请使用更大窗口的摘要模型；原历史保持不变" }
+            require(result.size < maxFragments) { "Too many summary fragments; use a summary model with a larger window; original history unchanged" }
             val remainder = Range(start, source.length)
             if (fits(remainder)) {
                 result += remainder
@@ -34,10 +34,10 @@ internal object AgentSummaryTextFragments {
                     low = mid + 1
                 } else high = mid - 1
             }
-            require(acceptedEnd > start) { "摘要模型输入预算不足以容纳历史文本片段；原历史保持不变" }
+            require(acceptedEnd > start) { "Summary model input budget cannot fit a history text fragment; original history unchanged" }
             val range = Range(start, acceptedEnd)
             // The caller's budget may include structured projection and metadata. Recheck the final candidate.
-            require(fits(range)) { "摘要文本片段仍超过输入预算；原历史保持不变" }
+            require(fits(range)) { "Summary text fragment still exceeds the input budget; original history unchanged" }
             result += range
             start = acceptedEnd
         }

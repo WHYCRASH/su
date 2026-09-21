@@ -36,15 +36,15 @@ internal object GoogleAppHooks {
         val hooks = HookRegistrar(module, rootLogger, "GoogleApp")
         val logger = hooks.logger
         return hooks.install {
-            // 机型伪装：在 Google 进程内伪装为 Samsung S24 Ultra，以放开一圈即搜能力。
-            // Build 字段是启动时一次性写入的副作用，作为一圈即搜的底层依赖始终执行。
+            // Device spoofing: pose as a Samsung S24 Ultra inside the Google process to unlock the Circle to Search capability ring.
+            // Build fields are a one-time write side effect at startup, always applied as the underlying dependency of Circle to Search.
             setBuildField(logger, Build::class.java, "MANUFACTURER", ModuleConfig.SPOOF_MANUFACTURER)
             setBuildField(logger, Build::class.java, "BRAND", ModuleConfig.SPOOF_BRAND)
             setBuildField(logger, Build::class.java, "MODEL", ModuleConfig.SPOOF_MODEL)
             setBuildField(logger, Build::class.java, "PRODUCT", ModuleConfig.SPOOF_PRODUCT)
             setBuildField(logger, Build::class.java, "DEVICE", ModuleConfig.SPOOF_DEVICE)
 
-            // 锁屏/亮屏补语音输入：开关在拦截回调里即时判断。
+            // Lock-screen/screen-on voice-input top-up: the toggle is evaluated live inside the intercept callback.
             hookFloatyVoiceCommand(hooks, classLoader)
         }
     }
@@ -81,7 +81,7 @@ internal object GoogleAppHooks {
             hooks.missing(
                 id = "google.floaty-on-resume",
                 description = "FloatyActivity.onResume(Google voice command)",
-                detail = "未找到 FloatyActivity/Activity.onResume()，跳过 Gemini 语音补偿"
+                detail = "FloatyActivity/Activity.onResume() not found, skipping the Gemini voice top-up"
             )
             return
         }
@@ -101,21 +101,21 @@ internal object GoogleAppHooks {
     }
 
     private fun scheduleVoiceCommand(activity: Activity, logger: ModuleLogger, fromKeyguard: Boolean) {
-        // 锁屏走 LOCKSCREEN_VOICE_COMMAND，亮屏走 SCREEN_ON_VOICE_COMMAND；开关关闭则不补发。
+        // Locked screens take LOCKSCREEN_VOICE_COMMAND, lit screens take SCREEN_ON_VOICE_COMMAND; no top-up is sent while the toggle is off.
         val prefKey = if (fromKeyguard) {
             Prefs.Keys.LOCKSCREEN_VOICE_COMMAND
         } else {
             Prefs.Keys.SCREEN_ON_VOICE_COMMAND
         }
         if (!Prefs.isEnabled(prefKey)) return
-        // 只去重同一个 FloatyActivity 实例的重复 onResume；关闭后立刻新开浮窗不受影响。
+        // Only dedup repeat onResume calls from the same FloatyActivity instance; a freshly reopened overlay right after closing is unaffected.
         if (!markVoiceCommandAttempt(activity)) {
             return
         }
 
-        val scenario = if (fromKeyguard) "锁屏" else "亮屏"
+        val scenario = if (fromKeyguard) "lockscreen" else "screen-on"
         Handler(Looper.getMainLooper()).postDelayed({
-            // 即时关闭：开关在延迟任务排队期间可能已被用户关闭。
+            // Live toggle check: the user may have turned the switch off while the delayed task was queued.
             if (!Prefs.isEnabled(prefKey)) {
                 clearVoiceCommandAttempt(activity)
                 return@postDelayed
@@ -124,7 +124,7 @@ internal object GoogleAppHooks {
                 clearVoiceCommandAttempt(activity)
                 return@postDelayed
             }
-            // 延迟期间锁屏状态发生变化则放弃：锁屏分支复查应仍锁屏，亮屏分支复查应仍解锁。
+            // Abandon if the lock state changed during the delay: the lockscreen branch must still be locked, the screen-on branch still unlocked.
             if (activity.isKeyguardLocked() != fromKeyguard) {
                 clearVoiceCommandAttempt(activity)
                 return@postDelayed
@@ -136,11 +136,11 @@ internal object GoogleAppHooks {
                         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     }
                 )
-                logger.debug { "GSA: 已为${scenario} Gemini 浮窗补发 ACTION_VOICE_COMMAND" }
+                logger.debug { "GSA: sent the ACTION_VOICE_COMMAND top-up for the ${scenario} Gemini overlay" }
             }.onFailure { throwable ->
                 clearVoiceCommandAttempt(activity)
                 logger.warnThrottled("gsa_floaty_voice_command_failed") {
-                    "GSA: ${scenario} Gemini 浮窗补发 ACTION_VOICE_COMMAND 失败，" +
+                    "GSA: failed to send the ACTION_VOICE_COMMAND top-up for the ${scenario} Gemini overlay, " +
                         "type=${throwable.safeLogType()}"
                 }
             }
@@ -179,7 +179,7 @@ internal object GoogleAppHooks {
         val field = runCatching {
             clazz.getDeclaredField(fieldName).apply { isAccessible = true }
         }.getOrElse { throwable ->
-            logger.warn("GSA: 找不到 Build.$fieldName，type=${throwable.safeLogType()}")
+            logger.warn("GSA: Build.$fieldName not found, type=${throwable.safeLogType()}")
             return
         }
 
@@ -201,7 +201,7 @@ internal object GoogleAppHooks {
                 Any::class.java
             ).invoke(theUnsafe, base, offset, value)
         }.onFailure { throwable ->
-            logger.warn("GSA: 修改 Build.$fieldName 失败，type=${throwable.safeLogType()}")
+            logger.warn("GSA: failed to modify Build.$fieldName, type=${throwable.safeLogType()}")
         }
     }
 }

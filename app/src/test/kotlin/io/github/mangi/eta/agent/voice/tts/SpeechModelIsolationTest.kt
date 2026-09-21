@@ -30,7 +30,7 @@ class SpeechModelIsolationTest {
 
     @Test fun arkProviderDoesNotReceiveDoubaoSpeechCatalog() {
         val volc = OpenAiCompatibleProviderSetting(
-            id = "v", name = "火山", baseUrl = "https://ark.cn-beijing.volces.com/api/coding/v3", apiKey = "key",
+            id = "v", name = "Volcengine", baseUrl = "https://ark.cn-beijing.volces.com/api/coding/v3", apiKey = "key",
             models = listOf(
                 Model("chat", "doubao-seed-2-1-pro-260915", "chat"),
                 Model("seed-tts-2.0", "seed-tts-2.0", "tts"),
@@ -46,18 +46,18 @@ class SpeechModelIsolationTest {
 
     @Test fun openspeechProviderHiddenFromChatPicker() {
         val speech = OpenAiCompatibleProviderSetting(
-            id = "s", name = "豆包语音", baseUrl = "https://openspeech.bytedance.com", apiKey = "key",
+            id = "s", name = "Speech provider", baseUrl = "https://openspeech.bytedance.com", apiKey = "key",
             models = listOf(Model("seed-tts-2.0", "seed-tts-2.0", "tts")),
         )
         val chat = AgentModelPickerProjector.project(listOf(speech), "s", "seed-tts-2.0")
         assertTrue(chat.providerGroups.isEmpty())
         val picker = AgentModelPickerProjector.project(listOf(speech), "s", "seed-tts-2.0", includeSpeechModels = true)
-        assertEquals(listOf("seed-audio-1.0", "seed-tts-2.0"), picker.providerGroups.single().models.map { it.modelId })
+        assertEquals(listOf("seed-tts-2.0"), picker.providerGroups.single().models.map { it.modelId })
     }
 
     @Test fun chatProviderCosyVoiceAppearsOnlyInReadAloudPicker() {
         val chat = OpenAiCompatibleProviderSetting(
-            id = "fish", name = "鱼", baseUrl = "https://api.example.com/v1", apiKey = "key",
+            id = "fish", name = "Fish", baseUrl = "https://api.example.com/v1", apiKey = "key",
             models = listOf(Model("chat", "gpt-chat", "chat"), Model("voice", "CosyVoice2", "CosyVoice2")),
         )
         val tts = AgentModelPickerProjector.project(listOf(chat), "fish", "voice", includeSpeechModels = true, speechOnly = true)
@@ -68,7 +68,7 @@ class SpeechModelIsolationTest {
 
     @Test fun dedicatedSpeechProviderListsCosyVoiceAndMoss() {
         val speech = OpenAiCompatibleProviderSetting(
-            id = "s", name = "语音合成", baseUrl = "https://api.example.com/v1", apiKey = "key",
+            id = "s", name = "Speech synthesis", baseUrl = "https://api.example.com/v1", apiKey = "key",
             sourceType = io.github.mangi.eta.data.model.ProviderSourceTypes.COMPATIBLE_SPEECH,
         )
         val chat = AgentModelPickerProjector.project(listOf(speech), "s", "CosyVoice2")

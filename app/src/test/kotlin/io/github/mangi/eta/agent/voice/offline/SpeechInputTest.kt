@@ -25,21 +25,21 @@ class SpeechInputTest {
         assertTrue(SpeechInputPolicy.timedOut(60_000, true))
     }
     @Test fun partialTextReplacesOnlyCurrentDictation() {
-        val draft = SpeechDraft("原有文字", 4, 4)
-        assertEquals("原有文字你", draft.accept("原有文字", "你"))
-        assertEquals("原有文字你好", draft.accept("原有文字你", "你好"))
+        val draft = SpeechDraft("abcd", 4, 4)
+        assertEquals("abcde", draft.accept("abcd", "e"))
+        assertEquals("abcdef", draft.accept("abcde", "ef"))
         assertEquals(6, draft.cursor)
     }
     @Test fun decoderRevisionDoesNotDuplicatePartialWords() {
         val draft = SpeechDraft("", 0, 0)
-        assertEquals("识别", draft.accept("", "识别"))
-        assertEquals("识别修正", draft.accept("识别", "识别修正"))
-        assertEquals("识别更正", draft.accept("识别修正", "识别更正"))
+        assertEquals("Hello", draft.accept("", "Hello"))
+        assertEquals("Hello world", draft.accept("Hello", "Hello world"))
+        assertEquals("Hello world again", draft.accept("Hello world", "Hello world again"))
     }
     @Test fun selectionAndSuffixArePreserved() {
         val draft = SpeechDraft("aSELECTz", 7, 1)
-        assertEquals("a你好z", draft.accept("aSELECTz", "你好"))
-        assertEquals(3, draft.cursor)
+        assertEquals("aVz", draft.accept("aSELECTz", "V"))
+        assertEquals(2, draft.cursor)
     }
     @Test fun typingOrSendingInvalidatesDictationInsteadOfOverwriting() {
         val draft = SpeechDraft("draft", 5, 5)
@@ -48,8 +48,8 @@ class SpeechInputTest {
         assertEquals("draft", draft.expectedText)
     }
     @Test fun cancellingBeforeTextDoesNotChangeTheDraft() {
-        val draft = SpeechDraft("原文", 1, 1)
-        assertEquals("原文", draft.expectedText)
+        val draft = SpeechDraft("source", 1, 1)
+        assertEquals("source", draft.expectedText)
     }
     @Test fun manifestIsBoundedPinnedAndContainsOnlyExpectedFiles() {
         val entries = SpeechModelManifest.assets

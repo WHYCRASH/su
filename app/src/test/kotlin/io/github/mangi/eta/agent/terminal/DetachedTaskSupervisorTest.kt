@@ -32,7 +32,7 @@ class DetachedTaskSupervisorTest {
 
     @After
     fun tearDown() {
-        // 兜底清理测试残留的 detached 进程（正常路径 stop 已经杀掉）。
+        // Belt-and-braces cleanup of leftover detached processes from tests (the normal path already kills them via stop).
         supervisors.flatMap { it.list() }.forEach { status ->
             ProcessHandle.of(status.task.pid).ifPresent { it.destroyForcibly() }
         }
@@ -40,7 +40,7 @@ class DetachedTaskSupervisorTest {
 
     @Test fun longDaemonCommandKeepsOriginalRecordAndProducesOutput() {
         val supervisor = newSupervisor()
-        val command = "cat <<'END' >/dev/null\n" + "长命令内容\n".repeat(20000) + "END\nprintf long-daemon-ok"
+        val command = "cat <<'END' >/dev/null\n" + "long-command-filler\n".repeat(20000) + "END\nprintf long-daemon-ok"
         val result = supervisor.start(command, temporaryFolder.root.path, "user", TerminalEnvironment.ANDROID)
         assertTrue("$result", result is DaemonStartResult.Started)
         val task = (result as DaemonStartResult.Started).task
@@ -95,7 +95,7 @@ class DetachedTaskSupervisorTest {
         assertTrue("$result", result is DaemonStartResult.Started)
         val task = (result as DaemonStartResult.Started).task
 
-        // start 返回后宿主进程仍被托管；任务不依赖前台命令会话。
+        // The host process stays supervised after start returns; the task does not depend on a foreground command session.
         assertTrue(ProcessHandle.of(task.pid).map { it.isAlive }.orElse(false))
 
         val statuses = supervisor.list()
@@ -125,7 +125,7 @@ class DetachedTaskSupervisorTest {
         assertTrue(logs.text.contains("line1"))
         assertTrue(logs.text.contains("line3"))
 
-        // 已退出任务保留记录供查看日志，stop 负责清理。
+        // Exited tasks keep their record so logs stay readable; stop is responsible for cleanup.
         assertTrue(supervisor.stop(task.id))
         assertTrue(supervisor.list().isEmpty())
         assertFalse(supervisor.readLogs(task.id).ok)
@@ -143,7 +143,7 @@ class DetachedTaskSupervisorTest {
         assertTrue("$started", started is DaemonStartResult.Started)
         val task = (started as DaemonStartResult.Started).task
 
-        // 模拟 App 重启：新实例加载同一份记录文件，仍应认领存活进程并能停止它。
+        // Simulate an app restart: a new instance loads the same records file and should still adopt the live process and stop it.
         val second = newSupervisor()
         val statuses = second.list()
         assertEquals(1, statuses.size)
@@ -192,7 +192,7 @@ class DetachedTaskSupervisorTest {
 
     @Test
     fun stopWithMismatchedTokenDoesNotSignalProcess() {
-        // PID 复用防护依赖 /proc/<pid>/environ 的 token 校验，无 /proc 的宿主上没有可校验通道。
+        // PID-reuse protection relies on token verification via /proc/<pid>/environ; hosts without /proc have no verifiable channel.
         assumeTrue("/proc is required for token verification", File("/proc").isDirectory)
         val supervisor = newSupervisor()
         val self = ProcessHandle.current()
@@ -210,7 +210,7 @@ class DetachedTaskSupervisorTest {
             id = "dm_linux01",
             pid = 1234,
             token = "token",
-            command = "kimi web",
+            command = "agent web",
             cwd = "/workspace",
             identity = "root",
             environment = TerminalEnvironment.DEBIAN,
@@ -230,7 +230,7 @@ class DetachedTaskSupervisorTest {
             "/data/local/tmp/eta/daemon/dm_linux01.pid",
             supervisor.hostDaemonPath(linuxTask, linuxTask.logPath.removeSuffix(".log") + ".pid"),
         )
-        // Android 任务的路径原样保留。
+        // Android task paths are kept as-is.
         assertEquals(
             androidTask.logPath,
             supervisor.hostDaemonPath(androidTask, androidTask.logPath),

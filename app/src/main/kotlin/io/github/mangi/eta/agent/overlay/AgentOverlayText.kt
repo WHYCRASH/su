@@ -8,7 +8,7 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import io.github.mangi.eta.R
 
-/** 浮窗只保存语义状态，文案在渲染时根据当前系统语言解析。 */
+/** The overlay stores semantic state only; copy is resolved at render time from the current system language. */
 internal sealed interface AgentOverlayStatus {
     data object Preparing : AgentOverlayStatus
     data object Received : AgentOverlayStatus

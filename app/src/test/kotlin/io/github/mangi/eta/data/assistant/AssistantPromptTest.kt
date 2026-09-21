@@ -10,23 +10,23 @@ class AssistantPromptTest {
     @Test
     fun emptyPromptUsesAssistantName() {
         val prompt = AssistantPrompt.build("Minis", "")
-        assertTrue(prompt.startsWith("你是 Minis"))
-        assertFalse(prompt.contains("人格设定"))
-        assertFalse(prompt.contains("代鱼"))
+        assertTrue(prompt.startsWith("You are Minis"))
+        assertFalse(prompt.contains("Persona setting"))
+        assertFalse(prompt.contains("su"))
     }
 
     @Test
-    fun blankNameFallsBackToDaiYu() {
+    fun blankNameFallsBackToDefault() {
         assertEquals(AssistantPrompt.EMPTY_PROMPT, AssistantPrompt.build("  ", ""))
-        assertTrue(AssistantPrompt.build("", "").startsWith("你是 代鱼"))
+        assertTrue(AssistantPrompt.build("", "").startsWith("You are su"))
     }
 
     @Test
     fun personalityBodyIsAppended() {
-        val prompt = AssistantPrompt.build("Eta", "先做事，少客套。")
-        assertTrue(prompt.startsWith("你是 Eta"))
-        assertTrue(prompt.contains("人格设定："))
-        assertTrue(prompt.contains("先做事，少客套。"))
-        assertEquals(2, prompt.split("人格设定：").size)
+        val prompt = AssistantPrompt.build("Eta", "Get things done first, skip the pleasantries.")
+        assertTrue(prompt.startsWith("You are Eta"))
+        assertTrue(prompt.contains("Persona:"))
+        assertTrue(prompt.contains("Get things done first, skip the pleasantries."))
+        assertEquals(2, prompt.split("Persona:").size)
     }
 }

@@ -68,13 +68,13 @@ class EtaDatabaseMigrationTest {
             )
             .build()
         } catch (error: Throwable) {
-            throw AssertionError("Room 构建失败：${error.message}", error)
+            throw AssertionError("Room build failed: ${error.message}", error)
         }
         try {
             database.openHelper.writableDatabase
         } catch (error: Throwable) {
             throw AssertionError(
-                "Room 打开迁移后的数据库失败：${error}\n${error.stackTraceToString().take(2500)}",
+                "Room failed to open migrated database: ${error}\n${error.stackTraceToString().take(2500)}",
                 error,
             )
         }
@@ -113,9 +113,9 @@ class EtaDatabaseMigrationTest {
                 database.mcpServerDao().servers()
             }
 
-            assertEquals("保留的结果", result.content)
+            assertEquals("Retained result", result.content)
             assertEquals("[]", result.transcriptJson)
-            assertEquals("保留的归档", archive.content)
+            assertEquals("Retained archive", archive.content)
             assertEquals("[]", archive.transcriptJson)
             assertEquals("[]", archive.userImagePreviewsJson)
             assertEquals(
@@ -123,7 +123,7 @@ class EtaDatabaseMigrationTest {
                 conversations.mapTo(mutableSetOf()) { it.id },
             )
             assertEquals(
-                "[{\"role\":\"user\",\"content\":\"保留上下文\"}]",
+                "[{\"role\":\"user\",\"content\":\"Retained context\"}]",
                 retainedCheckpoint?.historyJson,
             )
             assertEquals("[]", oversizedCheckpoint?.historyJson)
@@ -224,13 +224,13 @@ class EtaDatabaseMigrationTest {
                         db.execSQL(
                             "INSERT INTO conversations " +
                                 "(id, title, thinking_enabled, history_json, created_at, updated_at) " +
-                                "VALUES ('conv-enabled', '启用推理', 1, '[]', 4, 4)"
+                                "VALUES ('conv-enabled', 'Enable reasoning', 1, '[]', 4, 4)"
                         )
                         db.execSQL(
                             "INSERT INTO conversations " +
                                 "(id, title, thinking_enabled, history_json, created_at, updated_at) " +
-                                "VALUES ('conv-1', '保留的对话', 0, " +
-                                "'[{\"role\":\"user\",\"content\":\"保留上下文\"}]', 1, 1)"
+                                "VALUES ('conv-1', 'Retained conversation', 0, " +
+                                "'[{\"role\":\"user\",\"content\":\"Retained context\"}]', 1, 1)"
                         )
                         db.execSQL(
                             "INSERT INTO conversations " +
@@ -240,7 +240,7 @@ class EtaDatabaseMigrationTest {
                         db.execSQL(
                             "INSERT INTO conversations " +
                                 "(id, title, thinking_enabled, history_json, created_at, updated_at) " +
-                                "VALUES ('conv-custom-empty', '用户命名', 0, '[]', 3, 3)"
+                                "VALUES ('conv-custom-empty', 'User named', 0, '[]', 3, 3)"
                         )
                         db.execSQL(
                             "INSERT INTO conversations " +
@@ -248,7 +248,7 @@ class EtaDatabaseMigrationTest {
                                 "VALUES (?, ?, ?, ?, ?, ?)",
                             arrayOf<Any>(
                                 "conv-oversized",
-                                "超长上下文",
+                                "Very long context",
                                 0,
                                 "[\"${"x".repeat(140_000)}\"]",
                                 5,
@@ -263,7 +263,7 @@ class EtaDatabaseMigrationTest {
                             "INSERT INTO conversation_messages " +
                                 "(id, conversation_id, sort_index, type, content, images_json, " +
                                 "image_count, tools_json) VALUES " +
-                                "('message-1', 'conv-1', 0, 'user', '旧消息', '[]', 0, '[]')"
+                                "('message-1', 'conv-1', 0, 'user', 'Old message', '[]', 0, '[]')"
                         )
                         db.execSQL(
                             "INSERT INTO model_providers " +
@@ -279,14 +279,14 @@ class EtaDatabaseMigrationTest {
                             "INSERT INTO runtime_results " +
                                 "(run_id, handoff_id, handoff_source, handoff_payload, " +
                                 "dismiss_entry_surface, ok, content, error, reasoning_content, created_at) " +
-                                "VALUES ('run-1', 'handoff-1', 'test', '{}', 0, 1, '保留的结果', NULL, '', 1)"
+                                "VALUES ('run-1', 'handoff-1', 'test', '{}', 0, 1, 'Retained result', NULL, '', 1)"
                         )
                         db.execSQL(
                             "INSERT INTO runtime_archive_runs " +
                                 "(archive_run_id, run_id, handoff_id, handoff_source, handoff_payload, " +
                                 "dismiss_entry_surface, ok, content, error, reasoning_content, created_at) " +
                                 "VALUES ('archive-1', 'run-1', 'handoff-1', 'test', '{}', 0, 1, " +
-                                "'保留的归档', NULL, '', 1)"
+                                "'Retained archive', NULL, '', 1)"
                         )
                     }
 

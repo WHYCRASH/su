@@ -60,9 +60,9 @@ internal data class TerminalSessionUi(
 internal data class UserTerminalUiState(
     val sessions: List<TerminalSessionUi> = emptyList(),
     val activeSessionId: String? = null,
-    /** 当前会话的命令块；每个会话的块列表独立保存。 */
+    /** Command blocks of the current session; each session keeps its own block list. */
     val blocks: List<TerminalBlockUi> = emptyList(),
-    /** 环境 tab 的选择；与当前会话环境一致，无会话时表示新建会话的目标环境。 */
+    /** Selected environment tab; matches the current session environment, or the target environment for a new session when there is none. */
     val environment: TerminalEnvironment = TerminalEnvironment.ANDROID,
     val cwd: String = "",
     val running: Boolean = false,
@@ -73,8 +73,8 @@ internal data class UserTerminalUiState(
 )
 
 /**
- * 用户手动终端的 App 级状态所有者：把 [UserTerminalController] 的多会话线程模型映射为 Compose 状态。
- * 普通会话由前台执行服务持有，离开终端页、旋转屏幕不会中断；App 进程死亡则会话随之结束。
+ * App-level state owner for the user-driven terminal: maps the multi-session threading model of [UserTerminalController] to Compose state.
+ * Regular sessions are held by the foreground execution service, so leaving the terminal page or rotating the screen never interrupts them; sessions end with the app process.
  */
 internal class UserTerminalStore(
     context: Context,
@@ -129,7 +129,7 @@ internal class UserTerminalStore(
 
     private var blockId = 0L
 
-    /** 每个会话独立的块列表与流式输出缓冲；只有当前会话投影进 uiState.blocks。 */
+    /** Per-session block list and streaming output buffer; only the current session is projected into uiState.blocks. */
     private val sessionBlocks = mutableMapOf<String, List<TerminalBlockUi>>()
     private val sessionBuffers = mutableMapOf<String, SessionOutput>()
 
@@ -161,7 +161,7 @@ internal class UserTerminalStore(
         }
     }
 
-    /** 读取守护任务日志尾部；ANSI 序列剥离为纯文本，失败时返回可展示的原因文本。 */
+    /** Read the tail of a watchdog task log; ANSI sequences are stripped to plain text, and a displayable reason is returned on failure. */
     suspend fun daemonLogs(id: String): String = withContext(Dispatchers.IO) {
         val result = daemonSupervisor.readLogs(id)
         when {
@@ -171,7 +171,7 @@ internal class UserTerminalStore(
         }
     }
 
-    /** 以当前环境新建会话并切换过去。 */
+    /** Create a session in the current environment and switch to it. */
     fun newSession() {
         val environment = _uiState.value.environment
         scope.launch {
@@ -179,7 +179,7 @@ internal class UserTerminalStore(
         }
     }
 
-    /** 切换当前会话；块列表、cwd 与运行态随之换绑。 */
+    /** Switch the current session; the block list, cwd, and running state rebind along with it. */
     fun switchSession(sessionId: String) {
         val session = _uiState.value.sessions.find { it.id == sessionId } ?: return
         _uiState.update { state ->
@@ -193,7 +193,7 @@ internal class UserTerminalStore(
         }
     }
 
-    /** 关闭指定会话；关闭当前会话时切换到剩余最近的会话，没有则回到空态。 */
+    /** Close the given session; when closing the current session, switch to the most recent remaining one, or back to the empty state if none. */
     fun closeSession(sessionId: String) {
         scope.launch {
             withContext(Dispatchers.IO) { controller.stopSession(sessionId) }
@@ -219,7 +219,7 @@ internal class UserTerminalStore(
         }
     }
 
-    /** 重启指定会话：终止后按原环境与 cwd 重开，命令块保留并追加提示。 */
+    /** Restart the given session: terminate it, then reopen with the same environment and cwd, keeping command blocks and appending a notice. */
     fun restartSession(sessionId: String) {
         scope.launch {
             val entry = _uiState.value.sessions.find { it.id == sessionId } ?: return@launch
@@ -273,7 +273,7 @@ internal class UserTerminalStore(
         }
     }
 
-    /** 运行中向当前会话 stdin 发送一行输入，并以暗色回显到当前块（管道没有 tty 回显）。 */
+    /** Send one line of input to the current session stdin while running, echoing it dimly into the current block (pipes have no tty echo). */
     fun sendInput(rawInput: String) {
         val text = rawInput.trim()
         if (text.isEmpty()) return
@@ -291,14 +291,14 @@ internal class UserTerminalStore(
         }
     }
 
-    /** 终止当前会话及其运行中的命令。 */
+    /** Stop the current session and its running command. */
     fun stop() {
         val sessionId = _uiState.value.activeSessionId ?: return
         if (!_uiState.value.running) return
         scope.launch(Dispatchers.IO) { controller.stopSession(sessionId) }
     }
 
-    /** 切换环境 tab：只改目标环境；有该环境的存活会话则切过去，否则进入空态待新建。 */
+    /** Switch the environment tab: only changes the target environment; jumps to a live session of that environment if one exists, otherwise enters the empty state awaiting creation. */
     fun switchEnvironment(environment: TerminalEnvironment) {
         val state = _uiState.value
         if (state.environment == environment && state.activeSessionId != null) return
@@ -352,8 +352,8 @@ internal class UserTerminalStore(
     }
 
     /**
-     * 确保有一个可用于执行的会话：当前存活会话直接复用；已退出的当前会话重开并提示；
-     * 没有当前会话时优先复用同环境存活会话，否则新建。返回可用的 sessionId。
+     * Ensure there is a session ready to execute: reuse the current live session directly; reopen an exited current session with a notice;
+     * when there is no current session, prefer reusing a live session of the same environment, otherwise create one. Returns the usable sessionId.
      */
     private suspend fun ensureSession(
         state: UserTerminalUiState,
@@ -364,7 +364,7 @@ internal class UserTerminalStore(
         if (active != null && active.environment == environment) {
             val alive = withContext(Dispatchers.IO) { controller.sessionAlive(active.id) }
             if (alive) return active.id
-            // 已退出：原环境原 cwd 重开，块保留。
+            // Exited: reopen with the original environment and cwd, keeping blocks.
             val reopened = withContext(Dispatchers.IO) {
                 openLeasedSession(active.environment, active.cwd)
             }
@@ -392,7 +392,7 @@ internal class UserTerminalStore(
         return openSessionInternal(environment)
     }
 
-    /** 新建会话并设为当前；失败时在当前块列表追加原因。返回新 sessionId。 */
+    /** Create a session and make it current; on failure append the reason to the current block list. Returns the new sessionId. */
     private suspend fun openSessionInternal(environment: TerminalEnvironment): String? {
         _uiState.update { it.copy(failMessage = null) }
         val opened = withContext(Dispatchers.IO) { openLeasedSession(environment) }
@@ -425,7 +425,7 @@ internal class UserTerminalStore(
         }
     }
 
-    /** 重启/重开场景：新 sessionId 接替旧会话的位置，命令块随 id 迁移。 */
+    /** Restart/reopen flow: the new sessionId takes the old session slot, and command blocks migrate with the id. */
     private fun replaceSession(oldId: String, opened: UserTerminalController.OpenResult.Ready) {
         sessionLeases.remove(oldId)?.release()
         val inheritedBlocks = sessionBlocks.remove(oldId).orEmpty()
@@ -457,7 +457,7 @@ internal class UserTerminalStore(
         }
     }
 
-    /** 输出保留原始 ANSI 序列，渲染层解析为颜色与样式；运行日志/复制场景由渲染层剥离。 */
+    /** Output keeps raw ANSI sequences for the render layer to parse into colors and styles; the render layer strips them for run logs and copy. */
     private fun onOutputDelta(sessionId: String, blockId: Long, text: String) {
         if (text.isEmpty()) return
         val buffer = sessionBuffers[sessionId] ?: return

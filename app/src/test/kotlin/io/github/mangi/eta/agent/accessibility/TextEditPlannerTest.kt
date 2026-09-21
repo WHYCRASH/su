@@ -34,8 +34,8 @@ class TextEditPlannerTest {
     @Test
     fun `uses UTF 16 offsets exposed by accessibility nodes`() {
         assertEquals(
-            TextEditPlanner.Plan("😀X好", 3),
-            TextEditPlanner.insertAtSelection("😀好", "X", 2, 2),
+            TextEditPlanner.Plan("😀X good", 3),
+            TextEditPlanner.insertAtSelection("😀 good", "X", 2, 2),
         )
     }
 

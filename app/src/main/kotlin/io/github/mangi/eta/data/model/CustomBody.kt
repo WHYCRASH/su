@@ -4,9 +4,9 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 
 /**
- * Provider 或模型级别的自定义请求体字段。
+ * Provider- or model-level custom request body fields.
  *
- * 网络层会递归合并到最终请求 JSON 中，模型级覆盖 Provider 级。
+ * The network layer recursively merges them into the final request JSON; model-level overrides Provider-level.
  */
 @Serializable
 data class CustomBody(

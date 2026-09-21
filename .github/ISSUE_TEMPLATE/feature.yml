@@ -1,30 +1,30 @@
-name: 功能建议
-description: 想要的新能力或现有体验改进
+name: Feature request
+description: A new capability you want or an improvement to something that exists
 title: "[Feature] "
 labels: ["enhancement"]
 body:
   - type: markdown
     attributes:
       value: |
-        说明想解决什么问题，以及希望代鱼怎么做。
+        Describe the problem you want to solve and what you would like su to do.
   - type: textarea
     id: problem
     attributes:
-      label: 现在缺什么
-      placeholder: 例如：备份还原后 Linux 环境要重新装一遍。
+      label: What is missing now
+      placeholder: "For example: restoring a full backup means reinstalling the Linux environment from scratch."
     validations:
       required: true
   - type: textarea
     id: proposal
     attributes:
-      label: 希望怎样
-      placeholder: 例如：导入完整备份后直接识别已安装的 Debian。
+      label: What you would like
+      placeholder: "For example: recognize the installed Debian right after importing a full backup."
     validations:
       required: true
   - type: textarea
     id: extra
     attributes:
-      label: 其他
-      description: 参考截图、其他 App 的做法都可以。
+      label: Anything else
+      description: Reference screenshots and how other apps handle it are both welcome.
     validations:
       required: false

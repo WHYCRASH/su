@@ -1,6 +1,6 @@
 package io.github.mangi.eta.agent.device
 
-/** 只有确认手势从未提交给系统时，才允许改用 Root 重放。 */
+/** Falls back to root replay only once a gesture is confirmed never dispatched to the system. */
 internal object GestureFallbackPolicy {
     fun mayFallbackToRoot(errorCode: String): Boolean =
         errorCode == "GESTURE_NOT_DISPATCHED"

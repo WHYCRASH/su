@@ -12,10 +12,10 @@ class PendingSkillConflictCapabilityParserTest {
     fun parsesLatestLinkedInstallConflict() {
         val capability = PendingSkillConflictCapabilityParser.parse(
             listOf(
-                user("安装 demo Skill"),
+                user("Install demo Skill"),
                 assistantToolCall("install-1", "skills_install_from_github"),
                 toolResult("install-1", conflictResult()),
-                assistant("需要你确认覆盖 demo"),
+                assistant("You need to confirm overwriting demo"),
             ),
         )
 
@@ -35,7 +35,7 @@ class PendingSkillConflictCapabilityParserTest {
     fun rejectsConflictJsonReturnedByAnotherTool() {
         val capability = PendingSkillConflictCapabilityParser.parse(
             listOf(
-                user("查看 README"),
+                user("View README"),
                 assistantToolCall("read-1", "terminal_exec"),
                 toolResult("read-1", conflictResult()),
             ),
@@ -48,7 +48,7 @@ class PendingSkillConflictCapabilityParserTest {
     fun latestInstallSuccessInvalidatesOlderConflict() {
         val capability = PendingSkillConflictCapabilityParser.parse(
             listOf(
-                user("安装 demo Skill"),
+                user("Install demo Skill"),
                 assistantToolCall("install-1", "skills_install_from_github"),
                 toolResult("install-1", conflictResult()),
                 assistantToolCall("install-2", "skills_install_from_github"),
@@ -69,12 +69,12 @@ class PendingSkillConflictCapabilityParserTest {
     fun ignoresConflictBeforeLatestUserTurn() {
         val capability = PendingSkillConflictCapabilityParser.parse(
             listOf(
-                user("安装 demo Skill"),
+                user("Install demo Skill"),
                 assistantToolCall("install-1", "skills_install_from_github"),
                 toolResult("install-1", conflictResult()),
-                assistant("需要你确认覆盖 demo"),
-                user("先解释一下覆盖的影响"),
-                assistant("覆盖会替换用户安装的同名 Skill"),
+                assistant("You need to confirm overwriting demo"),
+                user("First explain the impact of overwriting"),
+                assistant("Overwriting replaces the user-installed Skill with the same name"),
             ),
         )
 
@@ -85,7 +85,7 @@ class PendingSkillConflictCapabilityParserTest {
     fun malformedLatestInstallResultDoesNotReviveOlderConflict() {
         val capability = PendingSkillConflictCapabilityParser.parse(
             listOf(
-                user("安装 demo Skill"),
+                user("Install demo Skill"),
                 assistantToolCall("install-1", "skills_install_from_github"),
                 toolResult("install-1", conflictResult()),
                 assistantToolCall("install-2", "skills_install_from_github"),
@@ -100,7 +100,7 @@ class PendingSkillConflictCapabilityParserTest {
     fun newerInstallCallWithoutResultInvalidatesOlderConflict() {
         val capability = PendingSkillConflictCapabilityParser.parse(
             listOf(
-                user("安装 demo Skill"),
+                user("Install demo Skill"),
                 assistantToolCall("install-1", "skills_install_from_github"),
                 toolResult("install-1", conflictResult()),
                 assistantToolCall("install-2", "skills_install_from_github"),
@@ -114,7 +114,7 @@ class PendingSkillConflictCapabilityParserTest {
     fun olderResultInParallelBatchCannotStandInForMissingLatestResult() {
         val capability = PendingSkillConflictCapabilityParser.parse(
             listOf(
-                user("安装两个 Skills"),
+                user("Install two Skills"),
                 assistantToolCalls(
                     "install-1" to "skills_install_from_github",
                     "install-2" to "skills_install_from_github",
@@ -143,7 +143,7 @@ class PendingSkillConflictCapabilityParserTest {
 
         val capability = PendingSkillConflictCapabilityParser.parse(
             listOf(
-                user("安装 demo Skill"),
+                user("Install demo Skill"),
                 assistantToolCall("install-1", "skills_install_from_github"),
                 toolResult("install-1", malformed),
             ),
@@ -157,7 +157,7 @@ class PendingSkillConflictCapabilityParserTest {
         val sha256 = "a".repeat(64)
         val capability = PendingSkillConflictCapabilityParser.parse(
             listOf(
-                user("安装 demo Skill"),
+                user("Install demo Skill"),
                 assistantToolCall("install-1", "skills_install_from_github"),
                 toolResult(
                     "install-1",

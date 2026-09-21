@@ -110,14 +110,14 @@ internal fun AssistantEditScreen(
     fun persistAssistantToggles(nextMemory: Boolean = memoryEnabled, nextSkills: Set<String> = enabledSkillIds) {
         scope.launch {
             val result = withContext(Dispatchers.IO) { runCatching {
-                val current = requireNotNull(AssistantRepository.currentProfile(assistantId)) { "助手不存在" }
+                val current = requireNotNull(AssistantRepository.currentProfile(assistantId)) { "Assistant not found" }
                 AssistantRepository.update(current.copy(memoryEnabled = nextMemory, enabledSkillIds = nextSkills.toList()))
             } }
             if (result.isSuccess) {
                 persistedMemoryEnabled = nextMemory
                 persistedSkillIds = nextSkills
             } else {
-                android.widget.Toast.makeText(context, result.exceptionOrNull()?.message ?: "技能目录发布失败，请重试", android.widget.Toast.LENGTH_LONG).show()
+                android.widget.Toast.makeText(context, result.exceptionOrNull()?.message ?: "Failed to publish the skill catalog; please retry", android.widget.Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -145,7 +145,7 @@ internal fun AssistantEditScreen(
             }
             saving = false
             if (result.isSuccess) onBack()
-            else android.widget.Toast.makeText(context, result.exceptionOrNull()?.message ?: "保存失败，草稿已保留", android.widget.Toast.LENGTH_LONG).show()
+            else android.widget.Toast.makeText(context, result.exceptionOrNull()?.message ?: "Save failed; the draft was kept", android.widget.Toast.LENGTH_LONG).show()
         }
     }
 

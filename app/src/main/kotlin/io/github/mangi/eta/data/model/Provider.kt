@@ -27,7 +27,6 @@ internal object ProviderSourceTypes {
     const val STEPFUN = "stepfun"
     const val SILICONFLOW = "siliconflow"
     const val OPENROUTER = "openrouter"
-    const val DOUBAO_SPEECH = "doubao_speech"
     const val COMPATIBLE_SPEECH = "compatible_speech"
 }
 
@@ -149,7 +148,7 @@ internal val ProviderSetting.typeLabel: String
 
 internal val ProviderSetting.displayApiKeySummary: String
     get() = when {
-        apiKey.isBlank() -> "未填写"
+        apiKey.isBlank() -> "Not filled in"
         apiKey.length <= 8 -> "*".repeat(apiKey.length)
         else -> "${apiKey.take(4)}${"*".repeat(apiKey.length - 8)}${apiKey.takeLast(4)}"
     }

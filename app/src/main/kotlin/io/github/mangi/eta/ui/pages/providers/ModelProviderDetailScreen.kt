@@ -48,10 +48,7 @@ import io.github.mangi.eta.data.model.ProviderAuthMode
 import io.github.mangi.eta.data.model.usesOAuth
 import io.github.mangi.eta.data.model.withModels
 import io.github.mangi.eta.data.model.ProviderSetting
-import io.github.mangi.eta.data.model.ProviderSourceTypes
 import io.github.mangi.eta.data.model.SpeechSynthesisModels
-import io.github.mangi.eta.agent.voice.tts.CloudSpeechSynthesizer
-import io.github.mangi.eta.agent.voice.tts.SpeechPlaybackFailure
 import io.github.mangi.eta.data.model.withId
 import io.github.mangi.eta.data.repository.ProviderRepository
 import io.github.mangi.eta.data.repository.RemoteModelFetcher
@@ -127,23 +124,9 @@ internal fun ModelProviderDetailScreen(
                 name = "",
                 baseUrl = "https://api.anthropic.com",
             )
-            NewProviderType.DoubaoSpeech -> CustomProviderSetting(
-                id = "",
-                name = "豆包语音",
-                baseUrl = "https://openspeech.bytedance.com",
-                sourceType = ProviderSourceTypes.DOUBAO_SPEECH,
-                models = SpeechSynthesisModels.catalogModels(
-                    CustomProviderSetting(
-                        id = "draft",
-                        name = "豆包语音",
-                        baseUrl = "https://openspeech.bytedance.com",
-                        sourceType = ProviderSourceTypes.DOUBAO_SPEECH,
-                    ),
-                ),
-            )
             // Restore old navigation state through the ordinary provider form.
             NewProviderType.CompatibleSpeech -> CustomProviderSetting(
-                id = "", name = "语音合成", baseUrl = "",
+                id = "", name = "Text-to-speech", baseUrl = "",
             )
             null -> null
         }
@@ -256,7 +239,7 @@ private fun ProviderConfigTab(
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            // 低层 MiuixScaffold 只负责把顶栏 Insets 传给调用方，输入法 Insets 由列表自行消费。
+            // The low-level MiuixScaffold only passes the top bar insets to the caller; the IME insets are consumed by the list itself.
             .imePadding()
             .scrollEndHaptic()
             .overScrollVertical()
@@ -445,7 +428,7 @@ private fun ProviderConfigTab(
         }
 
         item(key = "actions") {
-            // 操作分层：主按钮实心独占，次要操作降级为文字按钮，与弹窗按钮语言一致
+            // Action hierarchy: the primary button is solid and stands alone; secondary actions are demoted to text buttons, matching the dialog button language
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -660,15 +643,6 @@ private suspend fun testConnection(
     provider: ProviderSetting,
 ): String {
     io.github.mangi.eta.data.model.RemovedProviderPolicy.requireSupported(provider)
-    if (SpeechSynthesisModels.isSpeechOnlyProvider(provider) &&
-        !SpeechSynthesisModels.isCompatibleSpeechProvider(provider)) {
-        return runCatching { CloudSpeechSynthesizer().test(provider.apiKey) }.getOrElse { throwable ->
-            context.getString(
-                R.string.provider_error,
-                (throwable as? SpeechPlaybackFailure)?.message ?: "语音接口不可用",
-            )
-        }
-    }
     if (provider.usesOAuth && OpenAiCodexOAuth.isCodexEndpoint(provider.baseUrl)) {
         val token = OpenAiCodexOAuth.validAccessToken(context, provider.id) ?: provider.apiKey
         return context.getString(

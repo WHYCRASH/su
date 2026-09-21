@@ -5,7 +5,7 @@ set -euo pipefail
 eta_repo=$(cd "$(dirname "$0")/.." && pwd)
 eta_ndk=${ANDROID_NDK_HOME:-${ANDROID_NDK_ROOT:-}}
 if [[ -z "$eta_ndk" ]]; then
-    printf '%s\n' '请设置 ANDROID_NDK_HOME，指向 Android NDK r29。' >&2
+    printf '%s\n' 'Set ANDROID_NDK_HOME to Android NDK r29.' >&2
     exit 64
 fi
 python3 - "$eta_ndk/source.properties" "$eta_repo/gradle/libs.versions.toml" <<'PY'
@@ -14,26 +14,26 @@ properties = pathlib.Path(sys.argv[1])
 catalog = pathlib.Path(sys.argv[2]).read_text()
 version = re.search(r'^ndk\s*=\s*"([^"]+)"\s*$', catalog, re.MULTILINE)
 if version is None:
-    raise SystemExit('版本目录缺少 ndk 条目')
+    raise SystemExit('Version catalog is missing the ndk entry')
 expected = version.group(1)
 if not properties.is_file():
-    raise SystemExit('无法读取 NDK source.properties：' + str(properties))
+    raise SystemExit('Cannot read NDK source.properties: ' + str(properties))
 values = dict(line.split('=', 1) for line in properties.read_text().splitlines() if '=' in line)
 revision = next((value.strip() for key, value in values.items() if key.strip() == 'Pkg.Revision'), '')
 if revision != expected:
-    raise SystemExit('此构建固定使用 NDK ' + expected + '，实际版本：' + (revision or '未知'))
+    raise SystemExit('This build pins NDK ' + expected + ', found: ' + (revision or 'unknown'))
 PY
 case $(uname -s) in
     Darwin) eta_host=darwin-x86_64 ;;
     Linux) eta_host=linux-x86_64 ;;
-    *) printf '%s\n' '仅支持 macOS 或 Linux 构建主机。' >&2; exit 64 ;;
+    *) printf '%s\n' 'Only macOS or Linux build hosts are supported.' >&2; exit 64 ;;
 esac
 eta_toolchain="$eta_ndk/toolchains/llvm/prebuilt/$eta_host/bin"
 eta_sources=${ETA_NATIVE_SOURCES:-$eta_repo/.analysis/eta-native-sources}
 eta_build=${ETA_NATIVE_BUILD:-$eta_repo/.analysis/eta-native-build}
 eta_output="$eta_repo/app/src/main/jniLibs"
 eta_api=34
-trap 'printf "本地构建失败，请检查 %s 下的 configure.log / build.log。\n" "$eta_build" >&2' ERR
+trap 'printf "Local build failed; check configure.log / build.log under %s.\n" "$eta_build" >&2' ERR
 mkdir -p "$eta_sources" "$eta_build/tools" "$eta_output"
 ln -sf "$eta_toolchain/llvm-readelf" "$eta_build/tools/readelf"
 export PATH="$eta_build/tools:$PATH"
@@ -59,7 +59,7 @@ fetch_source() {
 import hashlib, pathlib, sys
 actual = hashlib.sha256(pathlib.Path(sys.argv[1]).read_bytes()).hexdigest()
 if actual != sys.argv[2]:
-    raise SystemExit('源码 SHA-256 不匹配：' + sys.argv[1])
+    raise SystemExit('Source SHA-256 mismatch: ' + sys.argv[1])
 PY
     if [[ ! -d "$eta_sources/$directory" ]]; then
         tar -xzf "$archive" -C "$eta_sources"
@@ -83,7 +83,7 @@ for eta_abi in arm64-v8a x86_64 armeabi-v7a x86; do
     eta_cc="$eta_toolchain/$eta_target$eta_api-clang"
     eta_abi_build="$eta_build/$eta_abi"
     mkdir -p "$eta_abi_build" "$eta_output/$eta_abi"
-    printf '编译 PTY：%s\n' "$eta_abi"
+    printf 'Building PTY: %s\n' "$eta_abi"
     "$eta_cc" -O2 -Wall -Wextra -Werror -fPIE -pie \
         -Wl,-z,max-page-size=16384 -Wl,-z,relro,-z,now \
         -ffile-prefix-map="$eta_repo"=. \
@@ -93,7 +93,7 @@ for eta_abi in arm64-v8a x86_64 armeabi-v7a x86; do
 
     eta_prefix="$eta_abi_build/prefix"
     mkdir -p "$eta_prefix/include/sys" "$eta_prefix/lib"
-    # 在临时构建副本生成配置，固定源码缓存保持原样。
+    # Generate configuration in a temporary build copy; keep the pinned source cache pristine.
     if [[ ! -d "$eta_abi_build/talloc" ]]; then
         cp -R "$eta_sources/talloc-2.4.3" "$eta_abi_build/talloc"
     fi
@@ -160,10 +160,10 @@ ANSWERS
         cp loader/loader "$eta_output/$eta_abi/libproot_loader.so"
         "$eta_toolchain/llvm-strip" "$eta_output/$eta_abi/libproot_exec.so" "$eta_output/$eta_abi/libproot_loader.so"
     )
-    printf 'PRoot 与配对 loader 已生成：%s\n' "$eta_abi"
+    printf 'PRoot and matching loader built: %s\n' "$eta_abi"
 done
 
-# 源码分发包从实际构建入口生成，避免 APK 内维护另一份脚本和补丁。
+# Build the source bundle from the actual build inputs to avoid maintaining a second copy of scripts and patches inside the APK.
 python3 - "$eta_repo" <<'PY'
 import gzip, io, pathlib, tarfile, sys
 root = pathlib.Path(sys.argv[1])
@@ -189,10 +189,10 @@ for path in sorted(root.glob('*/*.so')):
     headers = subprocess.check_output([sys.argv[2], '-lW', str(path)], text=True)
     alignments = [int(line.split()[-1], 16) for line in headers.splitlines() if line.lstrip().startswith('LOAD')]
     if not alignments or min(alignments) < 16384:
-        raise SystemExit('ELF 未满足 16 KiB 页对齐：' + str(path))
+        raise SystemExit('ELF does not meet 16 KiB page alignment: ' + str(path))
     dynamic = subprocess.check_output([sys.argv[2], '-d', str(path)], text=True)
     libraries = re.findall(r'Shared library: \[(.+?)\]', dynamic)
     if set(libraries) - {'libc.so', 'libdl.so', 'libm.so', 'libandroid.so', 'liblog.so'}:
-        raise SystemExit('ELF 存在未打包的动态依赖：' + str(path))
+        raise SystemExit('ELF has unpacked dynamic dependencies: ' + str(path))
     print(hashlib.sha256(path.read_bytes()).hexdigest(), path.relative_to(root))
 PY

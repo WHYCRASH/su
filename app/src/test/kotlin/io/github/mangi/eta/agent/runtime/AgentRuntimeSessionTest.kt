@@ -24,7 +24,7 @@ class AgentRuntimeSessionTest {
         var saved = false
         assertTrue(session.complete(AgentRuntimeWire.RunResult("run", true, "", transcript = transcript)) { terminal ->
             assertFalse(terminal.ok)
-            assertEquals("已停止", terminal.error)
+            assertEquals("Stopped", terminal.error)
             assertEquals(transcript, terminal.transcript)
             assertTrue(results.isEmpty())
             saved = true
@@ -83,7 +83,7 @@ class AgentRuntimeSessionTest {
             producerStarted.countDown()
             session.emit(AgentEvent.RoundStarted(round = 2, messageCount = 2))
             session.complete(
-                AgentRuntimeWire.RunResult(runId = "run-boundary", ok = true, content = "完成")
+                AgentRuntimeWire.RunResult(runId = "run-boundary", ok = true, content = "Done")
             )
         }.apply { isDaemon = true }
 
@@ -125,7 +125,7 @@ class AgentRuntimeSessionTest {
         val deliveries = mutableListOf<String>()
         val session = AgentRuntimeSession(runId = "run-terminal")
         session.complete(
-            AgentRuntimeWire.RunResult(runId = "run-terminal", ok = true, content = "完成")
+            AgentRuntimeWire.RunResult(runId = "run-terminal", ok = true, content = "Done")
         )
 
         assertFalse(
@@ -154,7 +154,7 @@ class AgentRuntimeSessionTest {
             kind = AgentEvent.AssistantBlockKind.TEXT,
             index = 0,
             deltaChars = 2,
-            delta = "你好",
+            delta = "Hello",
         )
         val privateToolDelta = AgentEvent.AssistantBlockDelta(
             round = 1,
@@ -173,7 +173,7 @@ class AgentRuntimeSessionTest {
             round = 1,
             toolCallId = "call-1",
             name = "run_command",
-            resultSummary = "完成",
+            resultSummary = "Done",
             imageCount = 0,
             imageBytes = 0,
             success = true,
@@ -182,7 +182,7 @@ class AgentRuntimeSessionTest {
         val result = AgentRuntimeWire.RunResult(
             runId = "run-attach",
             ok = true,
-            content = "完成",
+            content = "Done",
         )
         session.complete(result)
 

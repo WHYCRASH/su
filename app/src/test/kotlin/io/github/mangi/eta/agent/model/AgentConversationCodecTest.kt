@@ -13,7 +13,7 @@ class AgentConversationCodecTest {
         val message = JSONObject()
             .put("role", "assistant")
             .put("content", "I will list it.")
-            .put("reasoning", "先确认路径")
+            .put("reasoning", "Confirm the path first")
             .put(
                 "tool_calls",
                 JSONArray().put(
@@ -32,8 +32,8 @@ class AgentConversationCodecTest {
         val durable = AgentConversationCodec.fromJsonObject(message)
         val replayed = AgentConversationCodec.toJsonObject(durable)
 
-        assertEquals("先确认路径", durable.reasoningContent)
-        assertEquals("先确认路径", replayed.getString("reasoning_content"))
+        assertEquals("Confirm the path first", durable.reasoningContent)
+        assertEquals("Confirm the path first", replayed.getString("reasoning_content"))
         assertFalse(replayed.has("reasoning"))
     }
 
@@ -42,7 +42,7 @@ class AgentConversationCodecTest {
         val assistant = JSONObject()
             .put("role", "assistant")
             .put("content", JSONObject.NULL)
-            .put("reasoning_content", "先分析工具参数")
+            .put("reasoning_content", "Analyze the tool arguments first")
             .put(
                 "tool_calls",
                 JSONArray().put(
@@ -61,7 +61,7 @@ class AgentConversationCodecTest {
         val durable = AgentConversationCodec.durableMessage(assistant)
         val replayed = AgentConversationCodec.toJsonObject(durable)
 
-        assertEquals("先分析工具参数", replayed.getString("reasoning_content"))
+        assertEquals("Analyze the tool arguments first", replayed.getString("reasoning_content"))
         assertEquals("call-1", replayed.getJSONArray("tool_calls").getJSONObject(0).getString("id"))
     }
 
@@ -69,7 +69,7 @@ class AgentConversationCodecTest {
     fun durableImageObservationNeverPersistsBase64Payload() {
         val message = AgentConversationCodec.durableMessage(
             AgentConversationCodec.userMessage(
-                text = "屏幕观察",
+                text = "Screen observation",
                 images = listOf(
                     AgentModelClient.ModelImage(
                         reference = "data:image/png;base64,${"A".repeat(20_000)}",
@@ -81,14 +81,14 @@ class AgentConversationCodecTest {
         )
 
         assertFalse(message.contentJson.contains("base64"))
-        assertTrue(message.contentJson.contains("未写入持久会话"))
+        assertTrue(message.contentJson.contains("not written to the persisted session"))
     }
 
     @Test
     fun durableUserAttachmentKeepsImageFilePathWithoutBase64() {
         val message = AgentConversationCodec.durableMessage(
             AgentConversationCodec.userPersistedImageMessage(
-                text = "看这张图",
+                text = "Look at this picture",
                 images = listOf(
                     AgentConversationCodec.PersistedImage(
                         path = "/data/user/0/io.github.mangi.eta/cache/eta-chat-images/c1/a.jpg",
@@ -101,14 +101,14 @@ class AgentConversationCodecTest {
         assertTrue(message.contentJson.contains("image_file"))
         assertTrue(message.contentJson.contains("/data/user/0/io.github.mangi.eta/cache/eta-chat-images/c1/a.jpg"))
         assertFalse(message.contentJson.contains("base64"))
-        assertFalse(message.contentJson.contains("未写入持久会话"))
+        assertFalse(message.contentJson.contains("not written to the persisted session"))
     }
 
     @Test
     fun persistedImageSourcesReadsImageFilePaths() {
         val message = AgentConversationCodec.durableMessage(
             AgentConversationCodec.userPersistedImageMessage(
-                text = "看这张图",
+                text = "Look at this picture",
                 images = listOf(
                     AgentConversationCodec.PersistedImage(
                         path = "/data/user/0/io.github.mangi.eta/cache/eta-chat-images/c1/a.jpg",
@@ -131,18 +131,18 @@ class AgentConversationCodecTest {
                 add(
                     AgentModelClient.ConversationMessage(
                         role = "assistant",
-                        content = "回答-$index-${"x".repeat(40_000)}",
+                        content = "Answer-$index-${"x".repeat(40_000)}",
                     )
                 )
                 add(
                     AgentModelClient.ConversationMessage(
                         role = "tool",
                         toolCallId = "call-$index",
-                        content = "结果-${"y".repeat(40_000)}",
+                        content = "Result-${"y".repeat(40_000)}",
                     )
                 )
             }
-            add(AgentModelClient.ConversationMessage(role = "assistant", content = "最终答案"))
+            add(AgentModelClient.ConversationMessage(role = "assistant", content = "Final answer"))
         }
 
         val encoded = AgentConversationCodec.encodeTranscriptForIpc(messages)
@@ -151,8 +151,8 @@ class AgentConversationCodecTest {
         assertTrue(encoded.length <= AgentConversationCodec.MAX_IPC_TRANSCRIPT_CHARS)
         assertTrue(decoded.isNotEmpty())
         assertFalse(decoded.first().role == "tool")
-        assertTrue(decoded.first().content.contains("容量上限已压缩"))
-        assertTrue(decoded.last().content.contains("最终答案"))
+        assertTrue(decoded.first().content.contains("were compacted"))
+        assertTrue(decoded.last().content.contains("Final answer"))
     }
 
     @Test
@@ -162,24 +162,24 @@ class AgentConversationCodecTest {
                 add(
                     AgentModelClient.ConversationMessage(
                         role = "assistant",
-                        content = "回答-$index-${"x".repeat(50_000)}",
+                        content = "Answer-$index-${"x".repeat(50_000)}",
                     )
                 )
             }
-            add(AgentModelClient.ConversationMessage(role = "user", content = "继续处理最新任务"))
+            add(AgentModelClient.ConversationMessage(role = "user", content = "Keep working on the latest task"))
         }
 
         val encoded = AgentConversationCodec.encodeConversationCheckpoint(messages)
         val decoded = AgentConversationCodec.decodeTranscript(encoded)
 
         assertTrue(encoded.length <= AgentConversationCodec.MAX_CONVERSATION_CHECKPOINT_CHARS)
-        assertTrue(decoded.first().content.contains("容量上限已压缩"))
-        assertEquals("继续处理最新任务", decoded.last().content)
+        assertTrue(decoded.first().content.contains("were compacted"))
+        assertEquals("Keep working on the latest task", decoded.last().content)
     }
 
     @Test
     fun responsesOutputItemsStayInMemoryAndNeverEnterStableTranscript() {
-        val source = JSONObject().put("role", "assistant").put("content", "完成")
+        val source = JSONObject().put("role", "assistant").put("content", "Done")
         ResponsesEphemeralState.attachOutputItems(
             source,
             JSONArray().put(
@@ -201,7 +201,7 @@ class AgentConversationCodecTest {
     fun durableUserAttachmentKeepsVideoFilePathWithoutBase64() {
         val message = AgentConversationCodec.durableMessage(
             AgentConversationCodec.userPersistedImageMessage(
-                text = "看这段视频",
+                text = "Watch this video",
                 images = listOf(
                     AgentConversationCodec.PersistedImage(
                         path = "/data/user/0/io.github.mangi.eta/cache/eta-chat-images/c1/a.mp4",
@@ -214,6 +214,6 @@ class AgentConversationCodecTest {
         assertTrue(message.contentJson.contains("video_file"))
         assertTrue(message.contentJson.contains("/data/user/0/io.github.mangi.eta/cache/eta-chat-images/c1/a.mp4"))
         assertFalse(message.contentJson.contains("base64"))
-        assertFalse(message.contentJson.contains("未写入持久会话"))
+        assertFalse(message.contentJson.contains("not written to the persisted session"))
     }
 }

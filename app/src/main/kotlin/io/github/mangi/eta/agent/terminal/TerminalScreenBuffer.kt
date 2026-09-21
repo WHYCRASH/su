@@ -1,12 +1,12 @@
 package io.github.mangi.eta.agent.terminal
 
 /**
- * 控制台屏幕缓冲区：把 PTY 字节流解析成固定行列的字符网格 + 滚动历史。
+ * Console screen buffer: parses the PTY byte stream into a fixed row/column character grid plus scroll history.
  *
- * 只实现 TUI 实际使用的 VT 子集：SGR、光标移动（CUP/CUU/CUD/CUF/CUB/CHA/VPA）、
- * 行/屏擦除（ED/EL）、滚动区（DECSTBM）、插入/删除行与字符（IL/DL/ICH/DCH）、
- * 备用屏幕（1049/1047/1048）、光标显隐（?25）。不识别的序列丢弃。
- * 宽字符（CJK/emoji）占两格，右边界自动换行采用 deferred wrap。
+ * Implements only the VT subset TUIs actually use: SGR, cursor movement (CUP/CUU/CUD/CUF/CUB/CHA/VPA),
+ * line/screen erase (ED/EL), scroll region (DECSTBM), insert/delete lines and characters (IL/DL/ICH/DCH),
+ * alternate screen (1049/1047/1048), cursor show/hide (?25). Unrecognized sequences are dropped.
+ * Wide characters (CJK/emoji) take two cells; auto-wrap at the right edge uses deferred wrap.
  */
 internal class TerminalScreenBuffer(
     val cols: Int,
@@ -14,17 +14,17 @@ internal class TerminalScreenBuffer(
     private val maxScrollback: Int = 500,
 ) {
     init {
-        require(cols > 0 && rows > 0) { "cols/rows 必须为正" }
+        require(cols > 0 && rows > 0) { "cols/rows must be positive" }
     }
 
     data class Cell(
         val text: String = " ",
         val style: SgrStyle = SgrStyle.PLAIN,
-        /** 宽字符的第二个占位格。 */
+        /** Second placeholder cell of a wide character. */
         val continuation: Boolean = false,
     )
 
-    /** 一行网格；对象身份稳定，渲染层按 id + version 复用组合。 */
+    /** One grid row; object identity is stable so the render layer can reuse compositions by id + version. */
     class Line internal constructor(val id: Long, width: Int) {
         internal var cells = Array(width) { Cell() }
         var version = 0L
@@ -47,7 +47,7 @@ internal class TerminalScreenBuffer(
     private var screen = Array(rows) { Line(nextLineId++, cols) }
     private val scrollback = ArrayDeque<Line>()
 
-    /** 每次 process 产生变化时递增；渲染层据此拉取新快照。 */
+    /** Incremented whenever process produces a change; the render layer pulls fresh snapshots from it. */
     var version = 0L
         private set
 
@@ -70,15 +70,15 @@ internal class TerminalScreenBuffer(
     private var mainCursorRow = 0
     private var mainCursorCol = 0
 
-    /** 滚动历史 + 当前屏幕；Line 身份跨快照稳定。 */
+    /** Scroll history + current screen; Line identity is stable across snapshots. */
     fun lines(): List<Line> = scrollback.toList() + screen.toList()
 
-    /** 测试与诊断用：当前屏幕的纯文本行（尾随空格裁剪）。 */
+    /** For tests and diagnostics: plain-text lines of the current screen (trailing spaces trimmed). */
     fun dump(): List<String> = screen.map { line ->
         line.cells.joinToString("") { it.text }.trimEnd()
     }
 
-    /** 当前屏幕第 [row] 行（不含滚动历史）。 */
+    /** Row [row] of the current screen (excluding scroll history). */
     fun screenLine(row: Int): Line = screen[row]
 
     fun process(text: String) {
@@ -133,7 +133,7 @@ internal class TerminalScreenBuffer(
             wrapPending = false
         }
         if (width == 2 && cursorCol == cols - 1) {
-            // 宽字符不压右边界，换到下一行书写
+            // Wide characters never squeeze against the right edge; wrap to the next line
             cursorCol = 0
             linefeed()
         }
@@ -190,7 +190,7 @@ internal class TerminalScreenBuffer(
         }
     }
 
-    /** 擦除按背景色继承（bce）：擦出的空白保留当前 SGR 背景。 */
+    /** Erase inherits the background color (bce): erased blanks keep the current SGR background. */
     private fun eraseCell(): Cell =
         if (style.bg != null) Cell(" ", SgrStyle(bg = style.bg)) else Cell()
 
@@ -450,7 +450,7 @@ internal class TerminalScreenBuffer(
     }
 }
 
-/** 终端字符宽度：CJK 全角/宽字符与 emoji 占两格，控制字符不占格。 */
+/** Terminal character width: CJK fullwidth/wide characters and emoji take two cells; control characters take none. */
 internal fun terminalCharWidth(codePoint: Int): Int = when {
     codePoint < 0x20 || codePoint in 0x7F..0x9F -> 0
     codePoint in 0x1100..0x115F || // Hangul Jamo

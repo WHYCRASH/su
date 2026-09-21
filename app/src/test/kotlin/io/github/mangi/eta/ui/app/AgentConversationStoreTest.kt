@@ -53,12 +53,12 @@ class AgentConversationStoreTest {
             messages = listOf(
                 UserMessageUi(
                     id = "user-1",
-                    content = "看一下当前屏幕",
+                    content = "Take a look at the current screen",
                     isEdited = true,
                 ),
                 ThinkingMessageUi(
                     id = "thinking-1",
-                    content = "需要先观察屏幕",
+                    content = "Need to observe the screen first",
                     isStreaming = false,
                     elapsedSeconds = 3,
                     collapsed = true,
@@ -67,14 +67,14 @@ class AgentConversationStoreTest {
                     id = "tool-1",
                     toolName = "run_command",
                     status = ToolActivityStatusUi.Success,
-                    argumentsSummary = "执行命令 · Android · root",
+                    argumentsSummary = "Run command · Android · root",
                     command = "pm list packages | head",
                     resultSummary = "ok=true, chars=100",
                     imageCount = 1,
                 ),
                 AgentMessageUi(
                     id = "assistant-1",
-                    content = "| 项目 | 内容 |\n| --- | --- |\n| 电量 | 88% |",
+                    content = "| Item | Content |\n| --- | --- |\n| Battery | 88% |",
                     isStreaming = false,
                     renderMarkdown = true,
                     generatedAtMillis = 1_800_000_000_000L,
@@ -90,12 +90,12 @@ class AgentConversationStoreTest {
             history = listOf(
                 io.github.mangi.eta.agent.model.AgentModelClient.ConversationMessage(
                     role = "user",
-                    content = "看一下当前屏幕",
+                    content = "Take a look at the current screen",
                 ),
                 io.github.mangi.eta.agent.model.AgentModelClient.ConversationMessage(
                     role = "assistant",
                     content = "",
-                    reasoningContent = "需要先观察屏幕",
+                    reasoningContent = "Need to observe the screen first",
                     toolCallsJson = """[{"id":"toolu_1","type":"function","function":{"name":"observe_screen","arguments":"{}"}}]""",
                 ),
                 io.github.mangi.eta.agent.model.AgentModelClient.ConversationMessage(
@@ -105,10 +105,10 @@ class AgentConversationStoreTest {
                 ),
                 io.github.mangi.eta.agent.model.AgentModelClient.ConversationMessage(
                     role = "assistant",
-                    content = "| 项目 | 内容 |\n| --- | --- |\n| 电量 | 88% |",
+                    content = "| Item | Content |\n| --- | --- |\n| Battery | 88% |",
                 ),
             ),
-            input = "不应该保存草稿",
+            input = "Should not save draft",
             isStreaming = true,
             thinkingEnabled = true,
             reasoningEffort = ReasoningEffort.HIGH,
@@ -121,7 +121,7 @@ class AgentConversationStoreTest {
                 context = context,
                 selectedConversationId = "conv-1",
                 conversationsById = mapOf("conv-1" to conversation),
-                titles = mapOf("conv-1" to "屏幕分析"),
+                titles = mapOf("conv-1" to "Screen analysis"),
                 updatedAt = mapOf("conv-1" to 1234L),
             )
         }
@@ -129,7 +129,7 @@ class AgentConversationStoreTest {
         val snapshot = AgentConversationStore.load(context)
 
         assertEquals("conv-1", snapshot.selectedConversationId)
-        assertEquals("屏幕分析", snapshot.titles.getValue("conv-1"))
+        assertEquals("Screen analysis", snapshot.titles.getValue("conv-1"))
         assertEquals(1234L, snapshot.updatedAt.getValue("conv-1"))
         val restored = snapshot.conversationsById.getValue("conv-1")
         assertEquals("", restored.input)
@@ -299,17 +299,17 @@ class AgentConversationStoreTest {
 
     @Test
     fun saveBoundsConversationCheckpointWithoutClippingDisplayedMessages() {
-        val displayedContent = "展示消息-${"d".repeat(120_000)}"
+        val displayedContent = "Show message-${"d".repeat(120_000)}"
         val history = buildList {
             repeat(30) { index ->
                 add(
                     AgentModelClient.ConversationMessage(
                         role = "assistant",
-                        content = "历史-$index-${"h".repeat(50_000)}",
+                        content = "History-$index-${"h".repeat(50_000)}",
                     )
                 )
             }
-            add(AgentModelClient.ConversationMessage(role = "user", content = "最新上下文"))
+            add(AgentModelClient.ConversationMessage(role = "user", content = "Latest context"))
         }
 
         runBlocking {
@@ -327,7 +327,7 @@ class AgentConversationStoreTest {
                         thinkingEnabled = false,
                     )
                 ),
-                titles = mapOf("conv-large" to "长对话"),
+                titles = mapOf("conv-large" to "Long conversation"),
                 updatedAt = mapOf("conv-large" to 1L),
             )
         }
@@ -346,8 +346,8 @@ class AgentConversationStoreTest {
                 AgentConversationCodec.MAX_CONVERSATION_CHECKPOINT_CHARS
         )
         assertEquals(displayedContent, (restored.messages.single() as UserMessageUi).content)
-        assertTrue(restored.history.first().content.contains("容量上限已压缩"))
-        assertEquals("最新上下文", restored.history.last().content)
+        assertTrue(restored.history.first().content.contains("were compacted"))
+        assertEquals("Latest context", restored.history.last().content)
     }
 
     @Test
@@ -358,7 +358,7 @@ class AgentConversationStoreTest {
                 listOf(
                     ConversationEntity(
                         id = "conv-legacy-large",
-                        title = "旧长对话",
+                        title = "Old long conversation",
                         thinkingEnabled = false,
                         historyJson = "x".repeat(2_500_000),
                         createdAt = 1L,
@@ -373,7 +373,7 @@ class AgentConversationStoreTest {
                         conversationId = "conv-legacy-large",
                         sortIndex = 0,
                         type = "user",
-                        content = "从消息记录恢复",
+                        content = "Restore from message history",
                     )
                 )
             )
@@ -383,8 +383,8 @@ class AgentConversationStoreTest {
             .conversationsById
             .getValue("conv-legacy-large")
 
-        assertEquals("从消息记录恢复", restored.history.single().content)
-        assertEquals("从消息记录恢复", (restored.messages.single() as UserMessageUi).content)
+        assertEquals("Restore from message history", restored.history.single().content)
+        assertEquals("Restore from message history", (restored.messages.single() as UserMessageUi).content)
     }
 
     @Test
@@ -472,7 +472,7 @@ class AgentConversationStoreTest {
                 folderIds = mapOf("conv-1" to "folder-work"),
                 pinnedIds = setOf("conv-2"),
                 folders = listOf(
-                    ConversationFolderUi(id = "folder-work", name = "工作", sortIndex = 0),
+                    ConversationFolderUi(id = "folder-work", name = "Work", sortIndex = 0),
                 ),
             )
         }
@@ -482,7 +482,7 @@ class AgentConversationStoreTest {
         assertEquals(null, snapshot.folderIds["conv-2"])
         assertEquals(setOf("conv-2"), snapshot.pinnedIds)
         assertEquals(listOf("folder-work"), snapshot.folders.map { it.id })
-        assertEquals("工作", snapshot.folders.single().name)
+        assertEquals("Work", snapshot.folders.single().name)
     }
 
     @Test
@@ -490,8 +490,8 @@ class AgentConversationStoreTest {
         val marker = ContextCompactedMessageUi(
             id = "compacted-1",
             compactedCount = 6,
-            summary = "用户要查 Actions，已经推送成功。",
-            compressorLabel = "魚 · grok-4.6",
+            summary = "The user wants to check Actions; the push succeeded.",
+            compressorLabel = "su · grok-4.6",
             baselineTokens = 1800,
             resumeRound = 2,
             preservedUsage = ConversationTokenUsageUi(
@@ -507,16 +507,16 @@ class AgentConversationStoreTest {
                 conversationsById = mapOf(
                     "conv-compact" to AgentChatHomeUiState(
                         messages = listOf(
-                            UserMessageUi(id = "u1", content = "旧消息"),
+                            UserMessageUi(id = "u1", content = "Old messages"),
                             marker,
-                            UserMessageUi(id = "u2", content = "继续"),
+                            UserMessageUi(id = "u2", content = "Continue"),
                         ),
                         input = "",
                         isStreaming = false,
                         thinkingEnabled = false,
                     ),
                 ),
-                titles = mapOf("conv-compact" to "压缩"),
+                titles = mapOf("conv-compact" to "Compress"),
                 updatedAt = mapOf("conv-compact" to 2L),
             )
         }
@@ -525,8 +525,8 @@ class AgentConversationStoreTest {
         assertEquals(listOf("u1", "compacted-1", "u2"), restored.map { it.id })
         val loaded = restored[1] as ContextCompactedMessageUi
         assertEquals(6, loaded.compactedCount)
-        assertEquals("用户要查 Actions，已经推送成功。", loaded.summary)
-        assertEquals("魚 · grok-4.6", loaded.compressorLabel)
+        assertEquals("The user wants to check Actions; the push succeeded.", loaded.summary)
+        assertEquals("su · grok-4.6", loaded.compressorLabel)
         assertEquals(1800, loaded.baselineTokens)
         assertEquals(2, loaded.resumeRound)
         assertEquals(2200L, loaded.preservedUsage.inputTokens)

@@ -9,7 +9,7 @@ import android.speech.RecognitionService
 import android.speech.SpeechRecognizer
 
 /**
- * Android 助理角色要求声明识别服务。当前文本会话不会启动它；若系统主动调用，则委托给外部 ASR。
+ * The Android assistant role requires a declared recognition service. The text conversation never starts it; when the system invokes it, it delegates to the external ASR.
  */
 class EtaRecognitionService : RecognitionService() {
     private val mainHandler = Handler(Looper.getMainLooper())

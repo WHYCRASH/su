@@ -32,7 +32,7 @@ class HookInstallReportTest {
         assertEquals(1, combined.failedCount)
         assertEquals(1, combined.skippedCount)
         assertEquals(
-            "Hook 安装完成: installed=2, missing=1, failed=1, skipped=1",
+            "Hook installation finished: installed=2, missing=1, failed=1, skipped=1",
             combined.summary()
         )
     }

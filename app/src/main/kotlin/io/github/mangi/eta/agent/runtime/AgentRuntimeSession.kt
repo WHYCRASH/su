@@ -5,10 +5,10 @@ import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
 /**
- * 一次 Runtime run 的控制权和唯一终态。
+ * Ownership and the single terminal state of one runtime run.
  *
- * Service 替换、用户取消和正常完成都必须经过此对象，避免旧 run 向新 reply channel 发消息，
- * 也避免同一 run 发送两个最终结果。
+ * Service replacement, user cancellation, and normal completion must all go through this object, so an old run never sends to a new reply channel
+ * and the same run never sends two final results.
  */
 internal class AgentRuntimeSession(
     val runId: String,
@@ -67,8 +67,8 @@ internal class AgentRuntimeSession(
         }
 
     /**
-     * Activity 被移出任务栈后 Runtime 仍可能继续执行。安全历史回放、完成确认和实时订阅
-     * 共用同一把锁，保证客户端收到确认前的事件都是历史，新增事件与终态不会越过边界。
+     * The runtime may keep running after the activity leaves the task stack. Safe history replay, completion acknowledgement, and live subscription
+     * share one lock, so every event before the client acknowledgement is history and new events never cross the terminal boundary.
      */
     fun attach(
         eventSink: (AgentEvent) -> Unit,
@@ -86,8 +86,8 @@ internal class AgentRuntimeSession(
         lock.withLock {
             if (state != State.RUNNING) return false
         }
-        // 打断 SSE 不能握着 session 锁：读线程在 emit 时要同一把锁，
-        // EventSource.cancel() 又会等读线程，等于把当前回复排完才返回。
+        // Never hold the session lock to interrupt SSE: the reader thread needs the same lock in emit,
+        // and EventSource.cancel() waits for the reader thread, which would drain the current reply before returning.
         return controller.steer(text)
     }
 
@@ -143,9 +143,9 @@ internal class AgentRuntimeSession(
     }
 
     /**
-     * 先原子竞争 COMMITTING，再完成提交前副作用和结果发布。取消与替换不能越过提交胜者，
-     * 因而不会出现“客户端收到取消、outbox 却留下成功结果”的分裂状态；耗时 I/O 也不持有锁。
-     * [beforePublish] 必须自行吸收非致命持久化异常。
+     * First race atomically for COMMITTING, then run pre-commit side effects and result publishing. Cancellation and replacement cannot overtake the commit winner,
+     * so the split state of "client saw cancellation but the outbox kept a success" never happens; slow I/O never holds the lock.
+     * [beforePublish] must absorb non-fatal persistence exceptions itself.
      */
     fun complete(
         result: AgentRuntimeWire.RunResult,
@@ -156,7 +156,7 @@ internal class AgentRuntimeSession(
             require(result.runId == runId) { "Result runId does not match the active session" }
             val stopped = state == State.STOPPING
             state = State.COMMITTING
-            if (stopped) result.copy(ok = false, error = "已停止") else result
+            if (stopped) result.copy(ok = false, error = "Stopped") else result
         }
         val commitFailure = runCatching { beforePublish(terminal) }.exceptionOrNull()
         lock.withLock {

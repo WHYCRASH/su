@@ -8,12 +8,16 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /**
- * 单次 Agent run 的纯编排循环。
+ * Pure orchestration loop for a single Agent run.
  *
- * 一次 assistant 响应及其完整工具批次构成一个请求 round，不等于压缩的用户逻辑 turn。
- * 暂停、追加、终止保留同一 turnId；请求计数和 UI 文本块标识不参与划分用户轮次。
- * 流式正文中途的 steering 会打断当前模型请求、保留已写出的内容，再注入补充指令发起后续请求；
- * 工具批次仍跑完，不取消正在执行的工具。循环不设置本地轮次上限，由模型自然结束、取消或错误终止。
+ * One assistant response plus its complete tool batch forms one request round,
+ * which is not the same as a compressed user-logical turn.
+ * Pause, append, and stop keep the same turnId; request counts and UI text-block
+ * ids do not delimit user turns.
+ * Mid-stream steering interrupts the current model request, keeps already-written
+ * content, then injects follow-up instructions for the next request;
+ * a tool batch still runs to completion without cancelling in-flight tools.
+ * The loop sets no local round cap; it ends naturally via the model, cancellation, or an error.
  */
 internal class AgentLoop(
     private val config: AgentModelClient.ModelConfig,
@@ -145,7 +149,7 @@ internal class AgentLoop(
                 runController.pause()
                 onEvent(AgentEvent.ContextCompacted(round, false, messages.length(), messages.length(),
                     blocked = true, reason = compactionFailure.ifBlank {
-                        "上下文空间不足；受保护历史未删除。可保持暂停、仅本次允许压缩较早步骤，或停止后选择更大窗口模型。"
+                        "Out of context space; protected history was not deleted. You can stay paused, allow compacting earlier steps for this run only, or stop and pick a larger-window model."
                     }))
                 runController.throwIfCancelled()
                 reductions = 0
@@ -210,7 +214,7 @@ internal class AgentLoop(
                 if (failure.code != "CONTEXT_WINDOW_EXCEEDED") throw failure
                 overflowPending = true
                 overflowRecoveryAttempts++
-                compactionFailure = "提供方确认上下文超限。只在缩减成功后有限重试；否则保持暂停，不删除受保护历史。"
+                compactionFailure = "The provider reported context overflow. Retry on a limited basis only after a successful reduction; otherwise stay paused without deleting protected history."
                 continue
             }
             // Failed/overflowed requests keep their image observation until a successful request.
@@ -256,8 +260,8 @@ internal class AgentLoop(
                 continuingInterruptedRequest = true
                 // Resume keeps the user's reasoning configuration. Only the first
                 // reasoning block's UI projection is hidden, not the model's thinking.
-                // 半截正文留在当前轮次历史里，继续时模型才能接着写。
-                // 未完成的工具调用不执行；已经完整给出的 TOOL_USE 在恢复后走正常批次。
+                // Keep the partial text in the current round history so the model can continue writing on resume.
+                // Do not execute incomplete tool calls; fully-formed TOOL_USE calls go through the normal batch after resume.
                 if (hasAssistantPayload) {
                     assistantMessage.optString("content").takeIf { it != "null" }?.let(interruptedTextPrefix::append)
                     messages.put(
@@ -322,7 +326,7 @@ internal class AgentLoop(
                                     round = round,
                                     toolCall = call,
                                     code = "TRUNCATED_TOOL_CALL",
-                                    message = "模型输出达到长度上限，工具参数可能不完整；本次调用未执行，请重新提交完整参数。",
+                                    message = "The model hit the output length limit and the tool arguments may be incomplete; this call was not executed, please resubmit complete arguments.",
                                 )
                             }
                         else ->
@@ -331,8 +335,8 @@ internal class AgentLoop(
                                     round = round,
                                     toolCall = call,
                                     code = "UNEXPECTED_TOOL_CALL",
-                                    message = "模型在 ${providerResponse.stopReason.name} 终止状态下返回了工具调用；" +
-                                        "本批调用未执行，请重新规划。",
+                                    message = "The model returned tool calls under the ${providerResponse.stopReason.name} stop state; " +
+                                        "this batch was not executed, please replan.",
                                 )
                             }
                     }
@@ -349,7 +353,7 @@ internal class AgentLoop(
             // at this safe boundary; never insert a continuation or make an extra call.
             maybeCompactBeforeRound(round)
 
-            // 正文回合结束后再注入 steering：已写出的内容留在历史里，下一轮带上补充指令。
+            // Inject steering only after the text round ends: keep written content in history and carry follow-up instructions into the next round.
             var hasSupplement: Boolean
             do {
                 while (runController.hasPendingCompact) maybeCompactBeforeRound(round)
@@ -363,7 +367,7 @@ internal class AgentLoop(
 
             if (content.isBlank() || content == "null") {
                 val finishReason = assistantMessage.optString("finish_reason")
-                error("模型接口第 $round 轮返回为空${finishReason.takeIf { it.isNotBlank() }?.let { "：$it" }.orEmpty()}")
+                error("Model API returned empty on round $round${finishReason.takeIf { it.isNotBlank() }?.let { ": $it" }.orEmpty()}")
             }
 
             onEvent(AgentEvent.RunFinished(round = round, contentChars = content.length, generatedAtMillis = System.currentTimeMillis()))
@@ -376,9 +380,9 @@ internal class AgentLoop(
     }
 
     /**
-     * 下一次模型请求前压缩。
-     * 自动压缩在每个请求前及自然结束边界按阈值判断；手动压缩在同一边界消费队列。
-     * 工具批次跑完后才会回到这里，因此不会拆掉当前工具循环。
+     * Compact before the next model request.
+     * Automatic compaction is evaluated by threshold before each request and at natural-completion boundaries; manual compaction drains the queue at the same boundaries.
+     * Control returns here only after a tool batch finishes, so the current tool loop is never torn apart.
      */
     private fun historyForCompaction() = (systemCount.coerceIn(0, messages.length()) until messages.length())
         .map { AgentConversationCodec.fromJsonObject(messages.getJSONObject(it)) }
@@ -387,8 +391,8 @@ internal class AgentLoop(
         val local = AgentContextBudget.estimate(messages) +
             AgentContextBudget.countTokens(currentRoundTools.toString())
         val projected = projectedPromptTokens()
-        // 有账单时以接口占用为准。本地启发式会把工具 JSON / 代码按拉丁字符放大，
-        // 500k 窗口时往往在真实用量一半就把任务暂停。
+        // When billed usage is available it wins. The local heuristic inflates tool JSON / code by Latin-character count,
+        // which would pause the task at roughly half the real usage on a 500k window.
         return projected ?: local
     }
 
@@ -400,7 +404,7 @@ internal class AgentLoop(
     private fun persistenceCharLimit(): Long {
         val window = (config.contextWindow?.takeIf { it > 0 } ?: compactPolicy.contextWindow).toLong()
         val roomBudget = AgentConversationCodec.MAX_CONVERSATION_CHECKPOINT_CHARS.toLong() - 128_000L
-        // 按窗口放大：1MB Room 上限大约只相当于 20 万拉丁 token，500k 窗口会在一半就误暂停。
+        // Scale by window: the 1MB Room cap is only about 200k Latin tokens, so a 500k window would pause by mistake at half capacity.
         return maxOf(roomBudget, window * 6)
     }
 
@@ -409,7 +413,7 @@ internal class AgentLoop(
         val charLimit = persistenceCharLimit()
         if (storedChars > charLimit) {
             compactionFailure = compactionFailure.ifBlank {
-                "本轮历史接近本机持久化容量上限；已暂停，未截断受保护原文。可允许压缩较早步骤或停止任务。"
+                "This round history is near the on-device persistence capacity; paused without truncating protected originals. You may allow compacting earlier steps or stop the task."
             }
             return true
         }
@@ -436,7 +440,7 @@ internal class AgentLoop(
         var cut = compactionStart(history)
         if (cut <= 0) {
             if (forced) onEvent(AgentEvent.ContextCompacted(round, false, messages.length(), messages.length(),
-                reason = "当前保留范围内没有可压缩的完整历史单元。"))
+                reason = "No complete compressible history unit within the current retention scope."))
             return
         }
         if (forced) onEvent(AgentEvent.ContextCompactionStarted(round, config.modelDisplayName.ifBlank { config.model }))
@@ -450,7 +454,7 @@ internal class AgentLoop(
         }
         if (forced && cut <= 0) {
             onEvent(AgentEvent.ContextCompacted(round, false, messages.length(), messages.length(),
-                reason = "当前保留范围内没有可压缩的完整历史单元。"))
+                reason = "No complete compressible history unit within the current retention scope."))
         }
         val reduced = cut > 0 && applyCompaction(round, history, cut)
         if (reduced || pruned) {
@@ -497,12 +501,19 @@ internal class AgentLoop(
                 val original = messages.getJSONObject(index)
                 if (original.optString("role") != "tool" || original.optString("tool_call_id") in sensitiveToolCallIds) continue
                 val text = original.opt("content") as? String ?: continue
-                if (text.codePointCount(0, text.length) <= 8192 || text.contains("[Eta tool output pruned;")) continue
+                if (text.codePointCount(0, text.length) <= 8192 ||
+                    text.contains(AgentContextCompactor.TOOL_PRUNED_PREFIX) ||
+                    text.contains(AgentContextCompactor.LEGACY_TOOL_PRUNED_PREFIX)
+                ) {
+                    continue
+                }
                 val id = archive.save(listOf(AgentConversationCodec.fromJsonObject(original)))
                 archive.record(id, "started")
                 val head = text.offsetByCodePoints(0, 4096)
                 val tail = text.offsetByCodePoints(text.length, -1024)
-                val shorter = text.substring(0, head) + "\n[Eta tool output pruned; original: context-checkpoint:$id; read_compacted_history]\n" + text.substring(tail)
+                val shorter = text.substring(0, head) +
+                    "\n${AgentContextCompactor.TOOL_PRUNED_PREFIX} original: context-checkpoint:$id; read_compacted_history]\n" +
+                    text.substring(tail)
                 val copy = JSONObject(original.toString()).put("content", shorter)
                 if (AgentContextBudget.countTokens(shorter) >= AgentContextBudget.countTokens(text)) continue
                 archive.record(id, "ready")
@@ -512,7 +523,7 @@ internal class AgentLoop(
         } catch (failure: Exception) {
             runController.throwIfCancelled()
             if (Thread.currentThread().isInterrupted || failure is io.github.mangi.eta.agent.runtime.AgentRunCancelledException) throw failure
-            compactionFailure = failure.message ?: "工具原文存档失败，未应用修剪"
+            compactionFailure = failure.message ?: "Failed to archive tool originals, pruning not applied"
             return false
         }
         if (replacements.isEmpty()) return false
@@ -523,7 +534,7 @@ internal class AgentLoop(
         onHistoryCompacted()
         onEvent(AgentEvent.ContextCompacted(round, true, messages.length(), messages.length(),
             history = AgentConversationCodec.transcript(messages, systemCount, sensitiveToolCallIds),
-            compressorLabel = "工具输出预算修剪（原文可回读）"))
+            compressorLabel = "Tool-output budget pruning (originals readable)"))
         emitProjectedPrompt(round)
         checkpoints.forEach { runCatching { archive.record(it, "committed") } }
         return true
@@ -543,7 +554,7 @@ internal class AgentLoop(
         var savedCheckpoint: String? = null
         var compactionStage = "archive"
         runCatching { io.github.mangi.eta.core.AndroidAgentLogger.info(
-            "运行中压缩开始：round=$round，选中=$cut，保留=${history.size - cut}，保留预算=${AgentCompressionBoundary.continuationRetentionBudget(compactPolicy.contextWindow)}") }
+            "Mid-run compaction started: round=$round, selected=$cut, kept=${history.size - cut}, retention budget=${AgentCompressionBoundary.continuationRetentionBudget(compactPolicy.contextWindow)}") }
         val rewritten = try {
             val prefix = history.take(cut)
             val tail = history.drop(cut)
@@ -572,15 +583,15 @@ internal class AgentLoop(
                     ) else null,
             )
             compactionStage = "validate"
-            require(compressed.size >= tail.size && compressed.takeLast(tail.size) == tail) { "摘要后受保护尾部发生变化" }
-            require(compressed != history) { "没有可压缩历史" }
+            require(compressed.size >= tail.size && compressed.takeLast(tail.size) == tail) { "Protected tail changed after summarization" }
+            require(compressed != history) { "No compressible history" }
             runController.throwIfCancelled()
-            require(messages.toString() == original) { "摘要生成期间上下文已变化，未应用摘要" }
+            require(messages.toString() == original) { "Context changed while generating the summary, summary not applied" }
             val withPointers = savedCheckpoint?.let {
                 requireNotNull(compactionArchive).attachReferences(durablePrefix, it, compressed, tail.size)
             } ?: compressed
             require(withPointers.sumOf { AgentContextBudget.countMessage(it).toLong() } < history.sumOf { AgentContextBudget.countMessage(it).toLong() }) {
-                "摘要及索引未减少上下文，已保留原文"
+                "Summary and index did not reduce context, originals kept"
             }
             savedCheckpoint?.let { compactionArchive?.record(it, "ready") }
             withPointers
@@ -589,9 +600,9 @@ internal class AgentLoop(
             if (runController.isCancelled || Thread.currentThread().isInterrupted || failure is InterruptedException ||
                 failure is io.github.mangi.eta.agent.runtime.AgentRunCancelledException) throw failure
             lastFailedCompaction = original to cut
-            compactionFailure = failure.message ?: "压缩失败，原文保留"
+            compactionFailure = failure.message ?: "Compaction failed, originals kept"
             runCatching { io.github.mangi.eta.core.AndroidAgentLogger.warn(
-                "运行中压缩失败：stage=$compactionStage，checkpoint=$savedCheckpoint，round=$round，${failure.javaClass.simpleName}: $compactionFailure") }
+                "Mid-run compaction failed: stage=$compactionStage, checkpoint=$savedCheckpoint, round=$round, ${failure.javaClass.simpleName}: $compactionFailure") }
             onEvent(AgentEvent.ContextCompacted(round, false, originalCount, originalCount, reason = compactionFailure))
             return false
         }
@@ -614,7 +625,7 @@ internal class AgentLoop(
         emitProjectedPrompt(round)
         savedCheckpoint?.let { runCatching { compactionArchive?.record(it, "committed") } }
         runCatching { io.github.mangi.eta.core.AndroidAgentLogger.info(
-            "运行中压缩已提交：checkpoint=$savedCheckpoint，round=$round，消息=$originalCount->${messages.length()}") }
+            "Mid-run compaction committed: checkpoint=$savedCheckpoint, round=$round, messages=$originalCount->${messages.length()}") }
         return true
     }
 
@@ -782,7 +793,7 @@ internal class AgentLoop(
         round: Int,
         outcomes: List<ToolOutcome>,
     ) {
-        // Provider 要求同一 assistant 批次的全部 tool result 连续出现；图片观察统一放在批次之后。
+        // The provider requires all tool results of the same assistant batch to appear consecutively; image observations go together after the batch.
         outcomes.forEach { outcome ->
             messages.put(AgentConversationCodec.toolResultMessage(outcome.call, outcome.result).put(AgentTurnIdentity.JSON_KEY, turnId))
         }
@@ -790,7 +801,7 @@ internal class AgentLoop(
         val imageOutcomes = outcomes.filter { outcome -> outcome.result.images.isNotEmpty() }
         if (imageOutcomes.isEmpty()) return
 
-        // 工具截图是瞬时观察，不是会话资产。下一次推理消费后立即删除。
+        // Tool screenshots are transient observations, not session assets. Delete them right after the next inference consumes them.
         discardPendingToolImageMessage()
         val images = imageOutcomes.flatMap { outcome -> outcome.result.images }
         val toolNames = imageOutcomes

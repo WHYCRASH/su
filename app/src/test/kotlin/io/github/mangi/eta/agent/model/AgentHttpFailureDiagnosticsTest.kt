@@ -31,7 +31,7 @@ class AgentHttpFailureDiagnosticsTest {
             assertFalse(secret, failure.diagnostic.contains(secret))
         }
         assertTrue(failure.message!!.contains("Model busy"))
-        assertTrue(failure.message!!.contains("Retry-After：45"))
+        assertTrue(failure.message!!.contains("Retry-After: 45"))
         assertFalse(failure.message!!.contains("secret-value"))
     }
 

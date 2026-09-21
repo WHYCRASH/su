@@ -37,7 +37,7 @@ internal object OfflineSpeechSession {
         var recorder: AudioRecord? = null
         try {
             check(io.github.mangi.eta.agent.voice.VoiceEntryPolicy.enabled(
-                io.github.mangi.eta.agent.voice.doubao.DoubaoVoiceConfig.state.value, mode) && OfflineSpeechPack.state.value.ready)
+                io.github.mangi.eta.agent.voice.VoiceInputConfig.state.value, mode) && OfflineSpeechPack.state.value.ready)
             val dir = OfflineSpeechPack.directory(context)
             // Recheck sizes before passing paths to native code; full hashes were verified at startup/download.
             check(SpeechModelManifest.assets.all { File(dir, it.name).length() == it.bytes })

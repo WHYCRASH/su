@@ -10,9 +10,9 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * 只执行 Eta 内部构造的固定 Root 命令。调用方不得把模型参数直接拼成脚本。
+ * Executes only fixed Root commands constructed inside su. Callers must never splice model parameters into a script.
  *
- * 输出在读取时即截断，但仍持续排空管道，避免子进程因缓冲区写满而挂起。
+ * Output is truncated as it is read, but the pipe keeps draining so the child never blocks on a full buffer.
  */
 internal class BoundedRootCommandExecutor(
     private val logger: AgentLogger,

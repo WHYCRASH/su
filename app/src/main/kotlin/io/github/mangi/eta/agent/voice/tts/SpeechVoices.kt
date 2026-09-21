@@ -1,5 +1,7 @@
 package io.github.mangi.eta.agent.voice.tts
 
+internal data class SpeechVoice(val id: String, val name: String, val personal: Boolean = false)
+
 internal object SpeechVoices {
     fun shouldReplaceStoredVoice(
         cloud: Boolean,
@@ -9,17 +11,15 @@ internal object SpeechVoices {
         catalogIds: Collection<String>,
     ): Boolean {
         if (!cloud || catalogIds.isEmpty()) return false
-        // Providers load asynchronously. A transient OpenAI catalog must not overwrite
-        // a saved Xiaomi/Doubao voice with the first fallback, usually "默认".
+        // Providers load asynchronously. A transient fallback catalog must not overwrite
+        // a saved voice with the first entry before the real catalog arrives.
         if (providerId.isNotBlank() && !providerReady) return false
         if (storedVoice.isBlank()) return true
         return storedVoice !in catalogIds
     }
 
     fun catalog(engine: SpeechEngine, model: String = ""): List<SpeechVoice> = when (engine) {
-        SpeechEngine.DOUBAO -> DoubaoVoices.catalog
         SpeechEngine.OPENAI -> openai
-        SpeechEngine.MIMO -> mimo
         SpeechEngine.MINIMAX -> minimax
         SpeechEngine.STEP -> step
         SpeechEngine.QWEN -> qwen(model)
@@ -40,43 +40,32 @@ internal object SpeechVoices {
         SpeechVoice("nova", "Nova"),
         SpeechVoice("shimmer", "Shimmer"),
     )
-    private val mimo = listOf(
-        SpeechVoice("mimo_default", "默认"),
-        SpeechVoice("冰糖", "冰糖"),
-        SpeechVoice("茉莉", "茉莉"),
-        SpeechVoice("苏打", "苏打"),
-        SpeechVoice("白桦", "白桦"),
-        SpeechVoice("Mia", "Mia"),
-        SpeechVoice("Chloe", "Chloe"),
-        SpeechVoice("Milo", "Milo"),
-        SpeechVoice("Dean", "Dean"),
-    )
     private val minimax = listOf(
-        SpeechVoice("female-shaonv", "少女"),
-        SpeechVoice("female-yujie", "御姐"),
-        SpeechVoice("female-chengshu", "成熟女声"),
-        SpeechVoice("female-tianmei", "甜美"),
-        SpeechVoice("male-qn-qingse", "青涩男声"),
-        SpeechVoice("male-qn-jingying", "精英男声"),
-        SpeechVoice("male-qn-badao", "霸道男声"),
-        SpeechVoice("male-qn-daxuesheng", "大学生"),
-        SpeechVoice("audiobook_male_1", "有声书男"),
-        SpeechVoice("audiobook_female_1", "有声书女"),
-        SpeechVoice("cartoon_pig", "卡通"),
+        SpeechVoice("female-shaonv", "Young Girl"),
+        SpeechVoice("female-yujie", "Mature Woman"),
+        SpeechVoice("female-chengshu", "Mature Female"),
+        SpeechVoice("female-tianmei", "Sweet Female"),
+        SpeechVoice("male-qn-qingse", "Youthful Male"),
+        SpeechVoice("male-qn-jingying", "Elite Male"),
+        SpeechVoice("male-qn-badao", "Bold Male"),
+        SpeechVoice("male-qn-daxuesheng", "College Male"),
+        SpeechVoice("audiobook_male_1", "Audiobook Male"),
+        SpeechVoice("audiobook_female_1", "Audiobook Female"),
+        SpeechVoice("cartoon_pig", "Cartoon"),
     )
     private val step = listOf(
-        SpeechVoice("elegantgentle-female", "气质温婉"),
-        SpeechVoice("livelybreezy-female", "活力轻快"),
-        SpeechVoice("jingdiannvsheng", "经典女声"),
-        SpeechVoice("wenroushunv", "温柔熟女"),
-        SpeechVoice("tianmeinvsheng", "甜美女声"),
-        SpeechVoice("qingchunshaonv", "清纯少女"),
-        SpeechVoice("cixingnansheng", "磁性男声"),
-        SpeechVoice("wenrounansheng", "温柔男声"),
-        SpeechVoice("yuanqinansheng", "元气男声"),
-        SpeechVoice("zhengpaiqingnian", "正派青年"),
-        SpeechVoice("ruyananshi", "儒雅男士"),
-        SpeechVoice("boyinnansheng", "播音男声"),
+        SpeechVoice("elegantgentle-female", "Gentle Female"),
+        SpeechVoice("livelybreezy-female", "Lively Female"),
+        SpeechVoice("jingdiannvsheng", "Classic Female"),
+        SpeechVoice("wenroushunv", "Tender Female"),
+        SpeechVoice("tianmeinvsheng", "Sweet Female"),
+        SpeechVoice("qingchunshaonv", "Youthful Girl"),
+        SpeechVoice("cixingnansheng", "Magnetic Male"),
+        SpeechVoice("wenrounansheng", "Gentle Male"),
+        SpeechVoice("yuanqinansheng", "Energetic Male"),
+        SpeechVoice("zhengpaiqingnian", "Upright Youth"),
+        SpeechVoice("ruyananshi", "Refined Gentleman"),
+        SpeechVoice("boyinnansheng", "Announcer Male"),
     )
     private val groq = listOf(
         SpeechVoice("austin", "Austin"),
@@ -109,24 +98,24 @@ internal object SpeechVoices {
     private fun relayVoices(model: String, canonicalModel: String): List<SpeechVoice> {
         val prefix = if ("/" in model) model else canonicalModel
         return listOf(
-            "alex" to "沉稳男声", "benjamin" to "低沉男声",
-            "charles" to "磁性男声", "david" to "欢快男声",
-            "anna" to "沉稳女声", "bella" to "激情女声",
-            "claire" to "温柔女声", "diana" to "欢快女声",
+            "alex" to "Steady Male", "benjamin" to "Deep Male",
+            "charles" to "Magnetic Male", "david" to "Cheerful Male",
+            "anna" to "Steady Female", "bella" to "Passionate Female",
+            "claire" to "Gentle Female", "diana" to "Cheerful Female",
         ).map { (id, name) -> SpeechVoice("$prefix:$id", name) }
     }
 
     private fun qwen(model: String): List<SpeechVoice> {
         val id = model.lowercase()
         return if ("plus" in id) {
-            listOf(SpeechVoice("longanlingxin", "灵心"), SpeechVoice("longanlufeng", "陆风"))
+            listOf(SpeechVoice("longanlingxin", "Lingxin"), SpeechVoice("longanlufeng", "Lufeng"))
         } else {
             listOf(
-                SpeechVoice("longanhuan_v3.6", "欢"),
-                SpeechVoice("longanfengyue", "风月"),
-                SpeechVoice("longanyuanfei", "远飞"),
-                SpeechVoice("longanlingxi", "灵犀"),
-                SpeechVoice("longanxiaoxin", "小欣"),
+                SpeechVoice("longanhuan_v3.6", "Huan"),
+                SpeechVoice("longanfengyue", "Fengyue"),
+                SpeechVoice("longanyuanfei", "Yuanfei"),
+                SpeechVoice("longanlingxi", "Lingxi"),
+                SpeechVoice("longanxiaoxin", "Xiaoxin"),
                 SpeechVoice("loongmary", "Mary"),
                 SpeechVoice("loongjohn", "John"),
             )

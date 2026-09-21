@@ -28,16 +28,14 @@ import java.util.Locale
 import org.json.JSONArray
 import org.json.JSONObject
 
-/** 常用系统动作的结构化实现；所有 Root 脚本都由本类固定生成。 */
+/** Structured implementations of common system actions; all Root scripts are generated exclusively by this class. */
 internal class AgentStructuredDeviceTools(
     private val context: Context,
     private val logger: AgentLogger,
     private val root: BoundedRootCommandExecutor,
     private val rootAvailable: () -> Boolean = { RootAccess.isGranted },
-    private val colorOs: () -> Boolean = { AgentToolCapabilities.isColorOsDevice() },
 ) {
     private val personalDataTools = AgentPersonalDataTools(root)
-    private val colorOsMemoryTools = AgentColorOsMemoryTools(context, root)
     private val personalContextTools = AgentPersonalContextTools(context)
     private val privateDatabaseTools = AgentPrivateDatabaseTools(context, root)
     private val notificationHistory by lazy { NotificationHistoryRepository(context) }
@@ -47,8 +45,6 @@ internal class AgentStructuredDeviceTools(
             ?: personalContextTools.execute(name, args)
             ?: privateDatabaseTools.execute(name, args)
             ?: when (name) {
-            "search_coloros_memories" -> colorOsMemoryTools.search(args)
-            "search_saved_places" -> colorOsMemoryTools.searchSavedPlaces(args)
             "search_personal_orders" -> searchPersonalOrders(args)
             "set_alarm" -> text(setAlarm(args))
             "set_timer" -> text(setTimer(args))
@@ -72,21 +68,6 @@ internal class AgentStructuredDeviceTools(
     private fun searchPersonalOrders(args: JSONObject): AgentModelClient.ToolResult {
         val limit = args.optInt("limit", 10).coerceIn(1, 30)
         val query = args.optString("query").trim()
-        val memoryResult = if (!rootAvailable()) {
-            JSONObject()
-                .put("ok", false)
-                .put("code", "ROOT_REQUIRED")
-                .put("message", "系统记忆来源需要设备 Root 权限；仍可查询已授权的通知历史")
-        } else if (!colorOs()) {
-            JSONObject()
-                .put("ok", false)
-                .put("code", "DEVICE_UNSUPPORTED")
-                .put("message", "此设备不支持系统记忆来源；仍可查询已授权的通知历史")
-        } else runCatching {
-            JSONObject(colorOsMemoryTools.searchOrders(args).content)
-        }.getOrElse {
-            JSONObject().put("ok", false).put("code", "COLOROS_MEMORY_QUERY_FAILED")
-        }
         val notificationResult = if (AgentNotificationHistoryService.isEnabled(context)) {
             runCatching {
                 val raw = JSONObject(
@@ -117,13 +98,12 @@ internal class AgentStructuredDeviceTools(
             JSONObject()
                 .put("ok", false)
                 .put("code", "NOTIFICATION_HISTORY_ACCESS_REQUIRED")
-                .put("message", "授予通知使用权后可从新通知中识别订单状态")
+                .put("message", "Grant notification access to recognize order status from new notifications")
         }
         return AgentModelClient.ToolResult(
             content = JSONObject()
-                .put("ok", memoryResult.optBoolean("ok") || notificationResult.optBoolean("ok"))
+                .put("ok", notificationResult.optBoolean("ok"))
                 .put("tool", "search_personal_orders")
-                .put("system_memory", memoryResult)
                 .put("notification_history", notificationResult)
                 .toString(),
             sensitive = true,
@@ -201,11 +181,11 @@ internal class AgentStructuredDeviceTools(
             return JSONObject()
                 .put("ok", false)
                 .put("code", "DIRECT_CLOCK_ACTION_FAILED")
-                .put("message", "系统未确认直接创建，已打开时钟页面，请让用户完成确认")
+                .put("message", "The system did not confirm direct creation, so the clock page has been opened; ask the user to complete confirmation")
                 .put("tool", tool)
                 .put("mode", "ui_fallback")
         }
-        return JSONObject(error("CLOCK_UNAVAILABLE", "没有可处理该请求的时钟应用"))
+        return JSONObject(error("CLOCK_UNAVAILABLE", "No clock app is available to handle this request"))
     }
 
     private fun deviceStatus(): String {
@@ -277,7 +257,7 @@ internal class AgentStructuredDeviceTools(
             "next" -> KeyEvent.KEYCODE_MEDIA_NEXT
             "previous" -> KeyEvent.KEYCODE_MEDIA_PREVIOUS
             "stop" -> KeyEvent.KEYCODE_MEDIA_STOP
-            else -> return error("INVALID_ARGUMENT", "不支持的媒体动作")
+            else -> return error("INVALID_ARGUMENT", "Unsupported media action")
         }
         val audio = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
         audio.dispatchMediaKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, keyCode))
@@ -292,7 +272,7 @@ internal class AgentStructuredDeviceTools(
             "alarm" -> AudioManager.STREAM_ALARM
             "ring" -> AudioManager.STREAM_RING
             "notification" -> AudioManager.STREAM_NOTIFICATION
-            else -> return error("INVALID_ARGUMENT", "不支持的音量通道")
+            else -> return error("INVALID_ARGUMENT", "Unsupported volume stream")
         }
         val audio = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
         val max = audio.getStreamMaxVolume(stream).coerceAtLeast(1)
@@ -306,7 +286,7 @@ internal class AgentStructuredDeviceTools(
                 .put("level", audio.getStreamVolume(stream))
                 .put("max_level", max)
                 .toString()
-        }.getOrElse { error("VOLUME_CHANGE_FAILED", "系统拒绝修改该音量通道") }
+        }.getOrElse { error("VOLUME_CHANGE_FAILED", "The system refused to modify this volume stream") }
     }
 
     private fun getSetting(args: JSONObject): String {
@@ -328,13 +308,13 @@ internal class AgentStructuredDeviceTools(
             null
         }
         if (publicReadFailure != null && !rootAvailable()) {
-            return error(publicReadFailure, "系统不允许读取此设置，或设置服务暂不可用")
+            return error(publicReadFailure, "The system does not allow reading this setting, or the settings service is temporarily unavailable")
         }
         val rootValue = if (publicValue == null && rootAvailable()) root.execute(
             "settings --user current get ${shellQuote(namespace)} ${shellQuote(key)}",
         ) else null
         if (publicReadFailure != null && rootValue?.ok != true) {
-            return error(publicReadFailure, "系统不允许读取此设置，或设置服务暂不可用")
+            return error(publicReadFailure, "The system does not allow reading this setting, or the settings service is temporarily unavailable")
         }
         val value = publicValue ?: rootValue?.takeIf { it.ok }?.stdout
             ?.trim()
@@ -361,27 +341,27 @@ internal class AgentStructuredDeviceTools(
         val command = when (args.getString("target").lowercase(Locale.ROOT)) {
             "wifi" -> "cmd wifi set-wifi-enabled ${if (enabled) "enabled" else "disabled"}"
             "bluetooth" -> "cmd bluetooth_manager ${if (enabled) "enable" else "disable"}"
-            else -> return error("INVALID_ARGUMENT", "不支持的设备状态")
+            else -> return error("INVALID_ARGUMENT", "Unsupported device state")
         }
         return rootMutationResult("set_device_state", root.execute(command))
     }
 
     private fun appStateControl(args: JSONObject): String {
         val packageName = args.getString("package_name")
-        if (!PACKAGE_NAME.matches(packageName)) return error("INVALID_PACKAGE", "包名格式无效")
+        if (!PACKAGE_NAME.matches(packageName)) return error("INVALID_PACKAGE", "Invalid package name format")
         val appExists = runCatching {
             context.packageManager.getApplicationInfo(
                 packageName,
                 android.content.pm.PackageManager.ApplicationInfoFlags.of(0L),
             )
         }.isSuccess
-        if (!appExists) return error("APP_NOT_FOUND", "未找到指定应用")
+        if (!appExists) return error("APP_NOT_FOUND", "Specified app not found")
         val action = args.getString("action").lowercase(Locale.ROOT)
         val command = when (action) {
             "force_stop" -> "am force-stop --user current ${shellQuote(packageName)}"
             "freeze" -> "pm disable-user --user current ${shellQuote(packageName)}"
             "unfreeze" -> "pm enable --user current ${shellQuote(packageName)}"
-            else -> return error("INVALID_ARGUMENT", "不支持的应用状态动作")
+            else -> return error("INVALID_ARGUMENT", "Unsupported app state action")
         }
         return rootMutationResult("app_state_control", root.execute(command))
     }
@@ -429,7 +409,7 @@ internal class AgentStructuredDeviceTools(
         val dataSizes = parseLongArrayLine(result.stdout, "App Data Sizes:")
         val cacheSizes = parseLongArrayLine(result.stdout, "Cache Sizes:")
         if (packages == null || appSizes == null || dataSizes == null || cacheSizes == null) {
-            return error("STORAGE_STATS_UNAVAILABLE", "系统未返回可解析的应用存储统计")
+            return error("STORAGE_STATS_UNAVAILABLE", "The system did not return parseable app storage statistics")
         }
         val items = (0 until packages.length())
             .mapNotNull { index ->
@@ -521,10 +501,10 @@ internal class AgentStructuredDeviceTools(
 
     private fun listenerNotifications(packageFilter: String, limit: Int): String {
         if (!AgentNotificationHistoryService.isEnabled(context)) {
-            return error("NOTIFICATION_ACCESS_REQUIRED", "请先在权限健康页授予 Eta 通知使用权")
+            return error("NOTIFICATION_ACCESS_REQUIRED", "Please grant Eta notification access on the permission health page first")
         }
         val notifications = AgentNotificationHistoryService.currentNotifications()
-            ?: return error("NOTIFICATION_LISTENER_UNAVAILABLE", "通知服务尚未连接，请稍后重试")
+            ?: return error("NOTIFICATION_LISTENER_UNAVAILABLE", "The notification service is not connected yet. Please try again later")
         val items = JSONArray()
         notifications.asSequence()
             .filter { packageFilter.isBlank() || it.packageName == packageFilter }
@@ -612,7 +592,7 @@ internal class AgentStructuredDeviceTools(
             result.timedOut -> "ROOT_COMMAND_TIMEOUT"
             else -> "ROOT_COMMAND_FAILED"
         }
-        return error(code, "Root 系统接口执行失败（exit=${result.exitCode}）")
+        return error(code, "Root system interface execution failed (exit=${result.exitCode})")
     }
 
     private fun parseJsonArrayLine(source: String, prefix: String): JSONArray? =
@@ -637,7 +617,7 @@ internal class AgentStructuredDeviceTools(
         "thu" -> Calendar.THURSDAY
         "fri" -> Calendar.FRIDAY
         "sat" -> Calendar.SATURDAY
-        else -> throw IllegalArgumentException("不支持的重复日期")
+        else -> throw IllegalArgumentException("Unsupported repeat days")
     }
 
     private fun String.decodeXml(): String =
@@ -677,6 +657,7 @@ internal class AgentStructuredDeviceTools(
             "订单", "外卖", "取餐", "配送", "骑手", "送达", "商家", "快递", "车票", "机票",
             "酒店", "电影票",
         )
+
         const val COLOROS_CLOCK_PACKAGE = "com.coloros.alarmclock"
         val PACKAGE_NAME = Regex("[A-Za-z0-9_]+(?:\\.[A-Za-z0-9_]+)+")
         val NETWORK_BLOCK = Regex("<Network>.*?</Network>", setOf(RegexOption.DOT_MATCHES_ALL))
@@ -688,7 +669,7 @@ internal class AgentStructuredDeviceTools(
         val SMS_DATE = Regex("""(?:^|,\s*)date=(\d+)""")
         val OTP = Regex("""(?<!\d)(\d{4,8})(?!\d)""")
         val OTP_CONTEXT = Regex(
-            """验证码|校验码|动态码|确认码|一次性密码|verification\s*code|one[- ]time\s*(?:code|password)|\botp\b""",
+            """verification code|validation code|dynamic code|confirmation code|one-time password|verification\s*code|one[- ]time\s*(?:code|password)|\botp\b""",
             RegexOption.IGNORE_CASE,
         )
         val WIFI_STATUS_SSID = Regex("""\bSSID:\s*([^,\r\n]+)""")

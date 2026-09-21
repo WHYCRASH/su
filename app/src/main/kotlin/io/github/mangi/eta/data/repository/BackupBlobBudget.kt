@@ -16,9 +16,9 @@ internal class BackupBlobBudget(
         val output = linkedMapOf<String, ByteArray>()
         var visited = 0
         fun visit(file: File, depth: Int) {
-            require(++visited <= 10_000 && depth <= 32) { "备份目录过深或条目过多" }
+            require(++visited <= 10_000 && depth <= 32) { "Backup tree is too deep or has too many entries" }
             if (file != root && skip(file)) return
-            require(!Files.isSymbolicLink(file.toPath())) { "备份嵌入目录不支持符号链接" }
+            require(!Files.isSymbolicLink(file.toPath())) { "Backup embeds do not support symbolic links" }
             if (file.isDirectory) {
                 Files.newDirectoryStream(file.toPath()).use { entries ->
                     for (entry in entries) visit(entry.toFile(), depth + 1)
@@ -32,14 +32,14 @@ internal class BackupBlobBudget(
     }
 
     fun read(file: File): ByteArray {
-        require(count < maxFiles) { "备份嵌入文件数量超过限制" }
-        require(file.isFile && !Files.isSymbolicLink(file.toPath())) { "备份嵌入文件必须是普通文件" }
+        require(count < maxFiles) { "Backup embed file count exceeded the limit" }
+        require(file.isFile && !Files.isSymbolicLink(file.toPath())) { "Backup embeds must be regular files" }
         val limit = minOf(maxFileBytes, maxTotalBytes - used)
         val expected = file.length()
-        require(expected in 0..limit) { "备份嵌入文件超过读取预算：${file.name}" }
+        require(expected in 0..limit) { "Backup embed exceeds the read budget: ${file.name}" }
         val output = java.io.ByteArrayOutputStream(minOf(expected, 64 * 1024L).toInt())
         val actual = file.inputStream().use { input -> BackupArchiveSafety.copyLimited(input, output, limit) }
-        require(actual == expected && file.length() == expected) { "备份嵌入文件在读取时发生变化" }
+        require(actual == expected && file.length() == expected) { "Backup embed changed while being read" }
         used += actual
         count++
         return output.toByteArray()

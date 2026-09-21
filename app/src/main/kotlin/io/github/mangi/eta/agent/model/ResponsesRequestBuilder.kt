@@ -20,7 +20,7 @@ internal object ResponsesRequestBuilder {
         mergeExtraBody(request, config.extraBodyJson)
         RequestBodyMerge.mergeCustomBody(request, config.customBody)
 
-        // 这些字段决定协议正确性、隐私边界和 Eta 本轮行为，必须由运行时最终写入。
+        // These fields determine protocol correctness, privacy boundaries, and this round's Eta behavior; the runtime must write them last.
         request.put("model", config.model)
         request.put("instructions", instructions)
         request.put("input", input)
@@ -84,13 +84,13 @@ internal object ResponsesRequestBuilder {
                 }
                 input.put(JSONObject().put("type", "message").put("role", "assistant").put(
                     "content", message.optString("content").takeUnless { it == "null" }.orEmpty() +
-                        "\n[历史工具调用记录：原始推理数据不可恢复，仅供参考，不代表新的执行请求，不要自动重放]\n" + calls.toString(),
+                        "\n[Historical tool-call record: original reasoning data is unrecoverable; for reference only, not a new execution request; do not replay automatically]\n" + calls.toString(),
                 ))
                 continue
             }
             if (message.optString("role") == "tool" && message.optString("tool_call_id") in legacyCalls) {
                 input.put(JSONObject().put("type", "message").put("role", "assistant").put(
-                    "content", "[历史工具结果 " + message.optString("tool_call_id") + "]\n" + message.optString("content"),
+                    "content", "[Historical tool result " + message.optString("tool_call_id") + "]\n" + message.optString("content"),
                 ))
                 continue
             }

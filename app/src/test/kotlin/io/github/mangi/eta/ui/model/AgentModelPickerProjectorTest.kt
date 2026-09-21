@@ -27,15 +27,6 @@ class AgentModelPickerProjectorTest {
         assertNull(result.selectedModel)
     }
 
-    @Test fun doubaoReadAloudOmitsGeneratedAudioFromBuiltInCatalog() {
-        val provider = io.github.mangi.eta.data.model.OpenAiCompatibleProviderSetting(
-            id = "doubao", name = "豆包", baseUrl = "https://openspeech.bytedance.com", apiKey = "test",
-        )
-        val result = AgentModelPickerProjector.project(listOf(provider), "doubao", "seed-audio-1.0", speechOnly = true)
-        assertEquals(listOf("seed-tts-2.0"), result.providerGroups.single().models.map { it.modelId })
-        assertNull(result.selectedModel)
-        assertTrue(io.github.mangi.eta.data.model.SpeechSynthesisModels.mergeCatalog(provider).any { it.modelId == "seed-audio-1.0" })
-    }
 
     @Test fun speechPickerHidesChatModelsAndEmptyProviders() {
         val providers = listOf(
@@ -285,19 +276,19 @@ class AgentModelPickerProjectorTest {
         )
         val withImage = liveContextUsage(
             history = emptyList(),
-            currentInput = "看图",
+            currentInput = "Describe the picture",
             pendingImages = listOf(huge),
             selectedModel = selected,
         )
         val textOnly = liveContextUsage(
             history = emptyList(),
-            currentInput = "看图",
+            currentInput = "Describe the picture",
             pendingImages = emptyList(),
             selectedModel = selected,
         )
         val vision = liveContextUsage(
             history = emptyList(),
-            currentInput = "看图",
+            currentInput = "Describe the picture",
             pendingImages = listOf(huge),
             selectedModel = selected.copy(supportsVision = true),
         )
@@ -622,7 +613,7 @@ class AgentModelPickerProjectorTest {
             ContextCompactedMessageUi(
                 id = "c1",
                 compactedCount = 8,
-                summary = "旧上下文",
+                summary = "Old context",
                 baselineTokens = 2_000,
                 resumeRound = 2,
             ),
@@ -725,8 +716,8 @@ class AgentModelPickerProjectorTest {
             usage = TokenUsageUi(contextTokens = 85_166, inputTokens = 85_166),
         )
         val live = listOf(
-            UserMessageUi(id = "u1", content = "看图并继续改上下文统计"),
-            ThinkingMessageUi(id = "t1", content = "很长的历史推理内容".repeat(80), isStreaming = false),
+            UserMessageUi(id = "u1", content = "Describe the picture and keep updating context stats"),
+            ThinkingMessageUi(id = "t1", content = "Very long past reasoning content".repeat(80), isStreaming = false),
             ToolActivityMessageUi(
                 id = "tool1",
                 toolName = "terminal",
@@ -753,7 +744,7 @@ class AgentModelPickerProjectorTest {
         val history = listOf(
             AgentModelClient.ConversationMessage(role = "user", content = "hello"),
         )
-        val streaming = AgentContextBudget.countCurrentTurn("long chinese answer 中文回复", emptyList())
+        val streaming = AgentContextBudget.countCurrentTurn("long sample answer for token counting", emptyList())
         val usage = liveContextUsage(
             history = history,
             currentInput = "",

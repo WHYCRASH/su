@@ -193,7 +193,7 @@ class AgentPauseContinuationTest {
             val controller = AgentRunController()
             val events = mutableListOf<AgentEvent>()
             val history = JSONArray().put(AgentConversationCodec.userTextMessage("task"))
-            val parts = listOf("他打开邮箱。", "他打开邮箱。点开附件。", "点开附件。内容出现了。")
+            val parts = listOf("He opens his inbox.", "He opens his inbox. He clicks to open the attachment.", "He clicks to open the attachment. The content appears.")
             val provider = object : AgentProviderClient {
                 override val id = "resume-overlap"
                 override val capabilities = ProviderCapabilities(EndpointKind.CHAT_COMPLETIONS, true, true, false, false, false, false)
@@ -217,7 +217,7 @@ class AgentPauseContinuationTest {
             val result = AgentLoop(config(), history, JSONArray(), provider,
                 AgentModelClient.ToolExecutor { error("no tools") }, controller, AgentTraceFormatter(),
                 onEvent = events::add, turnId = "same-turn").run()
-            val expected = "他打开邮箱。点开附件。内容出现了。"
+            val expected = "He opens his inbox. He clicks to open the attachment. The content appears."
             assertEquals(expected, result.content)
             val assistantHistory = (0 until history.length()).map { history.getJSONObject(it) }.filter { it.optString("role") == "assistant" }
             assertEquals(expected, assistantHistory.joinToString("") { it.getString("content") })

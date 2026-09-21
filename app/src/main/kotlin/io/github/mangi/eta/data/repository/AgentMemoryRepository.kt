@@ -57,7 +57,7 @@ internal class AgentMemoryException(
     cause: Throwable? = null,
 ) : IllegalStateException(message, cause)
 
-/** 单一 MEMORY.md 的有界、原子文件存储。 */
+/** Bounded, atomic file storage for a single MEMORY.md. */
 internal class AgentMemoryStore(
     private val memoryDir: File,
 ) {
@@ -101,19 +101,19 @@ internal class AgentMemoryStore(
     }
 
     fun replaceAll(content: String, revision: String): AgentMemorySnapshot = withStorageLock {
-        if (snapshotLocked().revision != revision) throw AgentMemoryException("MEMORY_CONFLICT", "记忆已被其他操作更新，草稿已保留；请先重新读取并合并。")
+        if (snapshotLocked().revision != revision) throw AgentMemoryException("MEMORY_CONFLICT", "Memory was updated by another operation and the draft was kept; re-read and merge first.")
         writeLocked(content)
         snapshotOf(content)
     }
 
     fun delete() = withStorageLock(allowDeleted = true) {
         deletedMarker().writeText("deleted")
-        check(!memoryDir.exists() || memoryDir.deleteRecursively()) { "无法删除助手记忆" }
+        check(!memoryDir.exists() || memoryDir.deleteRecursively()) { "Cannot delete the assistant memory" }
     }
 
     fun restore(content: String): AgentMemorySnapshot = withStorageLock(allowDeleted = true) {
         writeLocked(content)
-        check(!deletedMarker().exists() || deletedMarker().delete()) { "无法恢复助手记忆" }
+        check(!deletedMarker().exists() || deletedMarker().delete()) { "Cannot restore the assistant memory" }
         snapshotOf(content)
     }
 
@@ -121,10 +121,10 @@ internal class AgentMemoryStore(
 
     private fun <T> withStorageLock(allowDeleted: Boolean = false, block: () -> T): T = synchronized(FILE_LOCK) {
         val directory = File(memoryDir.parentFile, ".memory-locks")
-        check(directory.mkdirs() || directory.isDirectory) { "无法创建记忆锁目录" }
+        check(directory.mkdirs() || directory.isDirectory) { "Cannot create the memory lock directory" }
         java.io.RandomAccessFile(File(directory, "${memoryDir.name}.lock"), "rw").use { file ->
             file.channel.lock().use {
-                if (!allowDeleted && deletedMarker().exists()) throw AgentMemoryException("ASSISTANT_DELETED", "助手已删除，记忆操作未执行")
+                if (!allowDeleted && deletedMarker().exists()) throw AgentMemoryException("ASSISTANT_DELETED", "Assistant is deleted; memory operation not performed")
                 block()
             }
         }
@@ -138,14 +138,14 @@ internal class AgentMemoryStore(
         } catch (throwable: IOException) {
             throw AgentMemoryException(
                 code = "MEMORY_READ_FAILED",
-                message = "无法读取记忆文件",
+                message = "Cannot read the memory file",
                 cause = throwable,
             )
         }
         if (bytes.size > MAX_FILE_BYTES) {
             throw AgentMemoryException(
                 code = "MEMORY_TOO_LARGE",
-                message = "记忆文件超过 1 MiB 安全上限",
+                message = "Memory file exceeds the 1 MiB safety cap",
             )
         }
         val content = bytes.toString(Charsets.UTF_8)
@@ -157,13 +157,13 @@ internal class AgentMemoryStore(
         if (bytes.size > MAX_FILE_BYTES) {
             throw AgentMemoryException(
                 code = "MEMORY_TOO_LARGE",
-                message = "记忆文件不能超过 1 MiB UTF-8 字节",
+                message = "Memory file must not exceed 1 MiB of UTF-8 bytes",
             )
         }
         if (!memoryDir.exists() && !memoryDir.mkdirs() && !memoryDir.isDirectory) {
             throw AgentMemoryException(
                 code = "MEMORY_WRITE_FAILED",
-                message = "无法创建记忆目录",
+                message = "Cannot create the memory directory",
             )
         }
         val output = try {
@@ -171,7 +171,7 @@ internal class AgentMemoryStore(
         } catch (throwable: IOException) {
             throw AgentMemoryException(
                 code = "MEMORY_WRITE_FAILED",
-                message = "无法开始写入记忆文件",
+                message = "Cannot start writing the memory file",
                 cause = throwable,
             )
         }
@@ -182,7 +182,7 @@ internal class AgentMemoryStore(
             atomicFile.failWrite(output)
             throw AgentMemoryException(
                 code = "MEMORY_WRITE_FAILED",
-                message = "无法保存记忆文件",
+                message = "Cannot save the memory file",
                 cause = throwable,
             )
         }
@@ -200,7 +200,7 @@ internal class AgentMemoryStore(
         ) {
             throw AgentMemoryException(
                 code = "MEMORY_RANGE_INVALID",
-                message = "替换行范围无效；请重新读取记忆后再试",
+                message = "Invalid replacement line range; re-read the memory and retry",
             )
         }
         val replacement = mutation.content.memoryLines()
@@ -368,16 +368,16 @@ internal object AgentMemoryRepository {
         val memoryRoot = File(rootDir, ROOT_NAME)
         val ids = linkedSetOf(currentAssistantId())
         AssistantRepository.profiles.value.forEach {
-            require(ids.size < 1_000) { "助手记忆数量超过备份限制" }
+            require(ids.size < 1_000) { "Assistant memory count exceeds the backup limit" }
             ids += it.id
         }
         if (memoryRoot.isDirectory) {
-            require(!java.nio.file.Files.isSymbolicLink(memoryRoot.toPath())) { "记忆根目录不能是符号链接" }
+            require(!java.nio.file.Files.isSymbolicLink(memoryRoot.toPath())) { "Memory root must not be a symlink" }
             java.nio.file.Files.newDirectoryStream(memoryRoot.toPath()).use { entries ->
                 var visited = 0
                 for (entry in entries) {
-                    require(++visited <= 2_000 && ids.size < 1_000) { "助手记忆目录超过备份限制" }
-                    require(!java.nio.file.Files.isSymbolicLink(entry)) { "记忆目录不能包含符号链接" }
+                    require(++visited <= 2_000 && ids.size < 1_000) { "Assistant memory directory exceeds the backup limit" }
+                    require(!java.nio.file.Files.isSymbolicLink(entry)) { "Memory directories must not contain symlinks" }
                     if (java.nio.file.Files.isDirectory(entry) && !entry.fileName.toString().startsWith(".")) ids += entry.fileName.toString()
                 }
             }
@@ -386,7 +386,7 @@ internal object AgentMemoryRepository {
         ids.forEach { id ->
             val snapshot = storeFor(id).snapshot()
             total += snapshot.byteSize
-            require(total <= 4L * 1024 * 1024) { "全部助手记忆超过 4 MiB 备份限制" }
+            require(total <= 4L * 1024 * 1024) { "All assistant memories exceed the 4 MiB backup limit" }
             if (snapshot.content.isNotEmpty()) exported[AssistantStorage.id(id)] = snapshot.content
         }
         return exported
@@ -420,7 +420,7 @@ internal object AgentMemoryRepository {
         AssistantRepository.currentProfile(assistantId)?.memoryEnabled ?: false
 
     fun setEnabled(enabled: Boolean, assistantId: String = currentAssistantId()) {
-        val current = requireNotNull(AssistantRepository.currentProfile(assistantId)) { "助手不存在" }
+        val current = requireNotNull(AssistantRepository.currentProfile(assistantId)) { "Assistant does not exist" }
         AssistantRepository.update(current.copy(memoryEnabled = enabled))
     }
 

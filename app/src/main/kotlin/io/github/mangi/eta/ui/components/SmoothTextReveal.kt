@@ -32,11 +32,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.isActive
 
 /**
- * 一条回答只使用一个显现时钟，保证同一帧不会有多个 Markdown 块同时“打字”。
+ * One answer uses a single reveal clock so multiple Markdown blocks never "type" in the same frame.
  *
- * 解析和文本排版仅在目标文本变化时发生；帧间推进只更新普通字段并调用
- * [invalidateDraw]。只有显现跨入新行时才额外请求一次测量以增长消息高度，
- * 全程不写 Compose State，因此字符帧不会触发重组或重新排版。
+ * Parsing and text layout only happen when the target text changes; per-frame advancement only updates plain fields and calls
+ * [invalidateDraw]. An extra measurement is requested only when the reveal crosses into a new line to grow the message height,
+ * and Compose State is never written throughout, so character frames trigger neither recomposition nor relayout.
  */
 @Stable
 internal class SmoothTextRevealCoordinator {
@@ -61,15 +61,15 @@ internal class SmoothTextRevealCoordinator {
     }
 
     val drained: StateFlow<Boolean> = drainedState
-    /** 已经开始显现的块，用于让列表 marker 与正文保持同一生命周期。 */
+    /** Blocks that have started revealing, so list markers share the body text's lifetime. */
     val started: StateFlow<Set<RevealBlockKey>> = startedState
 
     val isAnimationPaused: Boolean
         get() = animationsPaused
 
     /**
-     * 页面不可见时帧时钟会停，但 Runtime 仍可能继续追加文本。此时直接追平当前目标，
-     * 并让后续排版结果同样立即完成，避免回到页面后补播后台积压的显现动画。
+     * The frame clock stops while the page is invisible, but the runtime may keep appending text. Catch up to the current target directly,
+     * and complete subsequent layout results immediately, so returning to the page does not replay backlogged reveal animations.
      */
     fun pauseAnimationsAndCatchUp() {
         animationsPaused = true
@@ -85,7 +85,7 @@ internal class SmoothTextRevealCoordinator {
         wakeups.trySend(Unit)
     }
 
-    /** 暂停会话后续写：已显示的字保持追平，之后新到的字重新走打字机。 */
+    /** Pause subsequent session writes: shown text stays caught up, and newly arriving text restarts the typewriter. */
     fun resumeAnimationsWithoutCatchingUp() {
         animationsPaused = false
         updateDrainedState()
@@ -129,7 +129,7 @@ internal class SmoothTextRevealCoordinator {
     fun detach(key: RevealBlockKey, node: SmoothTextRevealNode) {
         val record = records[key]?.takeIf { it.node === node } ?: return
         record.node = null
-        // 已离开组合的块不再消费帧时钟；保留完成进度，重挂载时只显现后续新增文本。
+        // Blocks that left composition no longer consume the frame clock; completed progress is kept, and only newly added text reveals on remount.
         completeRecord(record)
         updateDrainedState()
         wakeups.trySend(Unit)
@@ -201,9 +201,9 @@ internal class SmoothTextRevealCoordinator {
         if (record.text == text && record.layoutResult === layoutResult) return
         val firstLayoutOfRestoredBlock = record.layoutResult == null && record.key.sourceOffset < restoredSourceLength
         if (text != record.text) {
-            // 流式文本只追加不修改，但行内语法闭合（**粗体**、`code`、链接折叠等）会让
-            // 渲染文本丢掉标记字符而变短或错位。此时进度只能保持单调前进：一旦回退，
-            // 已显现的文字会消失并重新打字，表现为输出反复闪烁。
+            // Streaming text is only appended, never edited, but inline-syntax closures (**bold**, `code`, collapsed links, and the like) can make
+            // the rendered text shorter or shifted by dropping markup characters. Progress must then only move forward monotonically: on any regression,
+            // revealed text would vanish and retype, flickering the output.
             record.boundaries = updateGraphemeBoundaries(
                 previousText = record.text,
                 previousBoundaries = record.boundaries,
@@ -515,11 +515,11 @@ internal fun graphemeBoundaries(text: String): IntArray {
 }
 
 /**
- * 为只追加文本增量维护字素边界。
+ * Maintain grapheme boundaries for append-only text increments.
  *
- * 新内容可能把旧文本的最后一个字素继续延长，例如组合音标、ZWJ emoji、旗帜和 CRLF。
- * 因此保留倒数第二个边界之前的结果，只重算最后一个旧字素和新增后缀，避免每个流式
- * 分片都从头扫描整条回答。
+ * New content may extend the last grapheme of the old text, e.g. combining marks, ZWJ emoji, flags, and CRLF.
+ * So results before the second-to-last boundary are kept, recomputing only the last old grapheme and the added suffix instead of
+ * rescanning the whole answer for every streaming chunk.
  */
 internal fun updateGraphemeBoundaries(
     previousText: String,
@@ -599,8 +599,8 @@ internal fun advanceSmoothReveal(
     totalBacklog: Float,
 ): Float {
     if (current >= target) return target
-    // 帧间隔已在调用侧限制在 MAX_FRAME_DELTA_SECONDS 内，单帧推进量由自适应速度决定。
-    // 不能再加每帧 1 字素的硬上限，否则积压时追赶速度失效，输出会稳定滞后于模型。
+    // The frame interval is already capped to MAX_FRAME_DELTA_SECONDS by the caller; the per-frame advance comes from the adaptive speed.
+    // No additional hard cap of 1 grapheme per frame, or catch-up would stall under backlog and the output would lag the model permanently.
     val advance = (smoothRevealSpeed(totalBacklog) * elapsedSeconds).coerceAtLeast(0f)
     return (current + advance).coerceAtMost(target)
 }

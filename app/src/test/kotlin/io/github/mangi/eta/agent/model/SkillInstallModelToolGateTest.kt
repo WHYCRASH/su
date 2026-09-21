@@ -10,11 +10,11 @@ class SkillInstallModelToolGateTest {
     @Test
     fun `model always sees GitHub skill tools without prompt keyword gating`() {
         listOf(
-            "总结这个仓库",
-            "列出可安装的 Skills",
-            "帮我安装 GitHub 上的 openai-docs Skill",
+            "Summarize this repository",
+            "List the installable Skills",
+            "Install the openai-docs Skill from GitHub for me",
             "\$skill-installer linear",
-            "翻译这句话：install this Skill",
+            "Translate this sentence: install this Skill",
         ).forEach { prompt ->
             val provider = CapturingProvider()
             complete(prompt, provider)
@@ -35,7 +35,7 @@ class SkillInstallModelToolGateTest {
             ),
             prompt = prompt,
             toolExecutor = AgentModelClient.ToolExecutor {
-                error("不应执行工具")
+                error("No tools should be executed")
             },
             provider = provider,
         )
@@ -63,7 +63,7 @@ class SkillInstallModelToolGateTest {
             return ProviderResponse(
                 JSONObject()
                     .put("role", "assistant")
-                    .put("content", "完成")
+                    .put("content", "Done")
                     .put("finish_reason", "stop"),
             )
         }

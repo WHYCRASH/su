@@ -145,8 +145,9 @@ internal fun latestContextUsage(
 )
 
 /**
- * 圆环只显示最近一次接口账单的 prompt 占用，不再叠本地估算。
- * 账单之后的工具结果、思考和草稿会等下一轮 usage 回来再更新，避免和 ST「输入」对不齐。
+ * The ring shows only the prompt share of the most recent API billing, never stacked on local estimates.
+ * Tool results, thinking, and drafts after the bill wait for the next usage round before updating,
+ * so they never disagree with the ST "input" figure.
  */
 internal fun latestBilledContextTokens(messages: List<AgentChatMessageUi>): Int? {
     val compactIndex = messages.indexOfLast { it is ContextCompactedMessageUi }

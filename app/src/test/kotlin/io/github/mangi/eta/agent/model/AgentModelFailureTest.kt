@@ -10,7 +10,7 @@ class AgentModelFailureTest {
         val body = """{"error":{"code":403,"message":"Verify your account to continue.","details":[{"@type":"type.googleapis.com/google.rpc.ErrorInfo","reason":"VALIDATION_REQUIRED","metadata":{"validation_url":"https://accounts.google.com/signin/continue?sarp=1&plt=token"}}]}}"""
         val failure = AgentModelFailure.http(403, body)
         assertTrue(failure.message!!.contains("accounts.google.com/signin/continue"))
-        assertTrue(failure.message!!.contains("无痕"))
+        assertTrue(failure.message!!.contains("incognito"))
         assertEquals(
             "https://accounts.google.com/signin/continue?sarp=1&plt=token",
             AgentModelFailure.extractGoogleValidationUrl(
@@ -26,7 +26,7 @@ class AgentModelFailureTest {
             IllegalStateException("Invalid content-type: text/html; charset=utf-8"),
         )
         assertTrue(failure is AgentModelFailure)
-        assertTrue(failure!!.message!!.contains("网页"))
+        assertTrue(failure!!.message!!.contains("web page"))
         assertTrue(!failure.message!!.startsWith("Invalid content-type"))
         assertEquals("HTTP_200", failure.code)
     }
@@ -39,7 +39,7 @@ class AgentModelFailureTest {
             body = "<html><head><title>502 Bad Gateway</title></head><body>nginx</body></html>",
         )
         assertTrue(failure.message!!.contains("502 Bad Gateway"))
-        assertTrue(failure.message!!.contains("网页"))
+        assertTrue(failure.message!!.contains("web page"))
         assertTrue(failure.retryable)
     }
 

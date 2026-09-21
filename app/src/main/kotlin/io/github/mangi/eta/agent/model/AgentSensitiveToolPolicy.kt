@@ -1,6 +1,6 @@
 package io.github.mangi.eta.agent.model
 
-/** 标记原始参数或结果不得进入持久会话的工具。 */
+/** Marks tools whose raw arguments or results must never enter the persistent session. */
 internal object AgentSensitiveToolPolicy {
     fun isSensitive(toolName: String): Boolean =
         toolName.startsWith("mcp_") || toolName in sensitiveTools
@@ -19,9 +19,6 @@ internal object AgentSensitiveToolPolicy {
         "app_usage_summary",
         "get_current_location",
         "get_device_environment",
-        "list_alarms",
-        "list_active_timers",
-        "search_clipboard_history",
         "get_health_summary",
         "read_sms_code",
         "get_logcat",
@@ -34,14 +31,7 @@ internal object AgentSensitiveToolPolicy {
         "search_call_history",
         "search_messages",
         "search_downloads",
-        "search_coloros_notes",
-        "search_coloros_recordings",
-        "search_recording_summaries",
-        "search_coloros_memories",
-        "search_saved_places",
         "search_personal_orders",
-        "search_qq_chat_images",
-        "search_wechat_chat_images",
         "read_image",
         "set_setting",
         "memory_get",

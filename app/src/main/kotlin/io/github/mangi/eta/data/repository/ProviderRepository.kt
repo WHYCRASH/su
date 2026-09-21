@@ -68,18 +68,18 @@ internal object ProviderRepository {
         val nextOrder = (allProviders().maxOfOrNull { it.sortOrder } ?: -1) + 1
         val added = provider.withSortOrder(nextOrder)
         replaceProvider(added)
-        // 不自动切换到新添加的 provider，保持当前选择不变。
+        // Do not automatically switch to the newly added provider; keep the current selection unchanged.
         return added
     }
 
     suspend fun updateProvider(provider: ProviderSetting) {
         RemovedProviderPolicy.requireSupported(provider)
-        require(dao().updateProvider(provider.toEntity()) == 1) { "Provider 不存在" }
+        require(dao().updateProvider(provider.toEntity()) == 1) { "Provider does not exist" }
         repairSelection()
     }
 
     internal suspend fun replaceModels(providerId: String, models: List<Model>) {
-        val provider = requireNotNull(providerById(providerId)) { "Provider 不存在" }
+        val provider = requireNotNull(providerById(providerId)) { "Provider does not exist" }
         dao().replaceModels(
             providerId = providerId,
             models = provider.withModels(models).toModelEntities(),
@@ -104,12 +104,12 @@ internal object ProviderRepository {
         val nextOrder = (allProviders().maxOfOrNull { it.sortOrder } ?: -1) + 1
         val copy = source.deepCopy(
             id = newId(),
-            name = "${source.name} 副本",
+            name = "${source.name} copy",
             sortOrder = nextOrder,
             builtIn = false,
         )
         replaceProvider(copy)
-        // 复制 provider 时不自动切换当前模型。
+        // Do not automatically switch the current model when copying a provider.
         return copy
     }
 

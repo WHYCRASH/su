@@ -123,7 +123,7 @@ class HapticSelectionGestureTest {
     }
 
     @Test fun markdownLocalFileLinkCanBeSelectedAndCopied() {
-        val source = "[下载 APK](/storage/emulated/0/Download/daiyu-5.3.0.apk)"
+        val source = "[Get APK](/storage/emulated/0/Download/su-5.3.0.apk)"
         val node = org.intellij.markdown.parser.MarkdownParser(
             org.intellij.markdown.flavours.gfm.GFMFlavourDescriptor(),
         ).buildMarkdownTreeFromString(source).children.first()

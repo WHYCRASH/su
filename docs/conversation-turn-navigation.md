@@ -1,27 +1,54 @@
-# 聊天方向导航
+# Chat turn navigation
 
-- “上/下”指浏览方向：朝更早消息浏览显示上箭头，朝更新消息浏览显示下箭头。
-- 短按跳上一轮/下一轮的用户提问，长按跳会话顶部/底部；到对应边界时隐藏按钮。
-- 轮次锚点来自投影后的时间线索引；工具步骤分组、压缩恢复和同轮追加指令不会误当新轮。
-- 当前轮以视口顶部所在轮为准，向上短按跳前一轮；第一轮/最后一轮再跳时退到顶部/底部。
-- 12dp 方向阈值抑制细微手抖，松手清掉未达到阈值的累计量。惯性、流式跟底和按钮跳转不改变方向。
-- 跳转中暂停自动跟底；手动拖动可以取消跳转。到达底部后恢复跟底。
-- 单击调用一次 `TouchHaptics.click`，长按调用一次 `TouchHaptics.longPress`，松手不补单击；关闭 combinedClickable 内建触感，跳转中不触发列表边界触感。尊重应用/系统触感设置。
+- "Up/down" means browsing direction: browsing toward older messages shows the up arrow,
+  toward newer messages the down arrow.
+- Short press jumps to the previous/next round's user question; long press jumps to the
+  top/bottom of the conversation; the button hides at the corresponding boundary.
+- Round anchors come from the projected timeline index; grouped tool steps, compression
+  restores, and same-round appended instructions never count as new rounds.
+- The current round is whichever round holds the top of the viewport; short-pressing up
+  jumps to the previous round; jumping again from the first/last round falls back to the
+  top/bottom.
+- A 12dp direction threshold suppresses small hand jitter; the accumulated amount below
+  the threshold clears on release. Fling, streaming follow-bottom, and button jumps do
+  not change the direction.
+- Auto-follow pauses during a jump; a manual drag can cancel the jump. Follow-bottom
+  resumes at the bottom.
+- A tap calls `TouchHaptics.click` once, a long press calls `TouchHaptics.longPress`
+  once, and release adds no extra tap; combinedClickable's built-in haptics are off and
+  no list-edge haptics fire mid-jump. App/system haptic settings are respected.
 
-## 验证
+## Verification
 
-已在 Linux 中用现有 Kotlin 编译器独立执行纯策略测试的 10 个测试体，全部通过；没有运行本地 Android 构建。
+10 test bodies for the pure strategy were run standalone with the existing Kotlin
+compiler on Linux, all passing; no local Android build was run.
 
-- `ConversationTurnNavigationTest`：方向、抖动、程序滚动、轮次目标和首尾边界。
-- `ConversationTurnProjectionTest`：工具分组、追加指令和隐藏恢复消息下的真实索引。
-- `ConversationTurnNavigationButtonTest`：两个方向短按/长按、回调次数、显式触感次数以及内建触感不得叠加。
-- 完整 Android/Compose 测试须在获准后由 GitHub Actions 执行；实机触感和流式滚动仍须验收。
+- `ConversationTurnNavigationTest`: direction, jitter, programmatic scroll, round
+  targets, and first/last boundaries.
+- `ConversationTurnProjectionTest`: real indexes under tool grouping, appended
+  instructions, and hidden restored messages.
+- `ConversationTurnNavigationButtonTest`: short/long press in both directions, callback
+  counts, explicit haptic counts, and no stacking on top of built-in haptics.
+- Full Android/Compose tests run on GitHub Actions after approval; on-device haptics
+  and streaming scroll still need acceptance.
 
-## 追加信息处短暂停顿修正（保留滚动过渡）
+## Short dwell fix at appended content (scroll transition kept)
 
-- 用户要求保留滚动过渡，跳过追加消息指的是“不把追加消息当作停靠点”，不是“不在屏幕经过追加消息”。取消动画的 b8f43c5 方案已撤回，未发布。
-- 轮次导航在同一个 scroll mutation 中逐帧滚动，跨消息保留速度；目标尚未真实测量时，不向基于中间消息平均高度估计的距离减速。
-- 仅在真实目标提问出现后减速并对齐；如单帧跨过目标，在该帧测量中精确对齐，不播放反向补偿动画。
-- 手指拖动仍可取消滚动，单击/长按各一次触感和既有轮次过滤不变。
-- 回归测试要求能看到动画中间位置、跨越追加消息、不反向、最终对齐；另测未到目标时持续运动、目标减速、帧步长和动态剩余距离。
-- 已用现有 Kotlin 编译器独立执行 5 项运动策略测试，全部通过；完整 Compose 滚动和实际停顿改善仍待云端及实机验证。
+- The user asked to keep the scroll transition: skipping appended messages means "do
+  not treat appended messages as docking stops", not "do not travel past appended
+  messages on screen". The animation-cancelling b8f43c5 approach was withdrawn,
+  unreleased.
+- Round navigation scrolls frame by frame inside a single scroll mutation, keeping speed
+  across messages; before the real target is measured, it does not slow down toward a
+  distance estimated from the average height of intermediate messages.
+- It slows down and aligns only after the real target question appears; if one frame
+  overshoots the target, that frame's measurement aligns exactly with no reverse
+  compensation animation.
+- Finger drags can still cancel the scroll; one haptic per tap/long-press and the
+  existing round filtering are unchanged.
+- Regression tests must show animation mid-positions, crossing appended messages, no
+  reversal, and exact final alignment; plus continuous motion before the target,
+  slowdown at the target, frame step sizes, and dynamic remaining distance.
+- 5 motion-strategy tests were run standalone with the existing Kotlin compiler, all
+  passing; full Compose scrolling and real dwell improvement still need cloud and
+  on-device verification.

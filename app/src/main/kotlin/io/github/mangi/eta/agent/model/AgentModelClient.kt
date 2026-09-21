@@ -240,17 +240,17 @@ internal object AgentModelClient {
     }
 
     private fun ModelConfig.validate() {
-        require(baseUrl.isNotBlank()) { "请先配置 API 地址" }
-        require(apiKey.isNotBlank()) { "请先配置 API Key" }
-        require(model.isNotBlank()) { "请先配置模型名" }
+        require(baseUrl.isNotBlank()) { "Please configure the API address first" }
+        require(apiKey.isNotBlank()) { "Please configure the API Key first" }
+        require(model.isNotBlank()) { "Please configure the model name first" }
         require(
             reasoningCapabilities?.mandatory != true ||
                 effectiveReasoningEffort != ReasoningEffort.OFF
-        ) { "当前模型强制启用推理，不能选择 Off 或禁用思考权限" }
+        ) { "The current model forces reasoning on, so Off or disabling the thinking permission cannot be selected" }
         if (extraBodyJson.isNotBlank()) {
             runCatching { JSONObject(extraBodyJson) }
                 .getOrElse { throwable ->
-                    error("额外请求体 JSON 无效：${throwable.message ?: throwable.javaClass.simpleName}")
+                    error("Invalid extra request body JSON: ${throwable.message ?: throwable.javaClass.simpleName}")
                 }
         }
     }
@@ -339,13 +339,13 @@ internal object AgentModelClient {
         val content: String,
         val images: List<ModelImage> = emptyList(),
         /**
-         * 敏感结果仍会供当前 Agent loop 使用，但工具参数与原始结果不会进入持久会话。
-         * 最终 assistant 自己组织的答复不受此标记影响。
+         * Sensitive results are still made available to the current Agent loop, but tool arguments and raw results do not enter the persistent session.
+         * The final reply that the assistant composes itself is not affected by this marker.
          */
         val sensitive: Boolean = false,
     )
 
-    /** 图片引用：入口侧可为本地 URI/路径，进入模型协议前必须解析为远程 URL 或 data URL。 */
+    /** Image reference: on the entry side it may be a local URI/path, and it must be resolved to a remote URL or data URL before entering the model protocol. */
     data class ModelImage(
         val reference: String,
         val mimeType: String,

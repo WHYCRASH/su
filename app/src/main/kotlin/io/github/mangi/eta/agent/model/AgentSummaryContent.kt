@@ -14,7 +14,7 @@ internal object AgentSummaryContent {
 
     fun project(raw: String): String {
         val source = JSONTokener(raw).nextValue()
-        require(source is JSONObject || source is JSONArray) { "摘要结构化内容无效，原历史保持不变" }
+        require(source is JSONObject || source is JSONArray) { "Invalid structured summary content; original history unchanged" }
         return visit(source).toString()
     }
 

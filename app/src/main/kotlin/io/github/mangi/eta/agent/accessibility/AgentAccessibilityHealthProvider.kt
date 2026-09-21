@@ -9,7 +9,7 @@ import android.os.Bundle
 import android.os.Process
 
 /**
- * 向 system_server 暴露最小连接状态，不返回节点、窗口或用户内容。
+ * Exposes minimal connection state to system_server; never returns nodes, windows, or user content.
  */
 class AgentAccessibilityHealthProvider : ContentProvider() {
     override fun onCreate(): Boolean = true

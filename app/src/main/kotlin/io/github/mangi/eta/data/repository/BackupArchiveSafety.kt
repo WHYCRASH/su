@@ -17,9 +17,9 @@ internal object BackupArchiveSafety {
 
     fun relativePath(raw: String): String {
         require(raw.isNotBlank() && raw.length <= 4096 && !raw.startsWith('/') &&
-            !raw.contains('\\') && !raw.contains('\u0000') && !raw.contains(':')) { "归档路径无效" }
+            !raw.contains('\\') && !raw.contains('\u0000') && !raw.contains(':')) { "Invalid archive path" }
         val name = raw.removeSuffix("/")
-        require(name.split('/').all { it.isNotEmpty() && it != "." && it != ".." }) { "归档路径越界" }
+        require(name.split('/').all { it.isNotEmpty() && it != "." && it != ".." }) { "Archive path escapes its root" }
         return name
     }
 
@@ -28,13 +28,13 @@ internal object BackupArchiveSafety {
         // reject symlinks below that trusted root, rather than rejecting Android's own ancestors.
         val base = root.canonicalFile.toPath()
         val path = base.resolve(relativePath(relative)).normalize()
-        require(path.startsWith(base) && path != base) { "归档路径越界" }
+        require(path.startsWith(base) && path != base) { "Archive path escapes its root" }
         var current = path
         while (current != base) {
-            require(!Files.isSymbolicLink(current)) { "恢复目标经过符号链接" }
+            require(!Files.isSymbolicLink(current)) { "Restore target passes through a symlink" }
             current = requireNotNull(current.parent)
         }
-        require(!Files.isSymbolicLink(root.toPath())) { "恢复根目录是符号链接" }
+        require(!Files.isSymbolicLink(root.toPath())) { "Restore root is a symlink" }
         return path.toFile()
     }
 
@@ -45,8 +45,8 @@ internal object BackupArchiveSafety {
             val n = input.read(buffer)
             if (n < 0) return size
             if (n == 0) continue
-            require(n.toLong() <= limit - size) { "备份超过大小限制" }
-            if (disk != null) require(disk.usableSpace >= RESERVE_BYTES + n) { "恢复暂存空间不足" }
+            require(n.toLong() <= limit - size) { "Backup exceeds the size limit" }
+            if (disk != null) require(disk.usableSpace >= RESERVE_BYTES + n) { "Not enough staging space for restore" }
             output.write(buffer, 0, n)
             crc?.update(buffer, 0, n)
             size += n
@@ -69,14 +69,14 @@ internal object BackupArchiveSafety {
             val entries = zip.entries()
             while (entries.hasMoreElements()) {
                 val entry = entries.nextElement()
-                require(names.size < ENTRY_LIMIT) { "备份条目过多" }
+                require(names.size < ENTRY_LIMIT) { "Too many backup entries" }
                 val name = relativePath(entry.name)
-                require(names.add(name)) { "备份存在重复条目：$name" }
+                require(names.add(name)) { "Backup contains a duplicate entry: $name" }
                 if (entry.isDirectory) continue
                 require(name == "eta-backup.json" || name == "eta-conversation.json" ||
                     name.startsWith("attachments/chat-images/") || name.startsWith("attachments/imports/") ||
                     name.startsWith("linux/workspace/") ||
-                    LINUX_ENVIRONMENT_TAR.matches(name)) { "不支持的备份条目：$name" }
+                    LINUX_ENVIRONMENT_TAR.matches(name)) { "Unsupported backup entry: $name" }
                 val file = target(directory, name)
                 require(file.parentFile!!.mkdirs() || file.parentFile!!.isDirectory)
                 val limit = if (!name.contains('/')) MANIFEST_LIMIT else TOTAL_LIMIT
@@ -84,13 +84,13 @@ internal object BackupArchiveSafety {
                 val size = file.outputStream().use { output -> zip.getInputStream(entry).use { input ->
                     copyLimited(input, output, minOf(limit, TOTAL_LIMIT - total), directory, crc)
                 } }
-                require(size == entry.size && crc.value == entry.crc) { "备份条目损坏：$name" }
+                require(size == entry.size && crc.value == entry.crc) { "Backup entry is corrupt: $name" }
                 total += size
                 files[name] = file
             }
         }
         require(files.keys.count { it == "eta-backup.json" || it == "eta-conversation.json" } == 1) {
-            "备份必须且只能包含一个清单"
+            "Backup must contain exactly one manifest"
         }
         return files
     }

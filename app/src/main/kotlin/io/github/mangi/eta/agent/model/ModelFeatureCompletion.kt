@@ -33,7 +33,7 @@ internal object ModelFeatureCompletion {
         }, "eta-model-feature-timeout").apply { isDaemon = true }
         try {
             require(timeoutMs > 0 && outputLimit > 0)
-            require(config.baseUrl.isNotBlank() && config.apiKey.isNotBlank() && config.model.isNotBlank()) { "辅助模型配置不完整" }
+            require(config.baseUrl.isNotBlank() && config.apiKey.isNotBlank() && config.model.isNotBlank()) { "Auxiliary model configuration is incomplete" }
             controller.throwIfCancelled()
             watchdog.start()
             val requestConfig = io.github.mangi.eta.agent.runtime.AgentRuntimePolicy.withoutOptionalThinking(config).copy(
@@ -46,11 +46,11 @@ internal object ModelFeatureCompletion {
                 ProviderRequest(requestConfig, messages, JSONArray(), sessionId, usageConversationId), child,
             ) {}
             controller.throwIfCancelled()
-            check(!child.isCancelled && !owner.isInterrupted) { "辅助模型请求已取消或超时" }
-            require(response.stopReason == AssistantStopReason.END_TURN) { "辅助模型未完整返回正文" }
-            require((response.assistantMessage.optJSONArray("tool_calls")?.length() ?: 0) == 0) { "辅助模型返回了工具调用" }
+            check(!child.isCancelled && !owner.isInterrupted) { "Auxiliary model request was canceled or timed out" }
+            require(response.stopReason == AssistantStopReason.END_TURN) { "Auxiliary model did not return the full content" }
+            require((response.assistantMessage.optJSONArray("tool_calls")?.length() ?: 0) == 0) { "Auxiliary model returned a tool call" }
             return response.assistantMessage.optString("content").trim()
-                .also { require(it.isNotBlank() && it != "null") { "辅助模型返回了空正文" } }
+                .also { require(it.isNotBlank() && it != "null") { "Auxiliary model returned empty content" } }
         } finally {
             watchdog.interrupt()
             child.cancel()

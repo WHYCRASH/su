@@ -243,7 +243,7 @@ private fun decodeDataUrlBitmap(dataUrl: String): ImageBitmap? {
 }
 
 /**
- * 等待首个文本片段时的反馈。圆底变形指示器，对齐 RikkaHub 的 ContainedLoadingIndicator。
+ * Feedback while waiting for the first text chunk. A round-bottomed morph indicator, aligned with RikkaHub's ContainedLoadingIndicator.
  */
 @Composable
 fun AITypingIndicator(modifier: Modifier = Modifier) {
@@ -253,8 +253,8 @@ fun AITypingIndicator(modifier: Modifier = Modifier) {
 }
 
 /**
- * 只有正在执行的状态才持有无限动画。历史思考和工具条目保持静态，避免长会话里
- * 每个已完成节点都持续产生帧时钟与状态更新。
+ * Only the actively running state holds an infinite animation. Past thinking and tool entries stay static, so that
+ * every finished node in a long session does not keep producing frame ticks and state updates.
  */
 @Composable
 private fun rememberActivePulse(
@@ -380,7 +380,7 @@ internal fun ChatMessageItem(
 }
 
 /**
- * 把连续的思考与工具调用收束为一个可展开的工作过程，避免 Agent 事件退化为聊天气泡噪音。
+ * Folds consecutive thinking and tool calls into one expandable work process, keeping agent events from decaying into chat-bubble noise.
  */
 @Composable
 internal fun AgentWorkProcess(
@@ -398,7 +398,7 @@ internal fun AgentWorkProcess(
         (message is ThinkingMessageUi && message.isStreaming) ||
             (message is ToolActivityMessageUi && message.status == ToolActivityStatusUi.Running)
     }
-    // 推理结束但本轮还在跑时，已完成步骤仍留在卡片里；整轮步骤都结束后才自动收起。
+    // While reasoning is done but the round is still running, finished steps stay on the card; it auto-collapses only after all steps of the round finish.
     val keepOpen = running || (isTrailing && turnStreaming)
     val toolCount = messages.count { it is ToolActivityMessageUi }
     val runningTool = messages.lastOrNull { message ->
@@ -552,7 +552,7 @@ internal fun AgentWorkProcess(
 }
 
 
-// ── 用户消息：轻盈美观气泡 ──────────────────────────────────────────────
+// ── User message: light, clean bubble ───────────────────────────────────
 
 @Composable
 private fun UserMessageBubble(
@@ -671,7 +671,7 @@ private fun UserMessageBubble(
             }
             visiblePrompt.conversations.forEach { mention ->
                 Text(
-                    text = "@${mention.title}" + if (mention.transcript.contains("[已截取：")) " · 已截取" else " · 全文",
+                    text = "@${mention.title}" + if (mention.transcript.contains("[Truncated: ")) " · Truncated" else " · Full",
                     style = MiuixTheme.textStyles.body2,
                     color = MiuixTheme.colorScheme.primary,
                     modifier = Modifier.padding(bottom = 6.dp),
@@ -790,7 +790,7 @@ private fun UserMessageBubble(
     }
 }
 
-// ── Agent 结果 ───────────────────────────────────────────────────────
+// ── Agent result ────────────────────────────────────────────────────────
 
 @Composable
 private fun AgentMessageBlock(
@@ -826,8 +826,8 @@ private fun AgentMessageBlock(
     LaunchedEffect(message.isStreaming) {
         if (message.isStreaming) streamingRevealComplete = false
     }
-    // 渲染会话由列表层按 message.id 持有，item 滚出视口被销毁后滑回时复用同一
-    // 会话；没有外部持有者时（如嵌套条目）退回组合内 remember，行为与之前一致。
+    // Render sessions are held by the list layer keyed by message.id, so when an item scrolls out of the viewport, is destroyed, and then scrolls back, it reuses the same
+    // session; when there is no external holder (such as nested items), it falls back to remember within the composition, with the same behavior as before.
     val streamingState = if (keepStreamingMarkdown) {
         retainedStreamingState ?: remember(message.id) { StreamingMarkdownState() }
     } else {
@@ -855,8 +855,8 @@ private fun AgentMessageBlock(
         } else {
             HapticSelectionContainer {
                 when {
-                    // 流式会话一旦建立就不要切到 StableMarkdown：暂停继续和生成结束
-                    // 都会让 isStreaming 翻转，整棵 Markdown 重挂会闪一帧。
+                    // Once a streaming session is established, do not switch to StableMarkdown: pause/resume and generation completion
+                    // both flip isStreaming, and remounting the entire Markdown tree would flash a frame.
                     streamingState != null -> {
                         StreamingMarkdown(
                             state = streamingState,
@@ -1020,7 +1020,7 @@ private fun StableMarkdown(
         components = components,
         modifier = modifier,
         loading = {
-            // 保留与最终正文接近的高度，避免历史消息异步解析完成后越界绘制。
+            // Keep a height close to the final body to avoid drawing out of bounds after historical messages finish async parsing.
             Text(
                 text = content,
                 style = chatMarkdownBodyStyle(tone),
@@ -1048,11 +1048,11 @@ private fun StableMarkdown(
 }
 
 /**
- * 流式渲染会话，按 message.id 提升到 LazyColumn 外层持有。
+ * Streaming render session, hoisted outside LazyColumn keyed by message.id.
  *
- * 流式 item 滚出视口后组合会被销毁，裸 remember 会让解析基线、打字机进度和最新
- * 快照全部丢失；滑回时整段已生成内容会重新全量解析，并从头重放显现动画。会话
- * 与组合解耦后，item 重建只是重新挂接效果，渲染进度原样保留。
+ * When a streaming item scrolls out of the viewport, its composition is destroyed, and a bare remember loses the parse baseline, typewriter progress, and latest
+ * snapshot; when it scrolls back, the entire generated content is fully reparsed and the reveal animation replays from the start. Once the session
+ * is decoupled from the composition, item reconstruction merely reattaches the effects, and render progress is preserved as-is.
  */
 internal class StreamingMarkdownState {
     var revealedContent by mutableStateOf<String?>(null)
@@ -1130,7 +1130,7 @@ private fun StreamingMarkdown(
     LaunchedEffect(content, parseAsStreaming) {
         val previousContent = acceptedContent[0]
         if (!content.startsWith(previousContent)) {
-            // 会话恢复或上游纠正内容时，让解析会话重新建立文档基线。
+            // When the session is restored or upstream corrects the content, have the parse session re-establish the document baseline.
             acceptedContent[0] = ""
         }
         acceptedContent[0] = content
@@ -1197,7 +1197,7 @@ private fun StreamingMarkdown(
             return@LaunchedEffect
         }
 
-        // 等这一版 AST 完成组合与排版后，再等待尾部字符的透明度动画收口。
+        // After this version of the AST finishes composing and laying out, wait for the trailing characters' opacity animation to settle.
         withFrameNanos { }
         if (!revealCoordinator.drained.value) {
             revealCoordinator.drained.filter { it }.first()
@@ -1224,7 +1224,7 @@ private fun StreamingMarkdown(
             animations = markdownAnimations(animateTextSize = { this }),
             modifier = modifier.onGloballyPositioned {
                 StreamPerformanceDiagnostics.record("markdown.layout", value = it.size.height.toLong())
-                // 恢复基线对应的 AST 真正排版后才开放增量动画，解析耗时不受帧数限制。
+                // Incremental animation is only enabled after the AST corresponding to the restored baseline is actually laid out; parsing time is not limited by frame count.
                 if (state.restoreState.completeLayout(
                         generation = restoreGeneration,
                         renderedContent = parsed.originalSource,
@@ -1249,8 +1249,8 @@ private fun StreamingMarkdown(
 }
 
 /**
- * 顶层节点以源码位置和语法类型作为稳定身份。完整重解析只替换真正发生类型变化的
- * 当前块，前面已经稳定的段落、表格和代码块不会因新 chunk 到达而重新挂载。
+ * Top-level nodes use source position and syntax type as stable identity. A full reparse only replaces the
+ * current block whose type actually changed; preceding paragraphs, tables, and code blocks that are already stable will not remount when new chunks arrive.
  */
 @Composable
 private fun StreamingGfmSuccess(
@@ -1276,8 +1276,8 @@ private fun StreamingGfmSuccess(
 }
 
 /**
- * 空行只负责切分 Markdown 块，不直接占据布局高度；可见块之间按语义分配留白，
- * 避免统一 block padding 让标题、正文、列表和表格失去层级。
+ * Blank lines only split Markdown blocks and do not directly take up layout height; visible blocks are given spacing by semantics,
+ * avoiding uniform block padding that strips headings, body text, lists, and tables of hierarchy.
  */
 @Composable
 private fun ChatMarkdownDocument(
@@ -1460,7 +1460,7 @@ internal fun streamingMarkdownBatchEnd(
     return AppendOnlyGraphemeIndex().apply { update(content) }.endAfter(start, maxGraphemes)
 }
 
-// ── Markdown 样式：克制的聊天排版，标题只作强调不作页面标题 ─────────────
+// ── Markdown styles: restrained chat typography; headings serve only as emphasis, not page titles ─────────────
 
 private enum class ChatMarkdownTone {
     Answer,
@@ -1559,7 +1559,7 @@ private fun chatMarkdownTextColor(tone: ChatMarkdownTone): Color =
 @Composable
 private fun chatMarkdownColors(tone: ChatMarkdownTone) = markdownColor(
     text = chatMarkdownTextColor(tone),
-    // 代码块与表格的底色、描边由自定义组件绘制，这里只保留行内代码底色与分隔线。
+    // The background and border colors of code blocks and tables are drawn by custom components; here only the inline code background and divider lines are kept.
     codeBackground = MiuixTheme.colorScheme.surface,
     inlineCodeBackground = MiuixTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.6f),
     dividerColor = MiuixTheme.colorScheme.outline.copy(alpha = 0.5f),
@@ -1575,7 +1575,7 @@ private fun chatMarkdownDimens() = markdownDimens(
 
 @Composable
 private fun chatMarkdownPadding() = markdownPadding(
-    // 顶层块由 ChatMarkdownDocument 按语义分配留白，库的统一前置间距保持关闭。
+    // Top-level blocks have spacing assigned semantically by ChatMarkdownDocument; the library's uniform top spacing remains disabled.
     block = 0.dp,
     list = 3.dp,
     listItemTop = 3.dp,
@@ -1725,8 +1725,8 @@ private fun chatMarkdownComponents(
 )
 
 /**
- * 流式列表不能直接使用库的默认实现：默认实现会立即绘制 marker，而正文还在显现动画中。
- * 这里把每一项作为稳定的组合单元，并让 marker 与该项首个正文块共享开始时机。
+ * Streaming lists cannot use the library's default implementation directly: it draws the marker immediately while the body is still in the reveal animation.
+ * Here each item is treated as a stable composition unit, and the marker shares its start timing with the item's first body block.
  */
 @Composable
 private fun ChatMarkdownList(
@@ -1781,7 +1781,7 @@ private fun ChatMarkdownList(
                 ) {
                     Box(
                         modifier = Modifier.graphicsLayer(
-                            // 隐藏 marker 但保留它的测量宽度，避免正文横向跳动。
+                            // Hide the marker but keep its measured width to keep the body from jumping horizontally.
                             alpha = if (markerVisible) 1f else 0f,
                         ),
                     ) {
@@ -1802,9 +1802,9 @@ private fun ChatMarkdownList(
                                 ),
                             )
                         } else {
-                            // Compose 单行 Text 在默认 Trim.Both 下忽略 lineHeight，行框即字体自然行高；
-                            // marker 必须与正文同 fontSize/lineHeight 才能共享度规对齐，
-                            // 层级差异只通过字形与颜色表达。
+                            // A single-line Compose Text ignores lineHeight with the default Trim.Both; the line box is the font's natural line height;
+                            // The marker must use the same fontSize/lineHeight as the body to share metric alignment,
+                            // Hierarchy differences are expressed only through glyph shape and color.
                             val bulletDepth = depth % 3
                             Text(
                                 text = when (bulletDepth) {
@@ -1967,7 +1967,7 @@ private fun ChatRevealAnnotatedText(
 }
 
 /**
- * 标题自身只负责文字样式；与相邻块的距离由文档级排版统一决定。
+ * The heading itself is only responsible for text style; spacing to adjacent blocks is determined uniformly by document-level layout.
  */
 @Composable
 private fun ChatHeadingBlock(
@@ -2000,7 +2000,7 @@ private fun ChatHeadingBlock(
 }
 
 /**
- * 代码块：顶栏显示语言标签并提供一键复制，正文等宽字体、超出横向滚动。
+ * Code block: the top bar shows the language label and provides one-click copy; the body uses a monospace font and scrolls horizontally when it overflows.
  */
 @Composable
 private fun ChatCodeBlock(
@@ -2115,7 +2115,7 @@ private fun ChatCodeBlock(
 private val ChatTableCellWidth = 112.dp
 
 /**
- * 表格：细描边容器 + 表头浅底加粗 + 行间发丝分隔线；列宽不足时整体横向滚动。
+ * Table: thin-bordered container + light-background bold header + hairline row dividers; when column widths are insufficient, the whole table scrolls horizontally.
  */
 @Composable
 private fun ChatMarkdownTable(
@@ -2256,9 +2256,9 @@ private fun ChatMarkdownTableCell(
 }
 
 /**
- * 引用块：圆角浅色竖条 + 弱化文字。
- * 库默认实现把竖条颜色绑死在 quote 文字颜色上，无法分别控制，因此竖条自绘；
- * 子节点仍交给 ambient components，流式显现与嵌套引用行为不变。
+ * Blockquote: rounded light-colored vertical bar + muted text.
+ * The library's default implementation hard-binds the vertical bar color to the quote text color, so they cannot be controlled separately; therefore the bar is custom-drawn;
+ * child nodes are still handed to ambient components, and streaming reveal and nested quote behavior remain unchanged.
  */
 @Composable
 private fun ChatBlockQuote(model: MarkdownComponentModel) {
@@ -2320,7 +2320,7 @@ private fun ChatBlockQuote(model: MarkdownComponentModel) {
 private fun ASTNode.containsMarkdownImage(): Boolean =
     type == MarkdownElementTypes.IMAGE || children.any { child -> child.containsMarkdownImage() }
 
-/** 找到列表项中首个会被显现协调器管理的块，marker 以它作为显示时机。 */
+/** Find the first block in a list item that will be managed by the reveal coordinator; the marker uses it as its show timing. */
 private fun ASTNode.firstRevealBlockKey(): RevealBlockKey? = when (type) {
     MarkdownTokenTypes.TEXT -> RevealBlockKey(startOffset)
 
@@ -2399,7 +2399,7 @@ private fun MutableSet<RevealBlockKey>.collectTableCellRevealKeys(node: ASTNode)
     node.children.forEach { child -> collectTableCellRevealKeys(child) }
 }
 
-// ── 思考过程 ─────────────────────────────────────────────────────────
+// ── Thinking process ─────────────────────────────────────────────────────────
 
 @Composable
 private fun ThinkingRow(
@@ -2411,8 +2411,8 @@ private fun ThinkingRow(
 ) {
     var expanded by rememberSaveable(message.id) { mutableStateOf(!message.collapsed) }
     var manuallyExpanded by rememberSaveable(message.id) { mutableStateOf(false) }
-    // 思考结束后立即切换为与完成态回答相同的稳定 Markdown。工具执行期间 App 可能
-    // 处于后台，不能让旧思考保留显现债务，回来后在新回答旁边补播整段内容。
+    // After thinking ends, immediately switch to the same stable Markdown as the completed answer. While a tool is executing, the app may
+    // be in the background; the old thinking must not retain reveal debt. When it returns, replay the entire content alongside the new answer.
     val streamingState = if (message.isStreaming) {
         retainedStreamingState ?: remember(message.id) { StreamingMarkdownState() }
     } else {
@@ -2423,10 +2423,10 @@ private fun ThinkingRow(
         expanded = message.isStreaming
     }
 
-    // Markdown 状态在行级提前创建：行进入组合（工作过程展开或滚动到可视区）时就开始
-    // 后台解析，而不是等到首次点击展开。否则首帧只能测量 loading fallback 的纯文本高度，
-    // 解析完成后正文高度会再次变化；状态挂在行级还能在收起/展开循环中存活，
-    // 避免每次展开都重新走一遍异步解析。
+    // Markdown state is created early at the row level: as soon as the row enters composition (the work process is expanded or scrolled into the viewport), it starts
+    // parsing in the background, instead of waiting until the first click to expand. Otherwise the first frame can only measure the plain-text height of the loading fallback,
+    // and the body height changes again after parsing completes; keeping the state at the row level also lets it survive collapse/expand cycles,
+    // avoiding a fresh async parse on every expansion.
     val stableMarkdownState = if (!message.isStreaming) {
         rememberMarkdownState(
             content = message.content,
@@ -2441,7 +2441,7 @@ private fun ThinkingRow(
         label = "thinking_pulse",
     )
 
-    // compact 模式渲染在工作过程卡片内部，不再携带自己的卡片外壳，避免卡中卡。
+    // compact mode renders inside the work process card and no longer carries its own card shell, avoiding a card within a card.
     val containerModifier = if (compact) {
         modifier
             .fillMaxWidth()
@@ -2561,7 +2561,7 @@ private fun ThinkingRow(
     }
 }
 
-// ── 工具调用：优雅极简时间线 ─────────────────────────────────────────
+// ── Tool calls: an elegant minimal timeline ─────────────────────────────────────────
 
 @Composable
 private fun ToolActivityInline(
@@ -2573,7 +2573,7 @@ private fun ToolActivityInline(
     compact: Boolean = false,
 ) {
     var isExpanded by rememberSaveable(message.id) { mutableStateOf(false) }
-    // 只有「当前浏览器」卡片订阅实时会话快照，避免每个工具行都跟随快照重组
+    // Only the "Current Browser" card subscribes to the live session snapshot, avoiding every tool row recomposing with the snapshot
     val browserSnapshot = if (showBrowserShortcut) {
         AgentBrowserSession.snapshots.collectAsState().value
     } else {
@@ -2605,13 +2605,13 @@ private fun ToolActivityInline(
             else -> null
         }
     }
-    // 失败原因直接显示在折叠行，不必展开卡片；剥离去重「失败」前缀与日志用的 code= 尾巴
+    // The failure reason is shown directly on the collapsed row, with no need to expand the card; strip the redundant "Failed" prefix and the code= tail used for logging
     val failureSubtitle = if (message.status == ToolActivityStatusUi.Failed) {
         message.resultSummary
             ?.lineSequence()?.firstOrNull()
-            ?.removePrefix("失败 · ")
+            ?.removePrefix("Failed · ")
             ?.substringBefore(" · code=")
-            ?.takeIf { it.isNotBlank() && it != "失败" }
+            ?.takeIf { it.isNotBlank() && it != "Failed" }
     } else {
         null
     }
@@ -2635,7 +2635,7 @@ private fun ToolActivityInline(
                 .fillMaxWidth()
                 .padding(horizontal = 4.dp, vertical = 5.dp),
         ) {
-            // 工具图标与思考行的灯泡共用同一前导槽位，保证卡片内左边缘对齐。
+            // The tool icon shares the same leading slot as the lightbulb in the thinking row, ensuring left-edge alignment within the card.
             Icon(
                 imageVector = iconForTool(message.toolName),
                 contentDescription = null,
@@ -2693,7 +2693,7 @@ private fun ToolActivityInline(
                     },
                     label = "tool_status",
                 ) { status ->
-                    // 成功是常态，只留低饱和度对勾；运行中与失败才占用视觉注意力
+                    // Success is the norm, so only a low-saturation checkmark is left; running and failure are what draw visual attention
                     if (status == ToolActivityStatusUi.Success) {
                         Icon(
                             imageVector = Icons.Rounded.Check,
@@ -2807,10 +2807,9 @@ private fun ToolActivityInline(
 }
 
 /**
- * 浏览器工具的实时页面预览：迷你地址条 + 当前视口截图。
+ * Live page preview for the browser tool: mini address bar + current viewport screenshot.
  *
- * 截图只在页面加载中或内容稳定后的低频节拍刷新；组合销毁即停止，
- * 不做后台轮询。截图不可用时退化为图标占位。
+ * The screenshot refreshes only on a low-frequency tick while the page is loading or once content has stabilized; it stops when the composition is destroyed and does no background polling. When a screenshot is unavailable, it degrades to an icon placeholder.
  */
 @Composable
 private fun BrowserPagePreview(
@@ -2991,7 +2990,7 @@ private fun ToolCommandBlock(
     }
 }
 
-// ── Run trace：轻量入口行 ─────────────────────────────────────────────
+// ── Run trace: lightweight entry row ──────────────
 
 @Composable
 private fun RunTraceRow(
@@ -3036,7 +3035,7 @@ private fun RunTraceRow(
     }
 }
 
-// ── 工具摘要 ──────────────────────────────────────────────────────────
+// ── Tool summary ─────────────────────────────────────────────────
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -3082,7 +3081,7 @@ private fun ToolSummaryInline(
     }
 }
 
-// ── 上下文压缩分界 ─────────────────────────────────────────────────────
+// ── Context compaction boundary ──────────────────────
 
 @Composable
 private fun ContextCompactedDivider(
@@ -3157,7 +3156,7 @@ private fun ContextCompactedDivider(
     }
 }
 
-// ── 建议语 ────────────────────────────────────────────────────────────
+// ── Suggested phrases ───────────────────────────────────────────
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -3204,7 +3203,7 @@ private fun SuggestionChipsRow(
     }
 }
 
-// ── 辅助 ──────────────────────────────────────────────────────────────
+// ── Helpers ─────────────────────────────────────────────────────────────
 
 @Composable
 private fun ToolActivityStatusUi.statusColor() = when (this) {

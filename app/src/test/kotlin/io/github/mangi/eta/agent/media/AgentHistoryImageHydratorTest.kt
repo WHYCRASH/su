@@ -26,7 +26,7 @@ class AgentHistoryImageHydratorTest {
             supportsVision = true,
             supportsVideo = false,
         )
-        assertTrue(hydrated.content.contains("[用户视频] $path"))
+        assertTrue(hydrated.content.contains("[User video] $path"))
         assertFalse(hydrated.contentJson.contains("video_url"))
     }
 }

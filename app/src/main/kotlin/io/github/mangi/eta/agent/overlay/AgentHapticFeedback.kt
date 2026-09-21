@@ -9,10 +9,11 @@ import io.github.mangi.eta.config.Prefs
 import io.github.mangi.eta.ui.haptics.TouchHaptics
 
 /**
- * Agent 前台操作的触感语义。
+ * Haptic semantics for foreground Agent actions.
  *
- * 优先让系统根据线性马达能力渲染预定义 primitive；设备不支持时退回系统 effect，
- * 避免固定时长、默认振幅带来的持续嗡鸣感。
+ * Prefer letting the system render a predefined primitive matched to the linear-motor capability;
+ * fall back to a system effect on devices without support, avoiding the constant buzz of fixed
+ * durations and default amplitudes.
  */
 internal object AgentHapticFeedback {
     enum class Type(

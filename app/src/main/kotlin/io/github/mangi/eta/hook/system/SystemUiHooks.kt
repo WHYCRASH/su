@@ -40,7 +40,7 @@ internal object SystemUiHooks {
                 hooks.missing(
                     id = "systemui.ocr-long-press",
                     description = "OplusOcrScreenBusiness.onLongPressed",
-                    detail = "未找到 OplusOcrScreenBusiness.onLongPressed()"
+                    detail = "OplusOcrScreenBusiness.onLongPressed() not found"
                 )
                 return@install
             }
@@ -50,14 +50,14 @@ internal object SystemUiHooks {
                 executable = onLongPressedMethod,
                 description = "OplusOcrScreenBusiness.onLongPressed"
             ) { chain ->
-                // 开关关闭则走原 OCR 逻辑。
+                // When the switch is off, fall back to the original OCR logic.
                 if (!Prefs.isEnabled(Prefs.Keys.GESTURE_BAR_CIRCLE_TO_SEARCH)) {
                     return@intercept chain.proceed()
                 }
                 val context = resolveContext(chain.getThisObject())
                 if (context == null) {
                     logger.warnThrottled("systemui_context") {
-                        "SystemUI 无法取得 Context，回退原 OCR 逻辑"
+                        "SystemUI cannot get Context; falling back to the original OCR logic"
                     }
                     return@intercept chain.proceed()
                 }
@@ -66,7 +66,7 @@ internal object SystemUiHooks {
                         context,
                         logger,
                         "SystemUI",
-                        "回退原 OCR 逻辑"
+                        "Falling back to the original OCR logic"
                     )
                 ) {
                     return@intercept chain.proceed()
@@ -91,14 +91,14 @@ internal object SystemUiHooks {
     private fun performOriginalLongPressHaptic(context: Context, logger: ModuleLogger) {
         val vibrationHelper = resolveVibrationHelper(context) ?: run {
             logger.warnThrottled("systemui_cts_vibration_helper_missing") {
-                "SystemUI: 无法取得原生 VibrationHelper，跳过导航条长按震动"
+                "SystemUI: cannot get native VibrationHelper; skipping navigation bar long-press vibration"
             }
             return
         }
 
         if (!invokeVibrateCustomized(vibrationHelper, context)) {
             logger.warnThrottled("systemui_cts_linear_haptic_failed") {
-                "SystemUI: 调用原生导航条长按震动失败"
+                "SystemUI: failed to invoke native navigation bar long-press vibration"
             }
         }
     }

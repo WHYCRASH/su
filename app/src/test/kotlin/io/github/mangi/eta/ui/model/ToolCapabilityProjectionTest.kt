@@ -12,18 +12,18 @@ class ToolCapabilityProjectionTest {
     private fun card(id: String) = ToolItemUi(id, id, id)
 
     @Test fun currentDeviceRetainsPartialCapabilitiesAndHidesRootOnlyTools() {
-        val groups = listOf(ToolGroupUi("device", "设备", listOf(card("terminal"), card("wifi_credentials"), card("observe_screen"))))
+        val groups = listOf(ToolGroupUi("device", "Device", listOf(card("terminal"), card("wifi_credentials"), card("observe_screen"))))
         assertEquals(listOf("terminal", "observe_screen"),
-            projectToolGroups(groups, false, false, true).single().tools.map { it.id })
-        assertEquals(groups, projectToolGroups(groups, true, false, true))
-        assertEquals(groups, projectToolGroups(groups, false, true, true))
+            projectToolGroups(groups, showAll = false, rootGranted = false).single().tools.map { it.id })
+        assertEquals(groups, projectToolGroups(groups, showAll = true, rootGranted = false))
+        assertEquals(groups, projectToolGroups(groups, showAll = false, rootGranted = true))
     }
 
     @Test fun viewingAllDoesNotMutateSourceOrChangeToolOrder() {
-        val groups = listOf(ToolGroupUi("root", "增强", listOf(card("wifi_credentials"))))
-        assertTrue(projectToolGroups(groups, false, false, false).isEmpty())
-        assertEquals(groups, projectToolGroups(groups, true, false, false))
-        assertTrue(projectToolGroups(groups, false, false, false).isEmpty())
+        val groups = listOf(ToolGroupUi("root", "Enhancements", listOf(card("wifi_credentials"))))
+        assertTrue(projectToolGroups(groups, showAll = false, rootGranted = false).isEmpty())
+        assertEquals(groups, projectToolGroups(groups, showAll = true, rootGranted = false))
+        assertTrue(projectToolGroups(groups, showAll = false, rootGranted = false).isEmpty())
     }
 
     @Test fun browserCardsReferToTheRealBrowserTool() {
@@ -34,10 +34,10 @@ class ToolCapabilityProjectionTest {
     }
 
     @Test fun ordinaryPermissionsDoNotHideDiscoverableTools() {
-        assertTrue(visibleOnCurrentDevice("observe_screen", false, false))
-        assertTrue(visibleOnCurrentDevice("search_notification_history", false, false))
+        assertTrue(visibleOnCurrentDevice("observe_screen", rootGranted = false))
+        assertTrue(visibleOnCurrentDevice("search_notification_history", rootGranted = false))
         assertEquals(RootRequirement.PARTIAL, toolCardRequirement("terminal").rootRequirement)
-        assertFalse(visibleOnCurrentDevice("search_coloros_memories", true, false))
+        assertFalse(visibleOnCurrentDevice("get_health_summary", rootGranted = false))
     }
 
     @Test fun missingOrdinaryPermissionOpensPermissionsBeforePartialRootBenefits() {
@@ -46,7 +46,7 @@ class ToolCapabilityProjectionTest {
         assertEquals(AgentToolsAction.OpenEnhancements, toolCardAction("terminal", capabilities))
         assertEquals(AgentToolsAction.OpenBrowser, toolCardAction("browser_read", capabilities))
         assertEquals(AgentToolsAction.OpenEnhancements,
-            toolCardAction("search_coloros_memories", capabilities.copy(rootAvailable = true, colorOs = false)))
+            toolCardAction("wifi_credentials", capabilities))
     }
 
     @Test(expected = IllegalArgumentException::class)

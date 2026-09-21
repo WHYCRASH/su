@@ -17,7 +17,7 @@ import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
 /**
- * 可选的诊断文件日志。关闭时不写盘；开启后把应用日志和本进程 logcat 轮转写入 filesDir/logs。
+ * Optional diagnostic file log. Writes nothing while disabled; once enabled it rotates the app log and this process's logcat into filesDir/logs.
  */
 internal object AppFileLogger {
     const val DIRECTORY_NAME = "logs"
@@ -53,7 +53,7 @@ internal object AppFileLogger {
             if (enabled.get() == value) return
             if (value) {
                 if (!directory.exists() && !directory.mkdirs()) {
-                    Log.w(ModuleConfig.TAG, "无法创建诊断日志目录")
+                    Log.w(ModuleConfig.TAG, "Cannot create diagnostic log directory")
                     return
                 }
                 appSink = FileLogSink(directory, APP_LOG_FILE)
@@ -124,11 +124,11 @@ internal object AppFileLogger {
 
     fun export(output: OutputStream): Int {
         flush()
-        val directory = logsDir ?: throw IllegalStateException("诊断日志尚未初始化")
+        val directory = logsDir ?: throw IllegalStateException("Diagnostic logging is not initialized yet")
         val files = FileLogSink(directory, APP_LOG_FILE).files() +
             FileLogSink(directory, LOGCAT_FILE).files()
         if (files.isEmpty()) {
-            throw IllegalStateException("没有可导出的日志")
+            throw IllegalStateException("No logs available to export")
         }
         return DiagnosticLogArchive.writeZip(files, output)
     }

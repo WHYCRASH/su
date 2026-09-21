@@ -37,8 +37,8 @@ import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 /**
- * Material 3 ContainedLoadingIndicator 的同款动画：圆底里一块形状在变形、旋转。
- * RikkaHub 关闭「APP 图标风格」后用的就是这个。
+ * Same animation as the Material 3 ContainedLoadingIndicator: a blob morphing and rotating in a round container.
+ * This is what RikkaHub uses once "APP icon style" is turned off.
  */
 @Composable
 internal fun ContainedMorphLoadingIndicator(
@@ -156,7 +156,7 @@ private fun smoothPolarPath(
 private const val GlobalRotationMillis = 4666
 private const val MorphIntervalMillis = 650L
 
-/** 8 个顶点的半径序列，对应圆 / 软星 / 三角 / 胶囊等之间的变形。 */
+/** Radius sequences for the 8 vertices, covering the morphs between circle, soft star, triangle, capsule, and the rest. */
 private val IndicatorShapes: List<FloatArray> = listOf(
     FloatArray(8) { 1f },
     floatArrayOf(1.00f, 0.62f, 1.00f, 0.62f, 1.00f, 0.62f, 1.00f, 0.62f),

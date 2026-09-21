@@ -160,8 +160,8 @@ internal object AgentSseClient {
             .createFactory(AgentHttpClient.modelClient)
             .newEventSource(sseRequest, listener)
         eventSourceRef.set(eventSource)
-        // finish() 先标记 completed 并唤醒 collect，再 cancel EventSource。
-        // 若先 cancel，OkHttp 可能排完当前 body 才返回，追加指令就会等到整段输出结束。
+        // finish() first marks completed and wakes up collect, then cancels EventSource.
+        // If cancel were called first, OkHttp might only return after draining the current body, so appended commands would wait until the whole output finishes.
         val binding = runController.register(interruptible = true) {
             stream.finish()
         }

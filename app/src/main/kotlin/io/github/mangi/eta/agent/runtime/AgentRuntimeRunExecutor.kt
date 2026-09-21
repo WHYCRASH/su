@@ -36,10 +36,10 @@ import kotlinx.coroutines.runBlocking
 import org.json.JSONArray
 
 /**
- * 单次 Runtime run 的阻塞执行器。
+ * Blocking executor for a single Runtime run.
  *
- * 它只拥有模型、工具和终态提交，不持有 Service、Messenger、Compose 或 WindowManager 状态。
- * 所有外部副作用都通过窄回调交回宿主。
+ * It only owns the model, tools, and final-state submission; it holds no Service, Messenger, Compose, or WindowManager state.
+ * All external side effects are handed back to the host through narrow callbacks.
  */
 internal class AgentRuntimeRunExecutor(
     context: Context,
@@ -96,7 +96,7 @@ internal class AgentRuntimeRunExecutor(
                 cacheRoot = appContext.cacheDir,
                 baseClient = AgentHttpClient.client,
             )
-            val assistant = requireNotNull(AssistantRepository.currentProfile(request.assistantId)) { "任务所属助手不存在，请重新发起任务" }
+            val assistant = requireNotNull(AssistantRepository.currentProfile(request.assistantId)) { "The assistant that owns this task does not exist. Please start the task again." }
             val enabledSkillIds = assistant.enabledSkillIds.toSet()
             val (runSkillsRoot, runSkillEntries) = SkillRuntime.createRunSkills(appContext, assistant.id,
                 skillIndexService.listSkillsForManagement(forceRefresh = true)
@@ -178,7 +178,7 @@ internal class AgentRuntimeRunExecutor(
                             entrySurfaceGuard?.dismissOnce() == false ->
                                 ToolExecutionDecision.Reject(
                                     code = "ENTRY_SURFACE_NOT_READY",
-                                    message = "入口窗口关闭未完成；本次工具未执行，请勿在当前任务中重复调用",
+                                    message = "The entry window has not finished closing; this tool was not executed. Do not repeatedly call it in the current task.",
                                 )
                             else -> ToolExecutionDecision.Allow
                         }
@@ -279,11 +279,11 @@ internal class AgentRuntimeRunExecutor(
                 skillContext = skillContext,
                 memoryContext = memoryContext,
                 skillContextProvider = {
-                    check(AssistantRepository.currentProfile(assistant.id) != null) { "任务所属助手已删除" }
+                    check(AssistantRepository.currentProfile(assistant.id) != null) { "The assistant that owns this task has been deleted." }
                     SkillContext(installedSkills = executor.currentSkillEntries())
                 },
                 memoryContextProvider = {
-                    val current = requireNotNull(AssistantRepository.currentProfile(assistant.id)) { "任务所属助手已删除" }
+                    val current = requireNotNull(AssistantRepository.currentProfile(assistant.id)) { "The assistant that owns this task has been deleted." }
                     if (!current.memoryEnabled) {
                         AgentMemoryContext.DISABLED
                     } else {
@@ -328,7 +328,7 @@ internal class AgentRuntimeRunExecutor(
             cancelled = runController.isCancelled || throwable is AgentRunCancelledException
             val modelFailure = throwable as? AgentModelExecutionException
             val message = if (cancelled) {
-                "已停止"
+                "Stopped"
             } else {
                 throwable.message ?: throwable.javaClass.simpleName
             }

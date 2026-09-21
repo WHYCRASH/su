@@ -1,6 +1,6 @@
 package io.github.mangi.eta.agent.device
 
-/** Root 进程超时不能证明已经发给系统的输入动作没有执行。 */
+/** A root process timeout does not prove that input already sent to the system never ran. */
 internal object ShellActionOutcomePolicy {
     enum class Outcome {
         SUCCEEDED,

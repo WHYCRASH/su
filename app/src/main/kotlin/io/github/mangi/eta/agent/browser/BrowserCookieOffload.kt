@@ -5,7 +5,7 @@ import org.json.JSONObject
 import java.io.File
 import java.util.Locale
 
-/** MiniS hub 技能约定的 cookie 导出：写 env 文件，工具结果里不带明文。 */
+/** Cookie export per the MiniS hub skill convention: writes an env file, keeps plaintext out of tool results. */
 internal object BrowserCookieOffload {
     fun envName(cookieName: String): String {
         val body = cookieName.uppercase(Locale.US).replace(Regex("[^A-Z0-9]+"), "_").trim('_')

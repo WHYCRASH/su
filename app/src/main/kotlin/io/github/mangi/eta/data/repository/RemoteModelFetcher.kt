@@ -77,7 +77,7 @@ internal object RemoteModelFetcher {
             )
             .get()
             .build()
-        return OfficialModelCatalog.enrich(provider, executeJson(request, "拉取模型失败").let(::parseOpenAiModels))
+        return OfficialModelCatalog.enrich(provider, executeJson(request, "Failed to fetch models").let(::parseOpenAiModels))
     }
 
     private fun fetchAnthropic(provider: AnthropicProviderSetting): List<Model> {
@@ -97,7 +97,7 @@ internal object RemoteModelFetcher {
             )
             .get()
             .build()
-        return OfficialModelCatalog.enrich(provider, executeJson(request, "拉取 Anthropic 模型失败").let(::parseAnthropicModels))
+        return OfficialModelCatalog.enrich(provider, executeJson(request, "Failed to fetch Anthropic models").let(::parseAnthropicModels))
     }
 
     private fun executeJson(request: Request, errorPrefix: String): String =
@@ -110,19 +110,19 @@ internal object RemoteModelFetcher {
         }
 
     /**
-     * 判断远端目录中的模型是否应进入本地模型列表。
+     * Determines whether a model in the remote catalog should be included in the local model list.
      *
-     * 远端 /models 返回的条目全部保留，由用户在列表里自行选择。
+     * All entries returned by the remote /models endpoint are kept, and the user selects from them in the list.
      */
     internal fun isCatalogModel(model: Model): Boolean = true
 
     /**
-     * 判断远端目录中的模型是否可用于 Agent 对话。
+     * Determines whether a model in the remote catalog can be used for Agent conversations.
      *
-     * OpenAI 兼容平台的 /models 会混入语音识别、语音合成、图像/视频生成、
-     * embedding、rerank 等非对话模型（例如阿里百炼一次返回数百个）。这些模型
-     * 无法参与 Agent 的文本工具调用循环，拉取时按 id 命名特征与输出模态过滤掉。
-     * 生图、生视频模型不进入对话循环，由发送路径单独处理。
+     * On OpenAI-compatible platforms, /models also mixes in non-conversational models such as speech recognition, text-to-speech, image/video generation,
+     * embedding, and rerank (for example, Alibaba Bailian returns hundreds at once). These models
+     * cannot participate in the Agent's text tool-calling loop, so they are filtered out during fetching by id naming patterns and output modality.
+     * Image-generation and video-generation models do not enter the conversation loop and are handled separately by the send path.
      */
     internal fun isChatCapableModel(model: Model): Boolean {
         if (model.supportsImageGeneration || model.supportsVideoGeneration) return false
@@ -136,17 +136,17 @@ internal object RemoteModelFetcher {
     }
 
     private val NON_CHAT_MODEL_ID_MARKERS = listOf(
-        // 语音识别
+        // Speech recognition
         "asr", "whisper", "paraformer", "sensevoice", "gummy",
-        // 语音合成与声音模型
+        // Speech synthesis and voice models
         "tts", "speech", "voice", "cosyvoice", "sambert",
-        // 向量与排序
+        // Embeddings and reranking
         "embedding", "rerank",
-        // 图像生成与理解外的图像专用模型
+        // Image-specific models other than image generation and understanding
         "image", "dall-e", "flux", "stable-diffusion", "wanx", "hidream",
-        // 视频生成
+        // Video generation
         "video", "veo-",
-        // 其他非对话专用模型
+        // Other non-conversational specialized models
         "ocr", "music", "moderation",
     )
 
@@ -353,10 +353,10 @@ internal object RemoteModelFetcher {
         takeIf { supported -> names.any(supported::contains) }?.let { true }
 
     /**
-     * 空列表表示远端没有提供输入模态元数据，后续才允许官方目录补齐。
+     * An empty list means the remote did not provide input modality metadata, and only then is the official catalog allowed to fill it in later.
      *
-     * 不能把缺失字段直接折叠成 text：否则无法区分“远端明确声明仅文本”和
-     * “标准 /models 根本未返回能力字段”，官方目录会错误覆盖前一种情况。
+     * A missing field must not be collapsed directly into text: otherwise there is no way to distinguish "the remote explicitly declares text-only" from
+     * "the standard /models did not return capability fields at all," and the official catalog would incorrectly override the former case.
      */
     private fun JsonObject.inputModalities(architecture: JsonObject?): List<String> {
         stringList("input_modalities", "inputModalities")?.let { return it }

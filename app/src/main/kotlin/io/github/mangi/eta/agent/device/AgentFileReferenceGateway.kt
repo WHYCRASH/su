@@ -235,7 +235,7 @@ internal class AgentFileReferenceGateway(
                 if (index >= 0 && cursor.moveToFirst()) cursor.getString(index) else null
             }
         } catch (_: RuntimeException) {
-            // 名称是可选元数据；实际读取授权仍由 openInputStream 校验。
+            // The name is optional metadata; the actual read permission is still verified by openInputStream.
             null
         }
 
@@ -300,7 +300,7 @@ internal class AgentFileReferenceGateway(
                 }
             }
         } catch (_: RuntimeException) {
-            // 文档提供方可以拒绝非标准列；这表示它没有可引用的本地绝对路径。
+            // Document providers may reject non-standard columns; this means there is no local absolute path to reference.
             null
         }
 

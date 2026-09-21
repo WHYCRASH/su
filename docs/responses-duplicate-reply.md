@@ -1,9 +1,26 @@
-# Responses 正文重复展示
+# Duplicate display of Responses body text
 
-2026-09-20 实机会话“测试回复”：conversation_messages 中同一 run/round 有两个 assistant 块（索引 1 和 2），正文均为“收到，测试正常。有什么需要帮忙的随时说。”；conversation_context_checkpoints 中只有一条 assistant 及一份正文。不是两个独立运行。已完成任务的原始 SSE 与事件没有保留，因此无法从本机记录确认具体是 item_id、output_index 还是 content_index 差异。
+2026-09-20 device session "test reply": conversation_messages held two assistant blocks
+(indexes 1 and 2) for the same run/round, both with the body text for a short test reply,
+while conversation_context_checkpoints held only one assistant record and one body copy.
+This was not two independent runs. The original SSE and events of the finished task are
+not retained, so the on-device records cannot confirm whether the difference was in
+item_id, output_index, or content_index.
 
-Responses 终态 reconcileFinalPart 原先完全依赖内容块身份匹配，匹配失败会为终态正文再次创建 BlockStart/Delta。兼容接口在流式与终态使用不同 ID 或索引时，可以构造出与截图相同的重复路径。
+Responses end-state reconcileFinalPart used to rely entirely on content-block identity
+matching; a failed match would create another BlockStart/Delta pair for the end-state
+body. When a compatible API uses different IDs or indexes for streaming versus end
+state, it can construct the same duplication path seen in the screenshot.
 
-新增有限回退：仅在本轮有一个流式正文块、终态有一个正文段，且终态原文包含相同流式前缀时，复用原块并应用终态正文。多个真实段落仍按身份匹配，不按文字去重，避免吞掉合法重复内容。不会修改已有会话数据库。
+New bounded fallback: only when the round has one streamed body block and the end state
+has one body segment, and the end-state source text contains the same streamed prefix,
+reuse the original block and apply the end-state body. Multiple genuine segments still
+match by identity, never by text dedup, so legitimately repeated content is not swallowed.
+Existing conversation databases are not modified.
 
-新增测试覆盖终态 ID 改写、缺 ID 的 output_index 变化、已结束的部分正文补全，以及合法重复段落保留。本地 Gradle 测试因 Android SDK 路径未配置而未启动；后续由 CI 验证。现有重复消息保留，不能将这项代码修改视为旧记录已清理或实际 SSE 差异已确认。
+New tests cover end-state ID rewrites, output_index changes without IDs, completing an
+already-finished partial body, and preserving legitimately repeated segments. Local
+Gradle tests could not start because no Android SDK path is configured here; CI covers
+them later. Existing duplicated messages are kept as-is: this code change must not be
+read as proof that old records are cleaned up or that the actual SSE difference is
+confirmed.

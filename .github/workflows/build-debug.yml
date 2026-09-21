@@ -1,4 +1,4 @@
-name: Eta Build Debug
+name: su Build Debug
 
 on:
   push:
@@ -15,37 +15,37 @@ concurrency:
 
 jobs:
   build-debug-signed-release:
-    name: 构建 Debug 签名 Release APK
+    name: Build debug-signed release APK
     runs-on: ubuntu-latest
     timeout-minutes: 40
 
     steps:
-      - name: 检出代码
+      - name: Check out code
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
-      - name: 配置 JDK 25
+      - name: Set up JDK 25
         uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5
         with:
           distribution: temurin
           java-version: "25"
 
-      - name: 配置 Gradle
+      - name: Set up Gradle
         uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6
         with:
           cache-provider: basic
 
-      - name: 接受 Android SDK 许可证
+      - name: Accept Android SDK licenses
         run: |
           set -euo pipefail
           sdkmanager="$(find "${ANDROID_HOME:-/usr/local/lib/android/sdk}/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
           if [[ -z "$sdkmanager" ]]; then
-            echo "::error::未找到 sdkmanager"
+            echo "::error::sdkmanager not found"
             exit 1
           fi
           yes | "$sdkmanager" --licenses >/dev/null || true
           "$sdkmanager" --channel=3 "platforms;android-37.0" || true
 
-      - name: 还原发布证书
+      - name: Restore release certificate
         env:
           ETA_RELEASE_KEYSTORE_BASE64: ${{ secrets.ETA_RELEASE_KEYSTORE_BASE64 }}
           ETA_RELEASE_STORE_PASSWORD: ${{ secrets.ETA_RELEASE_STORE_PASSWORD }}
@@ -56,23 +56,23 @@ jobs:
                 -z "$ETA_RELEASE_STORE_PASSWORD" ||
                 -z "$ETA_RELEASE_KEY_ALIAS" ||
                 -z "$ETA_RELEASE_KEY_PASSWORD" ]]; then
-            echo "::error::缺少 Release 签名 Secrets，请检查仓库的 Actions Secrets。"
+            echo "::error::Missing release signing secrets; check the repository's Actions secrets."
             exit 1
           fi
           printf '%s' "$ETA_RELEASE_KEYSTORE_BASE64" \
             | base64 --decode \
             > "$RUNNER_TEMP/eta-release.p12"
 
-      - name: 验证子代理工作区
+      - name: Verify subagent workspace
         run: PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s app/src/test/python -v
 
-      - name: 运行单元测试
+      - name: Run unit tests
         timeout-minutes: 12
         run: >-
           ./gradlew --no-daemon --no-configuration-cache
           :app:testDebugUnitTest
 
-      - name: 上传单测报告
+      - name: Upload unit test reports
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
@@ -83,7 +83,7 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-      - name: 构建 Release APK
+      - name: Build release APK
         env:
           ETA_RELEASE_STORE_FILE: ${{ runner.temp }}/eta-release.p12
           ETA_RELEASE_STORE_PASSWORD: ${{ secrets.ETA_RELEASE_STORE_PASSWORD }}
@@ -93,7 +93,7 @@ jobs:
           ./gradlew --no-daemon --no-configuration-cache
           :app:assembleRelease
 
-      - name: 上传 Release APK
+      - name: Upload release APK
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: eta-debug-signed-release

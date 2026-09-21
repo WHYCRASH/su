@@ -47,12 +47,12 @@ import top.yukonga.miuix.kmp.basic.ScrollBehavior
 import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 
 /**
- * Agent App 统一壳层。
+ * Agent app shell.
  *
- * - 负责全局 Scaffold、状态栏/横向安全边距、顶层工具栏。
- * - 首页工具栏只保留历史入口与溢出菜单（新建对话、终端、浏览器），保持聊天舞台干净。
- * - 非首页子路由统一提供返回按钮与标题，避免每个页面各自像独立设置页。
- * - Settings 由标准二级页骨架自己提供 TopAppBar，壳层在此路由不重复绘制。
+ * - Owns the global Scaffold, status-bar/landscape safe insets, and top-level toolbar.
+ * - The home toolbar keeps only the history entry and the overflow menu (new conversation, terminal, browser) so the chat stage stays clean.
+ * - Non-home child routes share one back button and title instead of each page looking like a standalone settings page.
+ * - Settings provides its own TopAppBar through the standard second-level page scaffold; the shell does not draw a duplicate one on that route.
  */
 @Composable
 internal fun AgentAppShell(
@@ -67,11 +67,6 @@ internal fun AgentAppShell(
     onSearchConversations: (String) -> Unit,
     onNewConversation: () -> Unit,
     onOpenTerminal: () -> Unit,
-    onLaunchKimiWeb: () -> Unit,
-    kimiWebLabel: String,
-    canStopKimiWeb: Boolean,
-    onStopKimiWeb: () -> Unit,
-    onRefreshKimiWeb: () -> Unit,
     onOpenBrowser: () -> Unit,
     onOpenWorkspace: () -> Unit,
     autoCompressEnabled: Boolean = false,
@@ -129,11 +124,6 @@ internal fun AgentAppShell(
                             onOpenConversationPane = onOpenConversationPane,
                             onNewConversation = onNewConversation,
                             onOpenTerminal = onOpenTerminal,
-                            onLaunchKimiWeb = onLaunchKimiWeb,
-                            kimiWebLabel = kimiWebLabel,
-                            canStopKimiWeb = canStopKimiWeb,
-                            onStopKimiWeb = onStopKimiWeb,
-                            onRefreshKimiWeb = onRefreshKimiWeb,
                             onOpenBrowser = onOpenBrowser,
                             onOpenWorkspace = onOpenWorkspace,
                             currentConversationTitle = currentConversationTitle,
@@ -210,11 +200,6 @@ private fun AgentTopBar(
     onOpenConversationPane: () -> Unit,
     onNewConversation: () -> Unit,
     onOpenTerminal: () -> Unit,
-    onLaunchKimiWeb: () -> Unit,
-    kimiWebLabel: String,
-    canStopKimiWeb: Boolean,
-    onStopKimiWeb: () -> Unit,
-    onRefreshKimiWeb: () -> Unit,
     onOpenBrowser: () -> Unit,
     onOpenWorkspace: () -> Unit,
     autoCompressEnabled: Boolean = false,
@@ -260,11 +245,6 @@ private fun AgentTopBar(
             TopBarOverflowMenu(
                 onNewConversation = onNewConversation,
                 onOpenTerminal = onOpenTerminal,
-                onLaunchKimiWeb = onLaunchKimiWeb,
-                kimiWebLabel = kimiWebLabel,
-                canStopKimiWeb = canStopKimiWeb,
-                onStopKimiWeb = onStopKimiWeb,
-                onRefreshKimiWeb = onRefreshKimiWeb,
                 onOpenBrowser = onOpenBrowser,
                 onOpenWorkspace = onOpenWorkspace,
                 autoCompressEnabled = autoCompressEnabled,
@@ -279,7 +259,7 @@ private fun AgentTopBar(
     }
 
     if (isHome) {
-        // 首页聊天舞台保持紧凑；二级内容页统一使用可折叠大标题。
+        // Keep the home chat stage compact; content pages share one collapsible large title.
         SmallTopAppBar(
             title = titleForRoute(route, currentConversationTitle),
             color = color,
@@ -311,7 +291,7 @@ private fun titleForRoute(route: AppRoute?, currentConversationTitle: String? = 
     is AppRoute.Settings -> stringResource(R.string.route_settings)
     is AppRoute.SpeechSettings -> stringResource(R.string.speech_title)
     is AppRoute.AuxiliaryVision -> stringResource(R.string.auxiliary_vision_title)
-    is AppRoute.SubAgents -> "子代理"
+    is AppRoute.SubAgents -> "Sub-agents"
     is AppRoute.TitleModel -> stringResource(R.string.title_model_title)
     is AppRoute.TtsSettings -> stringResource(R.string.tts_title)
     is AppRoute.VoiceModeSettings -> stringResource(R.string.voice_mode_title)

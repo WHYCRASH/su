@@ -30,11 +30,11 @@ internal object HookSupport {
             try {
                 return current.getDeclaredMethod(name, *parameterTypes).apply { isAccessible = true }
             } catch (_: NoSuchMethodException) {
-                // 继续检查父类。
+                // Keep checking the superclass.
             } catch (_: SecurityException) {
-                // 当前类受限时，父类仍可能公开兼容入口。
+                // When the current class is restricted, the superclass may still expose a compatible entry.
             } catch (_: LinkageError) {
-                // ROM 类签名引用缺失类型时按目标不存在处理，不能击穿 system_server。
+                // Treat a ROM signature referencing a missing type as "target absent"; never crash system_server.
             }
             current = current.superclass
         }
@@ -42,7 +42,7 @@ internal object HookSupport {
     }
 
     /**
-     * 安装期按结构筛选公开方法。ROM 签名引用缺失类型时按目标不存在处理。
+     * Filters public methods by structure at install time. Treats a ROM signature referencing a missing type as "target absent".
      */
     fun findPublicMethod(
         clazz: Class<*>,
@@ -56,7 +56,7 @@ internal object HookSupport {
     }
 
     /**
-     * 安装期按结构筛选声明方法。单个方法不可访问时跳过，不影响其他候选项。
+     * Filters declared methods by structure at install time. Skips a single inaccessible method without affecting other candidates.
      */
     fun findDeclaredMethods(
         clazz: Class<*>,
@@ -87,11 +87,11 @@ internal object HookSupport {
             try {
                 return current.getDeclaredField(name).apply { isAccessible = true }
             } catch (_: NoSuchFieldException) {
-                // 继续检查父类。
+                // Keep checking the superclass.
             } catch (_: SecurityException) {
-                // 当前类受限时，父类仍可能公开兼容字段。
+                // When the current class is restricted, the superclass may still expose a compatible field.
             } catch (_: LinkageError) {
-                // ROM 类签名引用缺失类型时按目标不存在处理，不能击穿 system_server。
+                // Treat a ROM signature referencing a missing type as "target absent"; never crash system_server.
             }
             current = current.superclass
         }
@@ -130,7 +130,7 @@ internal object HookSupport {
             val deoptimized = module.deoptimize(executable)
             logger.debug { "Deopt $description = $deoptimized" }
         } catch (exception: Exception) {
-            logger.warn("Deopt 失败: $description, type=${exception.safeLogType()}")
+            logger.warn("Deopt failed: $description, type=${exception.safeLogType()}")
         }
     }
 

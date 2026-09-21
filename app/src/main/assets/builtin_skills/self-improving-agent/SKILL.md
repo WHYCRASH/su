@@ -43,7 +43,7 @@ Promote a lesson into a stable rule only when it is short, reusable, and broadly
 
 Good candidates:
 
-- a rule like "遇到 X 先检查 Y"
+- a rule like "when you hit X, check Y first"
 - a stable workspace convention
 - a long-term user preference the user explicitly wants remembered
 

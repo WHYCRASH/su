@@ -1,9 +1,9 @@
 package io.github.mangi.eta.data.model
 
 /**
- * 识别「专门生视频」模型：走独立视频接口，不进 Agent 工具循环。
+ * Identify 'dedicated video generation' models: they use a dedicated video endpoint and do not enter the Agent tool loop.
  *
- * 视频理解对话模型（input 含 video 的 kimi / step 等）不含这些标记，仍走普通聊天。
+ * Video-understanding chat models (such as kimi / step with video in the input) do not contain these markers and still use normal chat.
  */
 internal object VideoGenerationModels {
     private val ID_MARKERS = listOf(

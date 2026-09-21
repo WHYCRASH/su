@@ -356,7 +356,7 @@ class UsageStatsRepositoryTest {
                 raw = null,
                 delta = ModelUsageDelta(
                     providerId = "fish",
-                    providerName = "魚",
+                    providerName = "Fish",
                     modelId = "grok-4.6",
                     modelDisplayName = "grok-4.6",
                     inputTokens = 24_150_000,
@@ -378,7 +378,7 @@ class UsageStatsRepositoryTest {
             raw = null,
             delta = ModelUsageDelta(
                 providerId = "fish",
-                providerName = "魚",
+                providerName = "Fish",
                 modelId = "grok-4.6",
                 modelDisplayName = "grok-4.6",
                 inputTokens = 10_000,
@@ -392,7 +392,7 @@ class UsageStatsRepositoryTest {
             raw = first,
             delta = ModelUsageDelta(
                 providerId = "fish",
-                providerName = "魚",
+                providerName = "Fish",
                 modelId = "grok-4.6",
                 modelDisplayName = "grok-4.6",
                 inputTokens = 12_000,
@@ -423,7 +423,7 @@ class UsageStatsRepositoryTest {
                         raw = null,
                         delta = ModelUsageDelta(
                             providerId = "fish",
-                            providerName = "魚",
+                            providerName = "Fish",
                             modelId = "grok-4.6",
                             modelDisplayName = "grok-4.6",
                             inputTokens = 10_000,
@@ -436,7 +436,7 @@ class UsageStatsRepositoryTest {
                     ),
                     delta = ModelUsageDelta(
                         providerId = "fish",
-                        providerName = "魚",
+                        providerName = "Fish",
                         modelId = "grok-4.6",
                         modelDisplayName = "grok-4.6",
                         inputTokens = 12_000,
@@ -449,7 +449,7 @@ class UsageStatsRepositoryTest {
                 ),
                 delta = ModelUsageDelta(
                     providerId = "fish",
-                    providerName = "魚",
+                    providerName = "Fish",
                     modelId = "grok-4.6",
                     modelDisplayName = "grok-4.6",
                     inputTokens = 5_000,

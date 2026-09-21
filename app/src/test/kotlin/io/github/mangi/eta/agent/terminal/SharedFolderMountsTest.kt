@@ -61,7 +61,7 @@ class SharedFolderMountsTest {
         assertEquals(SharedFolderMounts.NameError.INVALID, SharedFolderMounts.validateName("", existing))
         assertEquals(SharedFolderMounts.NameError.INVALID, SharedFolderMounts.validateName("has space", existing))
         assertEquals(SharedFolderMounts.NameError.INVALID, SharedFolderMounts.validateName("a/b", existing))
-        assertEquals(SharedFolderMounts.NameError.INVALID, SharedFolderMounts.validateName("中文名", existing))
+        assertEquals(SharedFolderMounts.NameError.INVALID, SharedFolderMounts.validateName("Chinese name", existing))
         assertEquals(SharedFolderMounts.NameError.INVALID, SharedFolderMounts.validateName(".", existing))
         assertEquals(SharedFolderMounts.NameError.INVALID, SharedFolderMounts.validateName("..", existing))
         assertEquals(
@@ -75,7 +75,7 @@ class SharedFolderMountsTest {
     @Test
     fun defaultNameFallsBackWhenBasenameHasNoSafeChars() {
         assertEquals("Download", SharedFolderMounts.defaultName("/sdcard/Download"))
-        assertEquals("share", SharedFolderMounts.defaultName("/sdcard/下载"))
+        assertEquals("share", SharedFolderMounts.defaultName("/sdcard/éàü"))
         assertEquals("a.b_c-d", SharedFolderMounts.defaultName("/x/a.b_c-d"))
     }
 
@@ -126,12 +126,12 @@ class SharedFolderMountsTest {
             ),
         )
 
-        // 整个 inner script 被 shellQuote 包裹，挂载源路径两侧的单引号会被转义；按无引号片段断言。
+        // The entire inner script is wrapped by shellQuote, so the single quotes around the mount source path are escaped; assert using the unquoted fragments.
         assertTrue(payload.contains("/sdcard/Download"))
         assertTrue(payload.contains("/data/data/com.example.app/files"))
         assertTrue(payload.contains("\$eta_rootfs/workspace/mounts/dl\" bind"))
         assertTrue(payload.contains("\$eta_rootfs/workspace/mounts/app\" bind"))
-        // 共享挂载必须在 workspace bind 之后执行，目标路径才落在已挂载的 workspace 上。
+        // Shared mounts must be performed after the workspace bind so the target path lands on the already-mounted workspace.
         val workspaceBind = payload.indexOf("eta_mount_required /data/local/tmp/eta")
         val sharedMount = payload.indexOf("workspace/mounts/dl")
         assertTrue(workspaceBind >= 0 && sharedMount > workspaceBind)

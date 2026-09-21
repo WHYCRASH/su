@@ -1,22 +1,39 @@
-# 第三方声明
+# Third-party notices
 
-## 终端原生组件
+## Native terminal components
 
-Eta 的免 Root Linux 后端以独立进程运行 [PRoot](https://github.com/termux/proot)，并静态链接 [talloc](https://talloc.samba.org/) 与 [libandroid-shmem](https://github.com/termux/libandroid-shmem)。PRoot 源码采用 GPL-2.0-or-later；talloc 采用 LGPL-3.0-or-later；libandroid-shmem 采用 BSD-3-Clause。附带的组合 PRoot 可执行程序按 GPL-3.0-or-later 分发，各组件版权与许可证保留。
+su's rootless Linux backend runs [PRoot](https://github.com/termux/proot) as a standalone
+process and statically links [talloc](https://talloc.samba.org/) and
+[libandroid-shmem](https://github.com/termux/libandroid-shmem). PRoot sources use
+GPL-2.0-or-later; talloc uses LGPL-3.0-or-later; libandroid-shmem uses BSD-3-Clause. The
+bundled combined PRoot executable is distributed under GPL-3.0-or-later; each
+component's copyright and license are retained.
 
-APK 的 `assets/native-sources` 附带校验过的原始源码，以及从实际构建入口自动生成的脚本、PTY 源码和补丁包；`assets/licenses` 附带许可证全文。构建脚本与说明位于 [终端原生组件](TERMINAL_NATIVE.md)。这些独立第三方程序保持其开源许可权利，不受 Eta 主项目非商业许可证的附加限制。
+The APK's `assets/native-sources` carries the verified pristine sources plus the
+script, PTY sources, and patch bundle auto-generated from the actual build entry;
+`assets/licenses` carries the full license texts. Build scripts and instructions live
+under [Native terminal components](TERMINAL_NATIVE.md). These standalone third-party
+programs keep their open-source license rights, unaffected by the su main project's
+additional non-commercial license terms.
 
 ## Miuix
 
-Eta 的应用界面使用 [Miuix](https://github.com/compose-miuix-ui/miuix)，其采用 [Apache License 2.0](https://github.com/compose-miuix-ui/miuix/blob/main/LICENSE)。
+su's app UI uses [Miuix](https://github.com/compose-miuix-ui/miuix), which uses
+[Apache License 2.0](https://github.com/compose-miuix-ui/miuix/blob/main/LICENSE).
 
 ## Material Icons
 
-Eta 的功能图标使用 AndroidX Compose Material Icons 的 Rounded 系列，通过 `material-icons-extended` 依赖提供。图标及其 AndroidX 实现采用 [Apache License 2.0](https://github.com/androidx/androidx/blob/androidx-main/LICENSE.txt)，来源见 [Material Design Icons](https://github.com/google/material-design-icons)。
+su's feature icons use the Rounded set of AndroidX Compose Material Icons, provided
+through the `material-icons-extended` dependency. The icons and their AndroidX
+implementation use
+[Apache License 2.0](https://github.com/androidx/androidx/blob/androidx-main/LICENSE.txt);
+see [Material Design Icons](https://github.com/google/material-design-icons) for origin.
 
 ## Lucide Atom
 
-思考图标使用 [Lucide Atom](https://github.com/lucide-icons/lucide/blob/main/icons/atom.svg)，以本地 VectorDrawable 资源保存，不依赖 Lucide 图标库。该图标采用 ISC License：
+The thinking icon uses [Lucide Atom](https://github.com/lucide-icons/lucide/blob/main/icons/atom.svg),
+stored as a local VectorDrawable resource with no dependency on the Lucide icon library.
+The icon uses the ISC License:
 
 ```text
 ISC License
@@ -38,15 +55,18 @@ OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 ## Android Hidden API Bypass
 
-Eta 使用 [Android Hidden API Bypass](https://github.com/LSPosed/AndroidHiddenApiBypass) 应用用户选择的预测性返回设置。该库采用 [Apache License 2.0](https://github.com/LSPosed/AndroidHiddenApiBypass/blob/main/LICENSE)。
+su uses [Android Hidden API Bypass](https://github.com/LSPosed/AndroidHiddenApiBypass) to
+apply the user's predictive-back setting. The library uses
+[Apache License 2.0](https://github.com/LSPosed/AndroidHiddenApiBypass/blob/main/LICENSE).
 
 ## Lobe Icons
 
-模型与提供商品牌图标来自
-[Lobe Icons](https://github.com/lobehub/lobe-icons) 的
-`@lobehub/icons-static-avatar` 1.13.0。原始 1280×1280 WebP 素材在不改变颜色和比例的前提下，无损缩放为 128×128 后随 Eta 本地打包。
+Model and provider brand icons come from
+[Lobe Icons](https://github.com/lobehub/lobe-icons),
+`@lobehub/icons-static-avatar` 1.13.0. The original 1280×1280 WebP assets were losslessly
+scaled to 128×128 without changing colors or proportions, then bundled locally with su.
 
-| Eta 资源 | Lobe Icons Avatar |
+| su resource | Lobe Icons Avatar |
 | --- | --- |
 | `provider_logo_openai.webp` | `openai.webp` |
 | `provider_logo_anthropic.webp` | `anthropic.webp` |
@@ -71,7 +91,7 @@ Eta 使用 [Android Hidden API Bypass](https://github.com/LSPosed/AndroidHiddenA
 | `model_logo_hunyuan.webp` | `hunyuan.webp` |
 | `model_logo_yi.webp` | `yi.webp` |
 
-Lobe Icons 使用 MIT License：
+Lobe Icons uses the MIT License:
 
 ```text
 MIT License
@@ -97,59 +117,41 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## Kimi Code 图标
+## Optional language runtimes
 
-首页“启动 Kimi Web”入口的 `ic_kimi_code.xml` 转换自 Moonshot AI
-[Kimi Code](https://github.com/MoonshotAI/kimi-code/blob/d1ca65e1de189617e9edbc54010e62d472a1de3d/apps/vscode/resources/kimi-icon.svg)
-的单色侧栏图标。转换仅适配 Android VectorDrawable 格式，保留原始几何与比例。
+su does not bundle uv or Node.js in the APK. When the user installs the matching
+profile, su downloads the current pinned latest stable artifacts: Debian uses the
+official Node.js Linux glibc release, Alpine uses `nodejs-current` from its stable
+repositories, and uv downloads the official glibc or musl artifacts for the selected
+distribution.
 
-Kimi Code 使用 MIT License：
-
-```text
-MIT License
-
-Copyright (c) 2026 Moonshot AI
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-```
-
-OpenAI、Anthropic、Claude、阿里云百炼、Qwen、DeepSeek、Kimi、Xiaomi MiMo、MiniMax、StepFun、Z.ai、ChatGLM、Gemini、Gemma、Grok、Meta、Mistral、豆包、混元、Yi、硅基流动和 OpenRouter 的名称、图标及其他品牌标识归各自权利人所有。Eta 展示这些图标仅用于准确标识用户正在配置的模型服务，不表示这些厂商对 Eta 的赞助、认可或合作关系。OpenAI 图标的使用还应遵循其[品牌规范](https://openai.com/brand/)。
-
-## 可选语言运行时
-
-Eta 不把 uv 或 Node.js 打包进 APK。用户主动安装对应 profile 时，Eta 下载当前固定的最新正式版制品；Debian 使用 Node.js 官方 Linux glibc 发行包，Alpine 使用其稳定仓库中的 `nodejs-current`，uv 按所选发行版下载官方 glibc 或 musl 制品。
-
-| 工具 | 来源 | 许可证 |
+| Tool | Source | License |
 | --- | --- | --- |
 | uv / uvx | [astral-sh/uv](https://github.com/astral-sh/uv) | Apache License 2.0 / MIT |
-| Node.js / npm / npx | [nodejs/node](https://github.com/nodejs/node) | MIT 及发行包内第三方许可证 |
+| Node.js / npm / npx | [nodejs/node](https://github.com/nodejs/node) | MIT plus third-party licenses inside the release |
 
-## 可选 APK 分析工具
+## Optional APK analysis tools
 
-Eta 不把下列工具打包进 APK。用户在 Linux 工具环境页面主动安装“APK 分析”时，Eta 从固定官方 Release 下载并校验制品；工具保存在用户当前选择的 Alpine 或 Debian 环境中，适用各自许可证：
+su does not bundle the following tools in the APK. When the user installs "APK
+analysis" from the Linux tool environment page, su downloads and verifies artifacts
+from the pinned official releases; tools live in the user's currently selected Alpine
+or Debian environment under their own licenses:
 
-| 工具 | 来源 | 许可证 |
+| Tool | Source | License |
 | --- | --- | --- |
 | JADX | [skylot/jadx](https://github.com/skylot/jadx) | Apache License 2.0 |
 | Apktool | [iBotPeaches/Apktool](https://github.com/iBotPeaches/Apktool) | Apache License 2.0 |
 | smali / baksmali | [google/smali](https://github.com/google/smali) | BSD 3-Clause License |
 
-JADX 的发行包许可证会随所需 CLI 文件一并保留；Apktool、smali 与 baksmali 的许可证和第三方声明保留在各自 JAR 制品中。Eta 仅提供经过校验的安装、命令入口和能力边界，不对这些工具重新授权。
+JADX's release license travels with the required CLI files; Apktool's, smali's, and
+baksmali's licenses and third-party notices stay inside their JAR artifacts. su only
+provides verified installation, command entry points, and capability boundaries, and
+does not relicense these tools.
 
-GitHub 的实际制品域名不可达或较慢时，安装器可能通过 `gh-proxy.com` 请求同一个公开 Release URL；Node.js 制品可能先通过 `cdn.npmmirror.com` 请求。下载入口会获知用户的网络地址及所请求的公开制品；Eta 不向其发送账号、Cookie、API Key 或其他 Eta 数据，并在落盘前继续校验内置的官方制品大小与 SHA-256。不希望使用下载入口的用户可以不安装对应可选档案。
+When GitHub's actual artifact domains are unreachable or slow, the installer may request
+the same public Release URL through `gh-proxy.com`; Node.js artifacts may first be
+requested through `cdn.npmmirror.com`. The download endpoint learns the user's network
+address and the requested public artifact; su sends it no accounts, cookies, API keys,
+or other su data, and keeps verifying the built-in official artifact size and SHA-256
+before writing to disk. Users who do not want a download endpoint involved can simply
+not install the matching optional archive.

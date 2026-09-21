@@ -199,7 +199,7 @@ private class PressIndicatorView(
         val cy = height / 2f
         val ringRadius = 20f * density
 
-        // 与目标控件保持清晰的空心边界，内部只给一层很轻的落点着色。
+        // Keep a clean hollow border against the target control, with only one very light landing tint inside.
         paint.style = Paint.Style.FILL
         paint.alpha = if (kind == PressKind.LONG_PRESS) 0x38 else 0x2A
         canvas.drawCircle(cx, cy, ringRadius, paint)
@@ -280,7 +280,7 @@ private class SwipeIndicatorView(
         val curX = startX + (endX - startX) * progress
         val curY = startY + (endY - startY) * progress
 
-        // 先画极淡的路径预告，再让实线和指尖同步前进，避免轨迹看起来比手势先发生。
+        // Paint the very faint path preview first, then advance the solid line and fingertip together so the trail never looks ahead of the gesture.
         paint.style = Paint.Style.STROKE
         paint.strokeWidth = 2f * density
         paint.alpha = (alphaVal * 0.12f * 255).toInt()

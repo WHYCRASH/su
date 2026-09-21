@@ -98,14 +98,14 @@ class AgentRuntimeSafetyTest {
             round = 1,
             toolCallId = "call-1",
             name = "wait_for_text",
-            resultSummary = "失败 · 等待文本超时 · code=TIMEOUT",
+            resultSummary = "Failed · Timed out waiting for text · code=TIMEOUT",
             imageCount = 0,
             imageBytes = 0,
         ).toLogLine()
 
         assertTrue(line.contains("code=TIMEOUT"))
-        // 摘要正文不进日志，只记录长度与提取出的错误码
-        assertFalse(line.contains("等待文本超时"))
+        // The summary body does not go into the log; only the length and the extracted error code are recorded
+        assertFalse(line.contains("Timed out waiting for text"))
     }
 
     @Test

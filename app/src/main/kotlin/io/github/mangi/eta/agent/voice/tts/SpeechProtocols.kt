@@ -18,43 +18,95 @@ internal object SpeechProtocols {
             SpeechEngine.OPENAI, SpeechEngine.GROQ, SpeechEngine.COSYVOICE, SpeechEngine.MOSS ->
                 openAi(config, text, voice, wav = engine == SpeechEngine.GROQ)
             SpeechEngine.STEP -> step(config, text, voice)
-            SpeechEngine.MIMO -> mimo(config, text, voice)
             SpeechEngine.MINIMAX -> minimax(config, text, voice)
             SpeechEngine.QWEN -> qwen(config, text, voice)
             SpeechEngine.XAI -> xai(config, text, voice)
             SpeechEngine.GEMINI -> gemini(config, text, voice)
             SpeechEngine.ELEVENLABS -> elevenLabs(config, text, voice)
             SpeechEngine.FISH -> fish(config, text, voice)
-            SpeechEngine.DOUBAO -> error("doubao uses dedicated client")
         }
 
     fun decode(engine: SpeechEngine, contentType: String?, bytes: ByteArray): ByteArray = when (engine) {
-        SpeechEngine.MIMO -> DoubaoSpeech.pcmToWav(decodeMimoSse(bytes.decodeToString()))
         SpeechEngine.MINIMAX -> decodeMiniMaxSse(bytes.decodeToString())
         SpeechEngine.QWEN -> decodeQwenSse(bytes.decodeToString())
-        SpeechEngine.GEMINI -> DoubaoSpeech.pcmToWav(decodeGemini(bytes.decodeToString()))
+        SpeechEngine.GEMINI -> pcmToWav(decodeGemini(bytes.decodeToString()))
         SpeechEngine.GROQ -> bytes
-        else -> if (DoubaoSpeech.decodeAudio(bytes).extension == "wav") {
-            DoubaoSpeech.decodeAudio(bytes).bytes
+        else -> if (decodeAudio(bytes).extension == "wav") {
+            decodeAudio(bytes).bytes
         } else {
             bytes
         }
     }
 
-    internal fun decodeMimoSse(text: String): ByteArray {
-        val out = java.io.ByteArrayOutputStream()
-        sseData(text).forEach { payload ->
-            if (payload == "[DONE]") return@forEach
-            val json = runCatching { JSONObject(payload) }.getOrNull() ?: return@forEach
-            val encoded = json.optJSONArray("choices")
-                ?.optJSONObject(0)
-                ?.optJSONObject("delta")
-                ?.optJSONObject("audio")
-                ?.optString("data")
-                .orEmpty()
-            if (encoded.isNotBlank()) out.write(Base64.getDecoder().decode(encoded.filterNot { it.isWhitespace() }))
+    data class AudioPayload(val bytes: ByteArray, val extension: String)
+
+    fun decodeAudio(bytes: ByteArray): AudioPayload {
+        val stripped = stripId3(bytes)
+        return when {
+            looksLikeMp3(stripped) || looksLikeMp3(bytes) -> AudioPayload(bytes, "mp3")
+            looksLikeWav(bytes) -> AudioPayload(bytes, "wav")
+            looksLikeOgg(bytes) -> AudioPayload(bytes, "ogg")
+            else -> AudioPayload(pcmToWav(bytes), "wav")
         }
-        speechCheck(out.size() > 0) { "小米语音没有返回音频" }
+    }
+
+    private fun looksLikeMp3(bytes: ByteArray): Boolean {
+        if (bytes.size < 4) return false
+        val id3 = bytes.size >= 10 && bytes[0] == 73.toByte() && bytes[1] == 68.toByte() && bytes[2] == 51.toByte()
+        val frame = (bytes[0].toInt() and 0xff) == 0xff &&
+            (bytes[1].toInt() and 0xe0) == 0xe0 && (bytes[1].toInt() and 0x06) != 0
+        return id3 || frame
+    }
+
+    private fun looksLikeWav(bytes: ByteArray): Boolean =
+        bytes.size >= 12 &&
+            bytes[0] == 'R'.code.toByte() && bytes[1] == 'I'.code.toByte() &&
+            bytes[2] == 'F'.code.toByte() && bytes[3] == 'F'.code.toByte()
+
+    private fun looksLikeOgg(bytes: ByteArray): Boolean =
+        bytes.size >= 4 &&
+            bytes[0] == 'O'.code.toByte() && bytes[1] == 'g'.code.toByte() &&
+            bytes[2] == 'g'.code.toByte() && bytes[3] == 'S'.code.toByte()
+
+    private fun stripId3(bytes: ByteArray): ByteArray {
+        if (bytes.size < 10 || bytes[0] != 73.toByte() || bytes[1] != 68.toByte() || bytes[2] != 51.toByte()) return bytes
+        val size = ((bytes[6].toInt() and 0x7f) shl 21) or
+            ((bytes[7].toInt() and 0x7f) shl 14) or
+            ((bytes[8].toInt() and 0x7f) shl 7) or
+            (bytes[9].toInt() and 0x7f)
+        val start = 10 + size
+        return if (start in 1 until bytes.size) bytes.copyOfRange(start, bytes.size) else bytes
+    }
+
+    fun pcmToWav(pcm: ByteArray, sampleRate: Int = 24000, channels: Int = 1, bits: Int = 16): ByteArray {
+        val byteRate = sampleRate * channels * bits / 8
+        val dataSize = pcm.size
+        val out = java.io.ByteArrayOutputStream(44 + dataSize)
+        fun writeString(value: String) = out.write(value.toByteArray(Charsets.US_ASCII))
+        fun writeInt(value: Int) {
+            out.write(value and 0xff)
+            out.write(value shr 8 and 0xff)
+            out.write(value shr 16 and 0xff)
+            out.write(value shr 24 and 0xff)
+        }
+        fun writeShort(value: Int) {
+            out.write(value and 0xff)
+            out.write(value shr 8 and 0xff)
+        }
+        writeString("RIFF")
+        writeInt(36 + dataSize)
+        writeString("WAVE")
+        writeString("fmt ")
+        writeInt(16)
+        writeShort(1)
+        writeShort(channels)
+        writeInt(sampleRate)
+        writeInt(byteRate)
+        writeShort(channels * bits / 8)
+        writeShort(bits)
+        writeString("data")
+        writeInt(dataSize)
+        out.write(pcm)
         return out.toByteArray()
     }
 
@@ -73,7 +125,7 @@ internal object SpeechProtocols {
                 out.write(bytes)
             }
         }
-        speechCheck(out.size() > 0) { "MiniMax 没有返回音频" }
+        speechCheck(out.size() > 0) { "MiniMax returned no audio" }
         return out.toByteArray()
     }
 
@@ -87,7 +139,7 @@ internal object SpeechProtocols {
                 .orEmpty()
             if (encoded.isNotBlank()) out.write(Base64.getDecoder().decode(encoded.filterNot { it.isWhitespace() }))
         }
-        speechCheck(out.size() > 0) { "通义语音没有返回音频" }
+        speechCheck(out.size() > 0) { "Qwen returned no audio" }
         return out.toByteArray()
     }
 
@@ -101,7 +153,7 @@ internal object SpeechProtocols {
             ?.optJSONObject("inlineData")
             ?.optString("data")
             .orEmpty()
-        speechCheck(encoded.isNotBlank()) { "Gemini 没有返回音频" }
+        speechCheck(encoded.isNotBlank()) { "Gemini returned no audio" }
         return Base64.getDecoder().decode(encoded.filterNot { it.isWhitespace() })
     }
 
@@ -145,56 +197,6 @@ internal object SpeechProtocols {
         val url = stepSpeechUrl(config.baseUrl)
         return Request.Builder().url(url).headers(bearer(config).newBuilder().add("Accept", "application/octet-stream").build())
             .post(jsonBody(payload)).build()
-    }
-
-    internal fun mimoClone(config: AgentModelClient.ModelConfig, text: String, reference: String): Request {
-        speechCheck(reference.startsWith("data:audio/mpeg;base64,") || reference.startsWith("data:audio/wav;base64,")) { "请选择有效的参考录音" }
-        val payload = JSONObject().put("model", "mimo-v2.5-tts-voiceclone")
-            .put("messages", JSONArray()
-                .put(JSONObject().put("role", "user").put("content", ""))
-                .put(JSONObject().put("role", "assistant").put("content", text)))
-            .put("audio", JSONObject().put("format", "wav").put("voice", reference))
-            .put("stream", false)
-        val headers = Headers.Builder().add("Content-Type", "application/json").add("Accept", "application/json")
-            .add("api-key", config.apiKey).add("Authorization", "Bearer ${config.apiKey}")
-            .also { ProviderRequestHeaders.mergeInto(it, config.baseUrl, config.customHeaders) }.build()
-        return Request.Builder().url(ProviderUrls.openAiChatCompletionsUrl(config.baseUrl)).headers(headers)
-            .post(jsonBody(payload.toString())).build()
-    }
-
-    internal fun decodeMimoClone(bytes: ByteArray): ByteArray {
-        val encoded = JSONObject(bytes.decodeToString()).getJSONArray("choices").getJSONObject(0)
-            .getJSONObject("message").getJSONObject("audio").getString("data")
-        speechCheck(encoded.length <= CloudSpeechSynthesizer.MAX_AUDIO_BYTES) { "试听音频超过大小限制" }
-        val wav = Base64.getDecoder().decode(encoded)
-        speechCheck(wav.size >= 44 && wav.copyOfRange(0, 4).toString(Charsets.US_ASCII) == "RIFF" &&
-            wav.copyOfRange(8, 12).toString(Charsets.US_ASCII) == "WAVE") { "MiMo 未返回有效的 WAV 音频" }
-        return wav
-    }
-
-    private fun mimo(config: AgentModelClient.ModelConfig, text: String, voice: String): Request {
-        val payload = JSONObject()
-            .put("model", config.model)
-            .put(
-                "messages",
-                JSONArray().put(JSONObject().put("role", "assistant").put("content", text)),
-            )
-            .put("audio", JSONObject().put("format", "pcm16").put("voice", voice))
-            .put("stream", true)
-            .toString()
-        val headers = Headers.Builder()
-            .add("Content-Type", "application/json")
-            .add("Accept", "text/event-stream")
-            .apply {
-                if (config.apiKey.isNotBlank()) {
-                    add("api-key", config.apiKey)
-                    add("Authorization", "Bearer ${config.apiKey}")
-                }
-            }
-            .also { ProviderRequestHeaders.mergeInto(it, config.baseUrl, config.customHeaders) }
-            .build()
-        return Request.Builder().url(ProviderUrls.openAiChatCompletionsUrl(config.baseUrl))
-            .headers(headers).post(jsonBody(payload)).build()
     }
 
     private fun minimax(config: AgentModelClient.ModelConfig, text: String, voice: String): Request {

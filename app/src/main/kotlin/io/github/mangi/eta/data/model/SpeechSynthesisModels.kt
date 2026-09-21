@@ -3,7 +3,8 @@ package io.github.mangi.eta.data.model
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 /**
- * 识别专用 TTS 模型以隔离聊天选择器；名称不代表支持 OpenAI Speech 协议。
+ * Identifies dedicated TTS models to keep them out of the chat picker;
+ * names do not imply OpenAI Speech protocol support.
  */
 internal object SpeechSynthesisModels {
     fun allowsSpeechEndpoint(provider: ProviderSetting): Boolean =
@@ -30,17 +31,12 @@ internal object SpeechSynthesisModels {
         return "cosyvoice" in id || "moss-ttsd" in id || "moss_ttsd" in id
     }
 
-    fun isRealtimeVoiceProvider(provider: ProviderSetting): Boolean =
-        allowsSpeechEndpoint(provider) && provider.apiKey.isNotBlank() && isDoubaoSpeechHost(provider.baseUrl)
-
     fun isSpeechOnlyProvider(provider: ProviderSetting): Boolean {
         if (isCompatibleSpeechProvider(provider)) return true
-        if (provider.sourceType.equals(ProviderSourceTypes.DOUBAO_SPEECH, ignoreCase = true)) return true
+        // Legacy storage name: providers created for the removed Doubao Voice integration
+        // keep working as generic speech-only providers instead of crashing.
         return provider.baseUrl.trim().toHttpUrlOrNull()?.host.equals("openspeech.bytedance.com", ignoreCase = true)
     }
-
-    fun isDoubaoSpeechHost(baseUrl: String): Boolean =
-        baseUrl.trim().toHttpUrlOrNull()?.host.equals("openspeech.bytedance.com", ignoreCase = true)
 
     fun catalogModels(provider: ProviderSetting): List<Model> {
         val host = provider.baseUrl.trim().toHttpUrlOrNull()?.host.orEmpty().lowercase()
@@ -50,14 +46,9 @@ internal object SpeechSynthesisModels {
                 catalogModel("CosyVoice2", "CosyVoice2"),
                 catalogModel("MOSS-TTSD", "MOSS-TTSD"),
             )
-            provider.sourceType.equals(ProviderSourceTypes.DOUBAO_SPEECH, ignoreCase = true) ||
-                isDoubaoSpeechHost(provider.baseUrl) -> listOf(
-                catalogModel("seed-tts-2.0", "豆包语音合成 2.0"),
-                catalogModel("seed-audio-1.0", "豆包音频生成 1.0"),
-            )
             host.contains("xiaomimimo") || source == ProviderSourceTypes.MIMO -> listOf(
-                catalogModel("mimo-v2.5-tts", "小米语音 2.5"),
-                catalogModel("mimo-v2.5-tts-voiceclone", "小米语音克隆 2.5"),
+                catalogModel("mimo-v2.5-tts", "MiMo Voice 2.5"),
+                catalogModel("mimo-v2.5-tts-voiceclone", "MiMo Voice Clone 2.5"),
             )
             host.contains("minimax") || source == ProviderSourceTypes.MINIMAX -> listOf(
                 catalogModel("speech-2.8-hd", "MiniMax Speech 2.8 HD"),
@@ -83,14 +74,16 @@ internal object SpeechSynthesisModels {
         val models = if (isSpeechOnlyProvider(provider)) {
             provider.models
         } else {
-            provider.models.filterNot { it.modelId.lowercase() in DOUBAO_CATALOG_IDS }
+            provider.models.filterNot { it.modelId.lowercase() in LEGACY_SEED_CATALOG_IDS }
         }
         if (extras.isEmpty()) return models
         val have = models.map { it.modelId.lowercase() }.toHashSet()
         return extras.filter { it.modelId.lowercase() !in have } + models
     }
 
-    private val DOUBAO_CATALOG_IDS = setOf("seed-tts-2.0", "seed-audio-1.0")
+    // Legacy storage names: seed catalog IDs persisted on chat providers stay out of
+    // the merged catalog so removed-provider models never leak into the chat picker.
+    private val LEGACY_SEED_CATALOG_IDS = setOf("seed-tts-2.0", "seed-audio-1.0")
 
     private fun catalogModel(id: String, displayName: String): Model =
         Model(

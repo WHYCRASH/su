@@ -44,7 +44,7 @@ class UserMessageImagesTest {
         assertEquals(emptyList<String>(), sources)
         assertEquals(
             "data:image/jpeg;base64,thumb",
-            UserMessageUi(id = "u1", content = "看图", images = previews, imageSources = sources)
+            UserMessageUi(id = "u1", content = "View image", images = previews, imageSources = sources)
                 .fullImageSourceAt(0),
         )
     }
@@ -54,7 +54,7 @@ class UserMessageImagesTest {
         val history = listOf(
             AgentConversationCodec.durableMessage(
                 AgentConversationCodec.userPersistedImageMessage(
-                    text = "看这张图",
+                    text = "Look at this image",
                     images = listOf(
                         AgentConversationCodec.PersistedImage(
                             path = "/cache/eta-chat-images/c1/photo.jpg",
@@ -68,7 +68,7 @@ class UserMessageImagesTest {
         val messages = listOf(
             UserMessageUi(
                 id = "u1",
-                content = "看这张图",
+                content = "Look at this image",
                 images = listOf("data:image/jpeg;base64,thumb"),
             ),
         )
@@ -83,7 +83,7 @@ class UserMessageImagesTest {
         val history = listOf(
             AgentConversationCodec.durableMessage(
                 AgentConversationCodec.userPersistedImageMessage(
-                    text = "看这张图",
+                    text = "Look at this image",
                     images = listOf(
                         AgentConversationCodec.PersistedImage(
                             path = "/cache/eta-chat-images/c1/other.jpg",
@@ -97,7 +97,7 @@ class UserMessageImagesTest {
         val messages = listOf(
             UserMessageUi(
                 id = "u1",
-                content = "看这张图",
+                content = "Look at this image",
                 images = listOf("preview"),
                 imageSources = listOf("/already/original.jpg"),
             ),

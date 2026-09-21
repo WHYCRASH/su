@@ -8,26 +8,26 @@ import org.json.JSONArray
 import org.json.JSONObject
 import org.json.JSONTokener
 
-/** Provider JSON 与 Eta 稳定会话 DTO 之间的唯一转换和容量边界。 */
+/** The sole conversion and capacity boundary between provider JSON and su stable-session DTOs. */
 internal object AgentConversationCodec {
     internal const val MAX_DRAIN_TRANSCRIPT_CHARS = 16_000
     internal const val MAX_STORAGE_TRANSCRIPT_CHARS = 1_000_000
-    // 结果 transcript 走文件描述符，与归档/检查点对齐，不再受 Binder 事务大小限制。
+    // Result transcripts travel via file descriptor, aligned with archives/checkpoints; no longer bound by the Binder transaction size limit.
     internal const val MAX_IPC_TRANSCRIPT_CHARS = MAX_STORAGE_TRANSCRIPT_CHARS
-    // Room 检查点与运行归档同级，避免会话在远低于模型窗口时被截断。
+    // Room checkpoints are peers of run archives, so sessions are not cut off far below the model window.
     internal const val MAX_CONVERSATION_CHECKPOINT_CHARS = MAX_STORAGE_TRANSCRIPT_CHARS
 
     private const val MAX_CONTENT_CHARS = 64_000
     private const val MAX_REASONING_CHARS = 64_000
     private const val MAX_TOOL_ARGUMENT_CHARS = 32_000
     private const val MAX_TOOL_CALLS_PER_MESSAGE = 64
-    private const val IMAGE_OMITTED_TEXT = "[图片观察已在当前回合使用，未写入持久会话]"
+    private const val IMAGE_OMITTED_TEXT = "[Image observation already used in the current turn; not written to the persisted session]"
     internal const val IMAGE_FILE_TYPE = "image_file"
     internal const val VIDEO_FILE_TYPE = "video_file"
     private const val SENSITIVE_TOOL_OMITTED_TEXT =
-        "[敏感工具参数与原始结果仅供当前回合使用，未写入持久会话]"
+        "[Sensitive tool parameters and raw results are used only for the current turn and are not written to the persistent session]"
     private const val COMPACTION_NOTICE =
-        "[Eta 上下文提示：此前部分 assistant/tool 记录因跨进程或持久化容量上限已压缩，请勿假定缺失步骤未执行。]"
+        "[su context note: some earlier assistant/tool records were compacted due to cross-process or persistence capacity limits; do not assume missing steps never ran.]"
 
     private val json = Json {
         ignoreUnknownKeys = true
@@ -124,7 +124,7 @@ internal object AgentConversationCodec {
         )
         images.forEach { image ->
             require(image.reference.isProviderMediaReference()) {
-                "模型图片尚未在 Agent Runtime 中物化"
+                "Model image has not been materialized in Agent Runtime yet"
             }
             if (image.isVideoMedia()) {
                 content.put(
@@ -386,7 +386,7 @@ internal object AgentConversationCodec {
         if (protectedCount > 0) {
             val protectedEncoded = json.encodeToString(bounded.takeLast(protectedCount))
             require(protectedEncoded.length <= maxChars) {
-                "受保护会话超过持久化容量上限；未截断或丢弃原消息，请压缩历史后重试"
+                "Protected session exceeds the persistence capacity limit; original messages were not truncated or dropped, compact history and retry"
             }
         }
 
@@ -404,7 +404,7 @@ internal object AgentConversationCodec {
         if (protectedCount > 0) {
             encoded = json.encodeToString(bounded)
             if (encoded.length <= maxChars) return encoded
-            error("受保护会话超过持久化容量上限；未截断或丢弃原消息，请压缩历史后重试")
+            error("Protected session exceeds the persistence capacity limit; original messages were not truncated or dropped, compact history and retry")
         }
 
         val last = bounded.lastOrNull() ?: return "[]"

@@ -13,8 +13,8 @@ import io.github.mangi.eta.ui.model.AgentChatUiState
 import io.github.mangi.eta.ui.model.AgentModelPickerUiState
 
 /**
- * 独立对话页：与首页聊天主舞台共用同一套消息/输入组件，
- * 区别仅在于顶部返回由 Shell 统一提供。
+ * Standalone conversation page: shares the same message/input components as the home chat main stage,
+ * the only difference being that the top back button is provided uniformly by the Shell.
  */
 @Composable
 internal fun AgentChatScreen(
@@ -81,7 +81,7 @@ internal fun AgentChatScreen(
             onSuggestionClick = { prompt ->
                 onAction(AgentChatAction.SubmitMessage(prompt))
             },
-            onRunTraceClick = { /* 对话页暂不做 Run trace 展开 */ },
+            onRunTraceClick = { /* The conversation page does not expand the Run trace for now */ },
             onOpenBrowser = { onAction(AgentChatAction.OpenBrowser) },
             onEditAssistant = { id -> onAction(AgentChatAction.EditAssistant(id)) },
             onAssistantSelected = { id -> onAction(AgentChatAction.AssistantSelected(id)) },

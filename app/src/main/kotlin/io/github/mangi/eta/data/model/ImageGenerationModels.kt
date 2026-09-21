@@ -1,9 +1,9 @@
 package io.github.mangi.eta.data.model
 
 /**
- * 识别「专门生图」模型：走独立 images 接口，不进 Agent 工具循环。
+ * Detects "dedicated image-generation" models: they use the standalone images endpoint and do not enter the Agent tool loop.
  *
- * 视觉对话模型（vl / vision / gpt-4o 等）不含这些标记，仍走普通聊天。
+ * Vision chat models (vl / vision / gpt-4o, etc.) do not contain these markers and still use regular chat.
  */
 internal object ImageGenerationModels {
     private val ID_MARKERS = listOf(

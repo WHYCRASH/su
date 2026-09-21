@@ -57,10 +57,11 @@ internal class AgentRunController {
     }
 
     /**
-     * 将补充指令排入下一次模型请求，仍属于当前逻辑 turn。
+     * Queue a follow-up instruction for the next model request; it still belongs to the current logical turn.
      *
-     * 流式模型请求会被打断（取消已注册的 EventSource），已写出的正文由 AgentLoop
-     * 保留后立刻注入 steering。工具批次仍跑完，不在这里取消。
+     * A streaming model request is interrupted (the registered EventSource is cancelled); body text already
+     * written is kept by AgentLoop, which injects steering immediately after. The tool batch still runs
+     * to completion and is not cancelled here.
      */
     fun steer(text: String): Boolean = steer(SteeringInput(text))
 
@@ -68,7 +69,8 @@ internal class AgentRunController {
         val interrupt = enqueueSteering(input) ?: return false
         interruptSteering(interrupt)
         if (!interrupt) {
-            // 暂停时流已经拆掉。入队后唤醒循环，避免 Binder/语音直连时追加排着却一直挂起。
+            // The stream is already torn down while paused. Wake the loop after enqueueing so appended
+            // steering from Binder/voice entry points does not sit queued while suspended.
             resume()
         }
         return true
@@ -86,8 +88,9 @@ internal class AgentRunController {
     }
 
     /**
-     * 压缩排队到响应和工具批次完成后的安全边界，不打断当前 SSE。
-     * 工具批次不会被取消。压缩请求解开暂停，并在安全边界持续执行。
+     * Queue compaction to run at the safe boundary after the response and tool batch complete; never
+     * interrupts the current SSE. The tool batch is not cancelled. A compaction request unpauses and
+     * keeps running at the safe boundary.
      */
     fun requestCompact(
         keepRecentMessages: Int? = null,
@@ -116,8 +119,9 @@ internal class AgentRunController {
         }
 
     /**
-     * 只取消当前请求占用的资源（SSE），不把整个 run 标成 cancelled。
-     * 暂停中的 steering 不再次打断：生成流已在 pause() 里拆掉。
+     * Cancel only the resources held by the current request (SSE); do not mark the whole run cancelled.
+     * Steering issued while paused does not interrupt again: the generation stream was already torn
+     * down in pause().
      */
     private fun interruptCurrentRequest() {
         val interruptibles = resources.filter { it.interruptible }
@@ -129,14 +133,15 @@ internal class AgentRunController {
         }
     }
 
-    /** 默认逐条消费，避免后来的补充指令越过前一条的模型回合。 */
+    /** Consume one at a time by default, so a later follow-up cannot overtake an earlier model turn. */
     fun pollSteeringMessage(): String? = pollSteeringInput()?.text
 
     fun pollSteeringInput(): SteeringInput? = lock.withLock { steeringMessages.pollFirst() }
 
     /**
-     * 自然结束前原子地消费最后一条 steering；若队列为空则永久关闭本 run 的接收入口。
-     * 这样 Service 不会在 loop 已返回后仍把补充指令误报为已接收。
+     * Atomically consume the last steering entry before natural completion; an empty queue permanently
+     * seals this run's intake. This keeps the Service from reporting a follow-up as accepted after the
+     * loop has already returned.
      */
     fun pollSteeringOrSeal(): String? = pollSteeringInputOrSeal()?.text
 
@@ -152,8 +157,8 @@ internal class AgentRunController {
         get() = lock.withLock { steeringMessages.isNotEmpty() }
 
     /**
-     * 暂停执行：后续 [throwIfCancelled] 调用会阻塞挂起，直到 [resume] 或 [cancel]。
-     * 在工作线程的检查点调用，不会阻塞调用方线程。
+     * Pause execution: later [throwIfCancelled] calls block until [resume] or [cancel].
+     * Call on worker-thread checkpoints; never blocks the calling thread.
      */
     val isPaused: Boolean
         get() = paused
@@ -173,7 +178,7 @@ internal class AgentRunController {
     }
 
     /**
-     * 恢复执行：唤醒被 [throwIfCancelled] 阻塞的工作线程，从挂起点继续。
+     * Resume execution: wake worker threads blocked in [throwIfCancelled] so they continue.
      */
     fun resume() {
         lock.withLock {
@@ -183,8 +188,8 @@ internal class AgentRunController {
     }
 
     /**
-     * 检查点：若已取消则抛异常；若已暂停则阻塞挂起直到恢复或取消。
-     * 在 agent 循环的每轮/每步调用，实现暂停可恢复、取消即终止。
+     * Checkpoint: throw if cancelled; if paused, block until resumed or cancelled.
+     * Call every round/step of the agent loop: pause is resumable, cancel is terminal.
      */
     fun throwIfCancelled() {
         lock.withLock {
@@ -216,8 +221,9 @@ internal class AgentRunController {
     }
 
     /**
-     * @param interruptible true 表示可被 steering 打断（当前模型 SSE）。
-     * 工具执行器等长驻资源必须保持 false，避免补充指令把整批工具一起关掉。
+     * @param interruptible true means steering may interrupt it (the current model SSE).
+     * Long-lived resources such as the tool executor must stay false, or a follow-up would
+     * shut down the whole tool batch with it.
      */
     fun register(interruptible: Boolean = false, cancel: () -> Unit): ResourceBinding {
         val resource = CancellableResource(cancel, interruptible)

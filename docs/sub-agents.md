@@ -1,85 +1,149 @@
-# 主代理与子代理
+# Main agent and subagents
 
-设置 → 模型功能 → 子代理，配置三个执行代理模型和一个审查／总结模型。
-原有槽位 1、2 的模型引用和职责不变，新增槽位 3、4 为执行代理；界面按执行 1、2、3、审查排列。允许不同槽位使用同一模型，也允许与主代理相同。
-当前聊天模型负责调度和最终验收。长按模型选择器打开本会话协作开关，默认开启，下一次运行生效。
+Settings → Model features → Subagents configures three worker agent models and one
+review/summary model. The existing slot 1 and 2 model references and duties are
+unchanged; new slots 3 and 4 are workers; the UI orders them worker 1, 2, 3, then
+review. Different slots may share one model, including the main agent's model. The
+current chat model schedules and performs final acceptance. Long-pressing the model
+selector opens the per-conversation collaboration switch, on by default, taking effect
+on the next run.
 
-## 委派与角色
+## Delegation and roles
 
-delegate_task 的 role 为 research（默认）、implementation、review 或 summary。
-implementation 自动选当前较空闲的执行槽位，review/summary 自动选审查槽位；指定 worker 也必须匹配职责。
-未配置的职责返回 ROLE_NOT_CONFIGURED，不静默换模型。
-get_task_result 返回状态、结果、角色、project、workspace_id 和 workspace_path。
-最多两个并行任务，每轮最多 16 项，每项执行预算（含准备和收尾）180 秒，压缩另有累计 180 秒预算。cancel_task 或父任务结束会取消子任务。
-原始委派上下文和结果按敏感工具内容处理，不进入持久会话。
+delegate_task's role is research (default), implementation, review, or summary.
+implementation auto-picks the currently least-busy worker slot, review/summary
+auto-picks the review slot; an explicit worker must still match the duty. Unconfigured
+duties return ROLE_NOT_CONFIGURED instead of silently switching models.
+get_task_result returns status, result, role, project, workspace_id, and workspace_path.
+At most two parallel tasks, at most 16 items per round, 180 seconds of execution budget
+per item (including setup and teardown), plus a separate cumulative 180-second budget
+for compaction. cancel_task or parent-task end cancels subtasks. Original delegation
+context and results are treated as sensitive tool content and never enter the persisted
+conversation.
 
-## 一项目一目录
+## One project, one directory
 
-项目任务必须明确指定 /workspace/<项目名>，不默认 Eta，不允许使用 /workspace 或 mounts。
-项目需已初始化 Git 且至少有一个提交，创建实现工作树前必须没有未提交源码改动。
-换项目传新 project，旧项目的工作区 ID 不能在新项目使用。
+Project tasks must name an explicit /workspace/<project-name>; neither su nor bare
+/workspace or mounts is ever the default. The project must be Git-initialized with at
+least one commit, with no uncommitted source changes before an implementation worktree
+is created. Switching projects means passing a new project; the old project's
+workspace ID is unusable in the new project.
 
-.agent/worktrees/<ID> 存独立 detached worktree；.agent/results/<ID>.json 仅记录基线、
-状态和交付提交，不记录密钥或任务正文。不创建或推送临时分支。.agent 应加入 Git 忽略规则。
-使用设置中所选 Linux，需要 Python 和 Git；不可用时返回错误，不改走 Android Shell。
-只有依赖探测缺少 Python/Git 时返回 WORKSPACE_LINUX_PYTHON_GIT_REQUIRED；脚本启动或传输失败返回 WORKSPACE_EXECUTION_FAILED，环境权限错误保留原错误码。
+.agent/worktrees/<ID> holds a standalone detached worktree; .agent/results/<ID>.json
+records only the baseline, status, and delivery commit, never keys or task bodies. No
+temporary branches are created or pushed. .agent belongs in the Git ignore rules. The
+selected Settings Linux is used, requiring Python and Git; when unavailable, return an
+error instead of falling back to Android Shell. Only dependency probing without
+Python/Git returns WORKSPACE_LINUX_PYTHON_GIT_REQUIRED; script launch or transport
+failure returns WORKSPACE_EXECUTION_FAILED, while environment permission errors keep
+their original code.
 
-1. implementation 传 project，创建独立工作树。子代理仅通过 workspace_file 读写源文件。
-2. 完成后运行时提交并冻结，主代理获得工作树路径及 ID，在该路径执行构建／测试。
-3. review 传同一 project 和 workspace_id，只读检查固定提交。
-4. 主代理读取审查结论、核对 diff 和测试后，明确调用 manage_agent_workspace 的 merge。
-   reviewed 仅代表审查流程完成，不代表审查无问题。快进合入要求主仓库干净且仍在基线，交付未变。
-5. 合入后删除工作树；失败或取消保留现场，list/inspect 可查询，明确放弃才 discard。
+1. implementation passes project and creates a standalone worktree. Subagents read and
+   write sources only through workspace_file.
+2. On completion the runtime commits and freezes; the main agent receives the worktree
+   path and ID and runs builds/tests at that path.
+3. review passes the same project and workspace_id and inspects the pinned commit
+   read-only.
+4. The main agent reads the review verdict, checks the diff and tests, then explicitly
+   calls manage_agent_workspace's merge. reviewed only means the review flow completed,
+   not that the review is clean. Fast-forward merge requires a clean main repo still at
+   the baseline with the delivery unchanged.
+5. The worktree is deleted after merge; failures and cancellations keep the scene for
+   inspection via list/inspect, discarding only on explicit abandon.
 
-## 权限与恢复
+## Permissions and recovery
 
-workspace_file 提供 list_files/read/diff/write/delete，运行时绑定项目和 ID，模型不能覆盖归属。
-相对路径拒绝 ..、Git 元数据、.agent、符号链接、硬链接和特殊文件。文件上限 64 KiB、输出分页。
-审查角色只能读取。子代理不能运行任意 Shell、操作手机、发送消息或创建子代理。
-研究／总结角色的 read_file、list_directory 支持所选 Linux 的 /workspace、/var/minis、minis:// 路径，先映射宿主位置，再按原有文件权限读取；实现／审查仍仅使用绑定工作树的 workspace_file。
-主代理仍有原有权限；目录隔离不是主代理 Root Shell 的系统沙箱。
+workspace_file offers list_files/read/diff/write/delete, bound to the project and ID at
+runtime; models cannot override ownership. Relative paths reject .., Git metadata,
+.agent, symlinks, hard links, and special files. Files cap at 64 KiB with paged output.
+Review roles read only. Subagents cannot run arbitrary Shell, operate the phone, send
+messages, or create subagents. research/summary roles' read_file and list_directory
+support the selected Linux's /workspace, /var/minis, and minis:// paths by mapping to
+the host location first, then reading under the existing file permissions;
+implementation/review still use only the bound worktree's workspace_file. The main
+agent keeps its existing permissions; directory isolation is not a system sandbox for a
+main-agent root shell.
 
-跨进程项目锁串行化文件操作、冻结、合入和回收。审查期间不可合入或删除。
-遗留任务租期到期后 inspect 标记待处理并保留现场。最多 8 个未回收工作树，每任务累计写入预算 16 MiB，创建前检查至少 512 MiB 剩余空间；不自动删除未合入改动。
-重启不恢复模型循环，但可在原项目继续查看和处理交付物。
-当前不支持自动初始化无 Git 项目、自动 rebase 或子代理任意命令执行。
+A cross-process project lock serializes file operations, freezing, merging, and
+reclamation. No merge or delete happens during review. Legacy task leases mark
+inspect as pending on expiry while keeping the scene. At most 8 unreclaimed worktrees,
+a 16 MiB cumulative write budget per task, and a 512 MiB free-space check before
+creation; unmerged changes are never auto-deleted. Restarts do not resume model loops,
+but deliverables stay viewable and actionable in the original project. Auto-initializing
+Git-less projects, auto-rebase, and arbitrary subagent command execution are currently
+unsupported.
 
-## 验证
+## Verification
 
-Python 集成测试覆盖真实 Git 隔离写入、冻结、审查、快进合入、回收，跨项目归属、
-越界/符号/硬链接、脏主仓库、基线变化、失败保留、过期恢复和分页。
-Kotlin 测试覆盖职责路由、角色缺失、工作区参数绑定、只读执行限制与取消。
-设置图标使用机器人（助手）与眼睛（辅助视觉），与标题/推理功能区分。
+Python integration tests cover real-Git isolated writes, freezing, review,
+fast-forward merge, reclamation, cross-project ownership, out-of-bounds/symlink/hardlink
+rejection, dirty main repos, baseline changes, failure preservation, expiry recovery,
+and paging. Kotlin tests cover duty routing, missing roles, workspace parameter
+binding, read-only enforcement, and cancellation. Settings icons use a robot
+(assistant) and an eye (assistive vision) to stay distinct from title/reasoning
+features.
 
-## 子代理自动压缩
+## Automatic subagent compaction
 
-子代理使用独立上下文，默认开启自动压缩；用户在上下文压缩设置中明确选择的开/关优先。
-以该子代理模型配置的上下文窗口计算压力，沿用共享的压缩模型选择、接口模式和推理策略；
-未选择自定义压缩模型时，由子代理自己的模型压缩。没有配置有效上下文窗口时，不猜测容量开启压缩。
-约 80% 窗口压力触发压缩，保留最近完整工具批次；子代理压缩仍归属父会话用量。
-子代理摘要仅在独立执行上下文中使用，不创建永久压缩归档，也不增加子代理工具权限。
-若仍超限且无法继续压缩，返回 SUB_AGENT_CONTEXT_LIMIT 给主代理并保留实现工作树，避免无交互暂停直到超时。
+Subagents use independent contexts with automatic compaction on by default; the user's
+explicit on/off choice in the context-compaction settings wins. Pressure is computed
+against that subagent model's configured context window, reusing the shared compaction
+model selection, interface mode, and reasoning policy; without a custom compaction
+model, the subagent's own model compacts. With no valid configured context window,
+compaction is not enabled on a guessed capacity. Compaction triggers at about 80%
+window pressure keeping the latest complete tool batch; subagent compaction still bills
+to the parent conversation. Subagent summaries live only in the standalone execution
+context: no permanent compaction archive is created and no subagent tool permission is
+added. If the limit still binds and no further compaction is possible, return
+SUB_AGENT_CONTEXT_LIMIT to the main agent and keep the implementation worktree instead
+of pausing without interaction until timeout.
 
-本会话协作弹窗采用统一 WindowDialog：自动委派开关、三个执行槽位与一个审查槽位的当前模型、单个完成按钮。
-长按入口与会话开关作用范围不变；变化从下一次运行生效。
+This conversation's collaboration popup uses a unified WindowDialog: the auto-delegate
+switch, the current models of the three worker slots and one review slot, and a single
+done button. Long-press entry and conversation-switch scope are unchanged; changes take
+effect on the next run.
 
+## Context stats and concurrent compaction
 
-## 上下文统计与并发压缩
+Long-press the context ring to open the stats object selector; a tap still shows usage
+details. Selection only switches the viewed object, never the request model. The main
+agent and launched subtasks reuse AgentLoop usage events: billed-input tokens from the
+interface first, then incremental projection against the billing baseline after tool
+batches, falling back to the shared local estimate for first requests and post-
+compaction states without a bill. Unknown windows stay unknown. Multiple tasks on one
+model are told apart by task ID. get_task_result's context_usage returns the model,
+window, current occupancy, whether estimated, cumulative input/output, the compacting
+flag, compaction counts, and pre/post-compaction occupancy. The UI receives stats
+directly through runtime events, so it still updates while the main agent compacts or
+waits. Compaction state shows per model/task at the message bottom, one line each, and
+any finished or cancelled lane clears its line. Each AgentLoop pauses only its own
+later requests; main-agent compaction never stops launched subagents, whose results the
+coordinator keeps until the parent run ends. Execution and cumulative compaction
+budgets tick on a monotonic clock separately, with compaction timeout returning
+SUB_AGENT_COMPACTION_TIMEOUT. Worktree leases run 420 seconds, covering both budgets
+plus cleanup margin; parent-task stop still cancels subtasks immediately. The
+concurrency cap stays 2; the new slots only widen the choice of worker models.
 
-长按上下文圆环打开统计对象选择器；单击仍显示用量详情。选择只切换查看对象，不切换请求模型。
-主代理与已启动子任务复用 AgentLoop 的用量事件：优先接口输入 token，工具批次后按账单基线加增量投影，首次请求和压缩后无账单时采用共享本地估算。未知窗口保持未知。
-同模型多个任务以任务 ID 区分。get_task_result 的 context_usage 返回模型、窗口、当前占用、是否估算、累计输入输出、压缩中标志、压缩次数及压缩前后占用。
-UI 通过运行时事件直接接收统计，主代理压缩或等待时仍可更新。压缩状态按模型/任务在消息底部逐行展示，任意一路完成或取消即清除对应提示。
-每个 AgentLoop 只暂停自身后续请求；主代理压缩不会停止已启动子代理，子代理结果由协调器保存至父运行结束。执行预算和累计压缩预算用单调时钟分别计时，压缩超时返回 SUB_AGENT_COMPACTION_TIMEOUT。
-工作树租期为 420 秒，覆盖两段预算及清理余量；父任务停止仍立即取消子任务。并发上限保持 2，新增槽位扩大可选执行模型范围。
+## Subagent independent thinking depth
 
+Tapping a model row in "This conversation's collaboration" selects that slot's model;
+long-pressing a model row opens the same-style "Adjust thinking depth" slider popup as
+the main agent, showing only that model's supported levels. Model rows show the
+effective thinking depth; an unconfigured slot can tap to pick a model, while
+long-press triggers no model selection, and models with no switchable level show an
+explanation. Depth overrides live in each subagent slot's own preferences, never in
+provider model default depths, and never touch other conversations' main-agent config.
+One model occupying several slots may set different depths per slot. Without an
+override the model default applies; replacing or clearing a slot's model clears that
+slot's override. Settings apply cross-conversation to that subagent slot and load on
+the next main-agent run's subagent configuration; already-running tasks keep their
+depth.
 
-## 子代理独立思考深度
+Subagent model pickers (both the conversation-collaboration entry and the settings
+entry) offer "None"; picking it clears that slot's model and independent thinking
+override so the slot no longer loads on the next run, leaving other slots alone.
 
-单击“本会话协作”中的模型行选择该槽位模型，长按模型行打开与主代理相同样式的“调整思考深度”滑块弹窗，只展示该模型支持的档位。模型行显示当前生效的思考深度；未配置的槽位可单击选模型，长按不触发模型选择，没有可切换档位的模型显示说明。
-深度覆盖保存在每个子代理槽位独立的偏好中，不写提供商模型默认深度，也不修改其他会话的主代理配置。同模型占用多个槽位时可设置不同深度。未设置覆盖时沿用模型默认值；更换或清除槽位模型会清除该槽位覆盖。
-设置跨会话用于该子代理槽位，在下一次主代理运行加载子代理配置时生效，已运行的任务保持原来的深度。
-
-子代理选模型弹窗（会话协作入口和设置入口）均提供“无”，选择后清除该槽位模型和独立思考覆盖，下一次运行不再加载该槽位，不影响其它槽位。
-
-当前会话任务执行、暂停或压缩期间，协作弹窗内开关、模型行及完成按钮置灰禁用；不能选模型、清空或调整思考。仍可点击弹窗外空白处关闭，任务结束恢复编辑。
+While the current conversation's tasks run, pause, or compact, the collaboration
+popup's switch, model rows, and done button disable; models can be neither picked,
+cleared, nor depth-adjusted. Tapping outside the popup still closes it, and editing
+returns when tasks end.

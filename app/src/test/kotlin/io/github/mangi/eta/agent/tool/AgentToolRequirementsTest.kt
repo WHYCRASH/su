@@ -49,16 +49,14 @@ class AgentToolRequirementsTest {
     fun ordinaryAuthorizationIsIndependentFromRootAndForegroundIntentsDoNotNeedAccessibility() {
         val restricted = AgentToolCapabilities(
             rootAvailable = false, accessibilityAvailable = false,
-            notificationsAllowed = false, usageAllowed = false, locationAllowed = false, colorOs = false,
+            notificationsAllowed = false, usageAllowed = false, locationAllowed = false,
         )
         val names = restricted.project(catalog(root = true)).names()
         assertTrue(setOf("launch_app", "open_uri", "terminal", "browser_use").all { it in names })
         assertTrue(setOf("observe_screen", "wait_for_text", "wait_for_package", "recent_notifications", "app_usage_summary", "get_current_location").none { it in names })
-        assertEquals("ROOT_REQUIRED", restricted.unavailableCode("search_coloros_notes"))
-        assertEquals("DEVICE_UNSUPPORTED", restricted.copy(rootAvailable = true).unavailableCode("search_coloros_notes"))
+        assertEquals("NOTIFICATION_ACCESS_REQUIRED", restricted.unavailableCode("search_personal_orders"))
+        assertEquals(null, restricted.copy(notificationsAllowed = true).unavailableCode("search_personal_orders"))
         assertEquals(null, restricted.copy(notificationsAllowed = true).unavailableCode("recent_notifications"))
-        assertEquals("NOTIFICATION_ACCESS_REQUIRED", restricted.copy(rootAvailable = true).unavailableCode("search_personal_orders"))
-        assertEquals(null, restricted.copy(rootAvailable = true, colorOs = true).unavailableCode("search_personal_orders"))
         assertEquals(null, restricted.copy(accessibilityAvailable = true).unavailableCode("observe_screen"))
         assertEquals(null, restricted.copy(accessibilityRecoveryAvailable = true).unavailableCode("observe_screen"))
     }
@@ -73,12 +71,12 @@ class AgentToolRequirementsTest {
     }
 
     @Test
-    fun frameworkConnectionDoesNotGrantRootAndRootSnapshotDoesNotRequireFramework() {
-        assertEquals(LsposedRequirement.OPTIONAL, AgentToolRequirements.find("search_coloros_memories")?.lsposedRequirement)
+    fun frameworkConnectionDoesNotGrantRootAndRootOnlyToolsDoNotRequireFramework() {
+        assertEquals(LsposedRequirement.NONE, AgentToolRequirements.find("get_health_summary")?.lsposedRequirement)
         assertEquals("ROOT_REQUIRED", AgentToolCapabilities(rootAvailable = false, lsposedAvailable = true)
-            .unavailableCode("search_coloros_memories"))
+            .unavailableCode("get_health_summary"))
         assertEquals(null, AgentToolCapabilities(rootAvailable = true, lsposedAvailable = false)
-            .unavailableCode("search_coloros_memories"))
+            .unavailableCode("get_health_summary"))
     }
 
     private fun catalog(root: Boolean) = AgentToolCatalog.build(

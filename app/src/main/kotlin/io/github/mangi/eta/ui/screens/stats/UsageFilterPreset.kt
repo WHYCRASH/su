@@ -48,9 +48,9 @@ internal fun usageFilterPresetRange(
     val end = today.atTime(23, 59)
     val startDate = when (preset) {
         UsageFilterPreset.Today -> today
-        // 周四：上周四 00:00 → 今天 23:59。不是「含今天共 7 个日历日」。
+        // Last 7 days: 00:00 seven days ago → today 23:59. Not "7 calendar days including today".
         UsageFilterPreset.Last7Days -> today.minusDays(7)
-        // 周四：本周一 00:00 → 今天 23:59。
+        // This week: Monday 00:00 → today 23:59.
         UsageFilterPreset.ThisWeek -> today.with(TemporalAdjusters.previousOrSame(weekStart))
         UsageFilterPreset.Last30Days -> today.minusDays(30)
         UsageFilterPreset.ThisMonth -> today.withDayOfMonth(1)

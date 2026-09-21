@@ -15,14 +15,6 @@ class SpeechSynthesisModelsTest {
         }
     }
 
-    @Test fun realtimeRequiresEnabledCredentialedOpenspeechProvider() {
-        val p = OpenAiCompatibleProviderSetting("d", "d", "https://openspeech.bytedance.com", apiKey = "test")
-        assertTrue(SpeechSynthesisModels.isRealtimeVoiceProvider(p))
-        assertFalse(SpeechSynthesisModels.isRealtimeVoiceProvider(p.copy(apiKey = "")))
-        assertFalse(SpeechSynthesisModels.isRealtimeVoiceProvider(p.copy(isEnabled = false)))
-        assertFalse(SpeechSynthesisModels.isRealtimeVoiceProvider(p.copy(baseUrl = "https://api.openai.com/v1")))
-    }
-
     @Test fun dedicatedModelsAreNotChatModels() {
         listOf("tts-1", "gpt-4o-mini-tts", "cosyvoice-v2", "speech-01-hd").forEach {
             assertTrue(it, SpeechSynthesisModels.matches(it))
@@ -42,7 +34,7 @@ class SpeechSynthesisModelsTest {
 
     @Test fun openspeechIsSpeechOnly() {
         val provider = OpenAiCompatibleProviderSetting(
-            id = "d", name = "豆包语音", baseUrl = "https://openspeech.bytedance.com", apiKey = "k",
+            id = "d", name = "Legacy speech provider", baseUrl = "https://openspeech.bytedance.com", apiKey = "k",
         )
         assertTrue(SpeechSynthesisModels.isSpeechOnlyProvider(provider))
         assertFalse(

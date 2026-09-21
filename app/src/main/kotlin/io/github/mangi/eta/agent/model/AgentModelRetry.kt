@@ -3,7 +3,7 @@ package io.github.mangi.eta.agent.model
 import io.github.mangi.eta.agent.runtime.AgentEvent
 import io.github.mangi.eta.agent.runtime.AgentRunController
 
-/** 重试只包围模型请求；完整响应返回前不提交历史或执行本地工具。 */
+/** Retries wrap only the model request; don't commit history or run local tools until the complete response is returned. */
 internal class AgentModelRetry(
     private val waitBeforeRetry: (AgentRunController, Long) -> Unit = { controller, delay ->
         controller.awaitRetryDelay(delay)
@@ -50,8 +50,8 @@ internal class AgentModelRetry(
                 return Result(round, response)
             } catch (failure: Exception) {
                 controller.throwIfCancelled()
-                // 还没吐出可见正文就被 steering/暂停打断：当作空助手回合，Loop 继续同一 run。
-                // 已有可见正文时必须由 Provider 带回部分内容，这里不能用空消息盖掉。
+                // Interrupted by steering/pause before any visible content is emitted: treat it as an empty assistant turn, and Loop continues the same run.
+                // When visible content already exists, the Provider must return partial content; don't overwrite it with an empty message here.
                 if (
                     (controller.hasPendingSteering || controller.hasPausedInterrupt) &&
                     !sawVisibleText &&
@@ -86,7 +86,7 @@ internal class AgentModelRetry(
                 if (retries == MAX_RETRIES) {
                     throw AgentModelFailure(
                         classified.code, false,
-                        "${classified.message} 已重试 $MAX_RETRIES 次仍未恢复，已保留此前完成的工具结果。",
+                        "${classified.message} has been retried $MAX_RETRIES times but still hasn't recovered; previously completed tool results have been retained.",
                         classified,
                         diagnostic = classified.diagnostic,
                     )
@@ -96,7 +96,7 @@ internal class AgentModelRetry(
                 onEvent(AgentEvent.ModelRetryScheduled(round, retries, MAX_RETRIES, delayMs.toInt(), classified.code, reasonDetail))
                 waitBeforeRetry(controller, delayMs)
                 controller.throwIfCancelled()
-                // 展示保留失败尝试，模型上下文与最终推理摘要只接纳成功尝试。
+                // Display retained failed attempts; the model context and final reasoning summary only accept successful attempts.
                 discardAttemptReasoning()
                 round += 1
             }

@@ -19,11 +19,11 @@ class AgentRunMessageProjectorTest {
     fun supplementSeparatesResumedTextAndReplacementFromPausedBubble() {
         val projector = AgentRunMessageProjector()
         var messages: List<io.github.mangi.eta.ui.model.AgentChatMessageUi> = emptyList()
-        messages = projector.appendTextDelta("run", 1, 0, "暂停前", messages)
-        messages = messages + io.github.mangi.eta.ui.model.UserMessageUi(id = "user-run-supplement-1", content = "补充")
-        messages = projector.appendTextDelta("run", 1, 1, "新输出", messages)
-        messages = projector.finalizeTextBlock("run", 1, 1, "新输出定稿", messages)
-        assertEquals(listOf("暂停前", "补充", "新输出定稿"), messages.map {
+        messages = projector.appendTextDelta("run", 1, 0, "Before pause", messages)
+        messages = messages + io.github.mangi.eta.ui.model.UserMessageUi(id = "user-run-supplement-1", content = "Addendum")
+        messages = projector.appendTextDelta("run", 1, 1, "New output", messages)
+        messages = projector.finalizeTextBlock("run", 1, 1, "New output finalized", messages)
+        assertEquals(listOf("Before pause", "Addendum", "New output finalized"), messages.map {
             when (it) {
                 is io.github.mangi.eta.ui.model.AgentMessageUi -> it.content
                 is io.github.mangi.eta.ui.model.UserMessageUi -> it.content
@@ -45,15 +45,15 @@ class AgentRunMessageProjectorTest {
     @Test
     fun retryKeepsFailedAttemptSeparateAndReplayClearsItsNotice() {
         val projector = AgentRunMessageProjector { 1_000L }
-        val partial = projector.appendTextDelta("retry-run", 2, 0, "半截", emptyList())
+        val partial = projector.appendTextDelta("retry-run", 2, 0, "Incomplete", emptyList())
         val event = AgentEvent.ModelRetryScheduled(2, 1, 3, 2_000, "MODEL_TIMEOUT")
         val retrying = projector.scheduleModelRetry("retry-run", event, partial)
         assertEquals(-1, AgentRunMessageProjector.resultTargetIndex("retry-run", retrying))
         assertEquals("assistant-retry-run-3-result", AgentRunMessageProjector.resultFallbackId("retry-run", retrying))
         val repeated = projector.scheduleModelRetry("retry-run", event, retrying)
         assertEquals(retrying, repeated)
-        val resumed = projector.appendTextDelta("retry-run", 3, 0, "完整回答", retrying)
-        assertEquals(listOf("半截", "完整回答"), resumed.filterIsInstance<AgentMessageUi>().map { it.content })
+        val resumed = projector.appendTextDelta("retry-run", 3, 0, "Complete answer", retrying)
+        assertEquals(listOf("Incomplete", "Complete answer"), resumed.filterIsInstance<AgentMessageUi>().map { it.content })
         assertFalse(resumed.filterIsInstance<AgentMessageUi>().first().isStreaming)
         assertEquals(SystemNoticeCode.ModelRetry, resumed.filterIsInstance<SystemNoticeMessageUi>().single().code)
         assertTrue(projector.resetForReplay("retry-run", resumed).isEmpty())
@@ -69,19 +69,19 @@ class AgentRunMessageProjectorTest {
                 toolName = "observe_screen",
                 status = ToolActivityStatusUi.Success,
                 argumentsSummary = "{}",
-                resultSummary = "完成",
+                resultSummary = "Done",
             ),
             ToolActivityMessageUi(
                 id = "$runId-tool-1-call-failed",
                 toolName = "run_command",
                 status = ToolActivityStatusUi.Failed,
                 argumentsSummary = "{}",
-                resultSummary = "执行失败",
+                resultSummary = "Execution failed",
             ),
         )
         val otherRunMessages = listOf(
-            AgentMessageUi(id = "assistant-run-other-1-0", content = "仍在输出", isStreaming = true),
-            ThinkingMessageUi(id = "run-other-thinking-1-0", content = "仍在思考", isStreaming = true),
+            AgentMessageUi(id = "assistant-run-other-1-0", content = "Still outputting", isStreaming = true),
+            ThinkingMessageUi(id = "run-other-thinking-1-0", content = "Still thinking", isStreaming = true),
             ToolActivityMessageUi(
                 id = "run-other-tool-1-call-1",
                 toolName = "observe_screen",
@@ -97,8 +97,8 @@ class AgentRunMessageProjectorTest {
         )
         val messages = otherRunMessages + knownTools + listOf(
             AgentMessageUi(id = "assistant-$runId", content = "", isStreaming = true),
-            AgentMessageUi(id = "assistant-$runId-1-0", content = "回答\n\n", isStreaming = true),
-            ThinkingMessageUi(id = "$runId-thinking-1-0", content = "思考", isStreaming = true),
+            AgentMessageUi(id = "assistant-$runId-1-0", content = "Answer\n\n", isStreaming = true),
+            ThinkingMessageUi(id = "$runId-thinking-1-0", content = "Thinking", isStreaming = true),
             unfinishedTool,
         )
 
@@ -108,7 +108,7 @@ class AgentRunMessageProjectorTest {
         val assistantMessages = finalized.filterIsInstance<AgentMessageUi>()
             .filter { it.id.startsWith("assistant-$runId") }
         assertTrue(assistantMessages.all { !it.isStreaming && it.renderMarkdown })
-        assertEquals("回答", assistantMessages.last().content)
+        assertEquals("Answer", assistantMessages.last().content)
         val thinking = finalized.filterIsInstance<ThinkingMessageUi>().single { it.id.startsWith(runId) }
         assertFalse(thinking.isStreaming)
         assertTrue(thinking.collapsed)
@@ -121,28 +121,28 @@ class AgentRunMessageProjectorTest {
         val runId = "run-replay"
         val user = UserMessageUi(
             id = "user-$runId",
-            content = "分析截图",
+            content = "Analyze screenshot",
             images = listOf("image-preview"),
         )
-        val legacySupplement = UserMessageUi(id = "user-$runId-supplement-1", content = "原始补充")
-        val replayedSupplement = UserMessageUi(id = "user-$runId-supplement-2", content = "继续检查")
+        val legacySupplement = UserMessageUi(id = "user-$runId-supplement-1", content = "Original addendum")
+        val replayedSupplement = UserMessageUi(id = "user-$runId-supplement-2", content = "Continue checking")
         val otherRunMessages = listOf(
-            UserMessageUi(id = "user-other-run", content = "之前的问题"),
-            AgentMessageUi(id = "assistant-other-run-1-0", content = "之前的回答"),
-            ThinkingMessageUi(id = "other-run-thinking-1-0", content = "之前的思考", isStreaming = false),
+            UserMessageUi(id = "user-other-run", content = "Previous question"),
+            AgentMessageUi(id = "assistant-other-run-1-0", content = "Previous answer"),
+            ThinkingMessageUi(id = "other-run-thinking-1-0", content = "Previous thinking", isStreaming = false),
             ToolActivityMessageUi(
                 id = "other-run-tool-1-call-1",
                 toolName = "observe_screen",
                 status = ToolActivityStatusUi.Success,
                 argumentsSummary = "{}",
             ),
-            UserMessageUi(id = "user-other-run-supplement-2", content = "之前的补充"),
+            UserMessageUi(id = "user-other-run-supplement-2", content = "Previous addendum"),
         )
         val messages = otherRunMessages + listOf(
             user,
             AgentMessageUi(id = "assistant-$runId", content = "", isStreaming = true),
-            AgentMessageUi(id = "assistant-$runId-1-0", content = "半截回答", isStreaming = true),
-            ThinkingMessageUi(id = "$runId-thinking-1-fallback", content = "半截思考", isStreaming = true),
+            AgentMessageUi(id = "assistant-$runId-1-0", content = "Incomplete answer", isStreaming = true),
+            ThinkingMessageUi(id = "$runId-thinking-1-fallback", content = "Incomplete thinking", isStreaming = true),
             ToolActivityMessageUi(
                 id = "$runId-tool-1-call-1",
                 toolName = "observe_screen",
@@ -165,7 +165,7 @@ class AgentRunMessageProjectorTest {
     fun repeatedReplayRebuildsTextReasoningAndToolsWithoutAccumulatingContent() {
         val projector = AgentRunMessageProjector(nowElapsedRealtime = { 1_000L })
         val runId = "run-repeat"
-        val user = UserMessageUi(id = "user-$runId", content = "看屏幕")
+        val user = UserMessageUi(id = "user-$runId", content = "Look at screen")
         val toolStart = AgentEvent.ToolStarted(
             round = 1,
             toolCallId = "call-1",
@@ -176,7 +176,7 @@ class AgentRunMessageProjectorTest {
             round = 1,
             toolCallId = "call-1",
             name = "observe_screen",
-            resultSummary = "完成",
+            resultSummary = "Done",
             imageCount = 0,
             imageBytes = 0,
             success = true,
@@ -185,18 +185,18 @@ class AgentRunMessageProjectorTest {
 
         repeat(3) {
             messages = projector.resetForReplay(runId, messages)
-            messages = projector.appendReasoningDelta(runId, round = 1, index = 0, delta = "先检查", messages)
+            messages = projector.appendReasoningDelta(runId, round = 1, index = 0, delta = "Check first", messages)
             messages = projector.finalizeThinking(runId, messages)
             messages = projector.startTool(runId, toolStart, messages)
             messages = projector.finishTool(runId, toolEnd, messages)
-            messages = projector.appendTextDelta(runId, round = 2, index = 0, delta = "检查", messages)
-            messages = projector.appendTextDelta(runId, round = 2, index = 0, delta = "完成", messages)
+            messages = projector.appendTextDelta(runId, round = 2, index = 0, delta = "Check", messages)
+            messages = projector.appendTextDelta(runId, round = 2, index = 0, delta = "Done", messages)
             messages = projector.finalizeText(runId, messages)
 
             assertEquals(4, messages.size)
             assertEquals(user, messages.first())
-            assertEquals("先检查", messages.filterIsInstance<ThinkingMessageUi>().single().content)
-            assertEquals("检查完成", messages.filterIsInstance<AgentMessageUi>().single().content)
+            assertEquals("Check first", messages.filterIsInstance<ThinkingMessageUi>().single().content)
+            assertEquals("CheckDone", messages.filterIsInstance<AgentMessageUi>().single().content)
             assertEquals(ToolActivityStatusUi.Success, messages.filterIsInstance<ToolActivityMessageUi>().single().status)
         }
     }
@@ -205,14 +205,14 @@ class AgentRunMessageProjectorTest {
     fun replayResetClearsOnlyThatRunsThinkingClockAndKeepsUnreplayedUserInputs() {
         var now = 1_000L
         val projector = AgentRunMessageProjector(nowElapsedRealtime = { now })
-        val supplement = UserMessageUi(id = "user-run-reset-supplement-1", content = "保留这条补充")
+        val supplement = UserMessageUi(id = "user-run-reset-supplement-1", content = "Keep this addendum")
         var messages: List<AgentChatMessageUi> = listOf(supplement)
-        messages = projector.appendReasoningDelta("run-reset", round = 1, index = 0, delta = "先前思考", messages)
-        messages = projector.appendReasoningDelta("run-other", round = 1, index = 0, delta = "其他思考", messages)
+        messages = projector.appendReasoningDelta("run-reset", round = 1, index = 0, delta = "Previous thinking", messages)
+        messages = projector.appendReasoningDelta("run-other", round = 1, index = 0, delta = "Other thoughts", messages)
         now = 9_000L
 
         messages = projector.resetForReplay("run-reset", messages)
-        messages = projector.appendReasoningDelta("run-reset", round = 1, index = 0, delta = "恢复思考", messages)
+        messages = projector.appendReasoningDelta("run-reset", round = 1, index = 0, delta = "Resume thinking", messages)
         now = 11_000L
         messages = projector.finalizeThinking("run-reset", messages)
         messages = projector.finalizeThinking("run-other", messages)
@@ -227,9 +227,9 @@ class AgentRunMessageProjectorTest {
         var now = 1_000L
         val projector = AgentRunMessageProjector(nowElapsedRealtime = { now })
         val runId = "run-1"
-        var messages: List<AgentChatMessageUi> = listOf(UserMessageUi(id = "user-$runId", content = "看屏幕"))
+        var messages: List<AgentChatMessageUi> = listOf(UserMessageUi(id = "user-$runId", content = "Look at screen"))
 
-        messages = projector.appendReasoningDelta(runId, round = 1, index = 0, delta = "先观察", messages)
+        messages = projector.appendReasoningDelta(runId, round = 1, index = 0, delta = "Observe first", messages)
         now = 4_000L
         messages = projector.startTool(
             runId,
@@ -255,14 +255,14 @@ class AgentRunMessageProjectorTest {
         )
 
         now = 5_000L
-        messages = projector.appendReasoningDelta(runId, round = 2, index = 0, delta = "再确认", messages)
+        messages = projector.appendReasoningDelta(runId, round = 2, index = 0, delta = "Confirm again", messages)
         messages = projector.startTool(
             runId,
             AgentEvent.ToolStarted(
                 round = 2,
                 toolCallId = "call_observe_2",
                 name = "run_command",
-                argsPreview = "执行命令 · Android · root",
+                argsPreview = "Run command · Android · root",
                 command = "pm list packages | head",
             ),
             projector.finalizeThinkingRound(runId, round = 2, messages)
@@ -289,7 +289,7 @@ class AgentRunMessageProjectorTest {
 
         val secondTool = messages[4] as ToolActivityMessageUi
         assertEquals(ToolActivityStatusUi.Running, secondTool.status)
-        assertEquals("执行命令 · Android · root", secondTool.argumentsSummary)
+        assertEquals("Run command · Android · root", secondTool.argumentsSummary)
         assertEquals("pm list packages | head", secondTool.command)
     }
 
@@ -298,11 +298,11 @@ class AgentRunMessageProjectorTest {
         val projector = AgentRunMessageProjector(nowElapsedRealtime = { 1_000L })
         val runId = "run-text"
         var messages: List<AgentChatMessageUi> = listOf(
-            UserMessageUi(id = "user-$runId", content = "分析一下"),
-            AgentMessageUi(id = "assistant-$runId-1", content = "第一轮", isStreaming = false),
+            UserMessageUi(id = "user-$runId", content = "Analyze"),
+            AgentMessageUi(id = "assistant-$runId-1", content = "First round", isStreaming = false),
         )
 
-        messages = projector.appendReasoningDelta(runId, round = 2, index = 0, delta = "继续推理", messages)
+        messages = projector.appendReasoningDelta(runId, round = 2, index = 0, delta = "Continue reasoning", messages)
         messages = projector.startTool(
             runId,
             AgentEvent.ToolStarted(
@@ -313,8 +313,8 @@ class AgentRunMessageProjectorTest {
             ),
             projector.finalizeThinkingRound(runId, round = 2, messages)
         )
-        messages = projector.appendTextDelta(runId, round = 2, index = 1, delta = "第二轮", messages)
-        messages = projector.appendTextDelta(runId, round = 2, index = 1, delta = "回答", messages)
+        messages = projector.appendTextDelta(runId, round = 2, index = 1, delta = "Second round", messages)
+        messages = projector.appendTextDelta(runId, round = 2, index = 1, delta = "Answer", messages)
 
         assertEquals(
             listOf(
@@ -327,7 +327,7 @@ class AgentRunMessageProjectorTest {
             messages.map { it.id }
         )
         val roundTwoAssistant = messages.last() as AgentMessageUi
-        assertEquals("第二轮回答", roundTwoAssistant.content)
+        assertEquals("Second roundAnswer", roundTwoAssistant.content)
         assertTrue(roundTwoAssistant.isStreaming)
     }
 
@@ -335,7 +335,7 @@ class AgentRunMessageProjectorTest {
     fun keepsFallbackToolCallIdsDistinctAcrossRounds() {
         val projector = AgentRunMessageProjector(nowElapsedRealtime = { 1_000L })
         val runId = "run-fallback"
-        var messages: List<AgentChatMessageUi> = listOf(UserMessageUi(id = "user-$runId", content = "操作手机"))
+        var messages: List<AgentChatMessageUi> = listOf(UserMessageUi(id = "user-$runId", content = "Operate phone"))
 
         messages = projector.startTool(
             runId,
@@ -343,7 +343,7 @@ class AgentRunMessageProjectorTest {
                 round = 1,
                 toolCallId = "tool_call_0",
                 name = "search_apps",
-                argsPreview = """{"query":"相机"}""",
+                argsPreview = """{"query":"camera"}""",
             ),
             messages
         )
@@ -383,10 +383,10 @@ class AgentRunMessageProjectorTest {
         val projector = AgentRunMessageProjector(nowElapsedRealtime = { 1_000L })
         val runId = "run-order"
         var messages: List<AgentChatMessageUi> = listOf(
-            UserMessageUi(id = "user-$runId", content = "搜一下")
+            UserMessageUi(id = "user-$runId", content = "Search")
         )
 
-        messages = projector.appendTextDelta(runId, round = 1, index = 0, delta = "先查找应用", messages)
+        messages = projector.appendTextDelta(runId, round = 1, index = 0, delta = "Find the app first", messages)
         messages = projector.startTool(
             runId,
             AgentEvent.ToolStarted(
@@ -413,14 +413,14 @@ class AgentRunMessageProjectorTest {
         val projector = AgentRunMessageProjector(nowElapsedRealtime = { 1_000L })
         val runId = "run-trim"
         var messages: List<AgentChatMessageUi> = listOf(
-            UserMessageUi(id = "user-$runId", content = "你好")
+            UserMessageUi(id = "user-$runId", content = "Hello")
         )
 
-        messages = projector.appendTextDelta(runId, round = 1, index = 0, delta = "回答。\n\n", messages)
+        messages = projector.appendTextDelta(runId, round = 1, index = 0, delta = "Answer.\n\n", messages)
         messages = projector.finalizeTextRound(runId, round = 1, messages)
 
         val assistant = messages.last() as AgentMessageUi
-        assertEquals("回答。", assistant.content)
+        assertEquals("Answer.", assistant.content)
         assertFalse(assistant.isStreaming)
     }
 
@@ -434,16 +434,16 @@ class AgentRunMessageProjectorTest {
                 round = 1,
                 toolCallId = "call-1",
                 name = "run_command",
-                argsPreview = "执行命令",
+                argsPreview = "Run command",
             ),
-            listOf(UserMessageUi(id = "user-$runId", content = "重启设备")),
+            listOf(UserMessageUi(id = "user-$runId", content = "Restart device")),
         )
 
-        val interrupted = projector.interruptRunningTools("任务中断", running)
+        val interrupted = projector.interruptRunningTools("Task interrupted", running)
         val tool = interrupted.filterIsInstance<ToolActivityMessageUi>().single()
 
         assertEquals(ToolActivityStatusUi.Unknown, tool.status)
-        assertEquals("任务中断", tool.resultSummary)
+        assertEquals("Task interrupted", tool.resultSummary)
     }
 
     @Test
@@ -451,26 +451,26 @@ class AgentRunMessageProjectorTest {
         val projector = AgentRunMessageProjector(nowElapsedRealtime = { 1_000L })
         val runId = "run-interleaved"
         var messages: List<AgentChatMessageUi> = listOf(
-            UserMessageUi(id = "user-$runId", content = "搜索最新消息"),
+            UserMessageUi(id = "user-$runId", content = "Search for the latest news"),
         )
 
         messages = projector.appendReasoningDelta(
             runId,
             round = 1,
             index = 0,
-            delta = "先判断需要搜索",
+            delta = "First determine if a search is needed",
             messages,
         )
         messages = projector.appendTextDelta(
             runId,
             round = 1,
             index = 1,
-            delta = "我先查一下。",
+            delta = "Let me check first.",
             messages,
         )
         messages = projector.startHostedTool(
             runId,
-            AgentEvent.HostedToolStarted(round = 1, toolCallId = "ws_1", name = "网页搜索"),
+            AgentEvent.HostedToolStarted(round = 1, toolCallId = "ws_1", name = "Web search"),
             projector.finalizeTextRound(runId, round = 1, messages),
         )
         messages = projector.finishHostedTool(
@@ -478,7 +478,7 @@ class AgentRunMessageProjectorTest {
             AgentEvent.HostedToolFinished(
                 round = 1,
                 toolCallId = "ws_1",
-                name = "网页搜索",
+                name = "Web search",
                 success = true,
             ),
             messages,
@@ -487,14 +487,14 @@ class AgentRunMessageProjectorTest {
             runId,
             round = 1,
             index = 2,
-            delta = "整理搜索结果",
+            delta = "Organize search results",
             messages,
         )
         messages = projector.appendTextDelta(
             runId,
             round = 1,
             index = 3,
-            delta = "这是最终答案。",
+            delta = "This is the final answer.",
             messages,
         )
 
@@ -521,15 +521,15 @@ class AgentRunMessageProjectorTest {
         val projector = AgentRunMessageProjector(nowElapsedRealtime = { 1_000L })
         val runId = "run-sealed"
         var messages: List<AgentChatMessageUi> = listOf(
-            UserMessageUi(id = "user-$runId", content = "写个故事"),
+            UserMessageUi(id = "user-$runId", content = "Write a story"),
         )
-        messages = projector.appendReasoningDelta(runId, round = 1, index = 0, delta = "构思情节", messages)
-        messages = projector.appendTextDelta(runId, round = 1, index = 1, delta = "从前有座山。", messages)
+        messages = projector.appendReasoningDelta(runId, round = 1, index = 0, delta = "Outline the plot", messages)
+        messages = projector.appendTextDelta(runId, round = 1, index = 1, delta = "Once upon a time, there was a mountain.", messages)
         messages = projector.finalizeRun(runId, messages)
 
         val finalized = messages
-        messages = projector.appendReasoningDelta(runId, round = 1, index = 0, delta = "还要再想一下", messages)
-        messages = projector.appendTextDelta(runId, round = 1, index = 1, delta = "续写", messages)
+        messages = projector.appendReasoningDelta(runId, round = 1, index = 0, delta = "Need to think some more.", messages)
+        messages = projector.appendTextDelta(runId, round = 1, index = 1, delta = "Continue writing", messages)
         messages = projector.startAssistantBlock(
             runId,
             AgentEvent.AssistantBlockStart(
@@ -542,7 +542,7 @@ class AgentRunMessageProjectorTest {
         messages = projector.ensureCompletedThinking(
             runId = runId,
             round = 2,
-            content = "结束后的思考",
+            content = "Reflection after finishing",
             messages = messages,
         )
 
@@ -550,9 +550,9 @@ class AgentRunMessageProjectorTest {
         val thinking = messages.filterIsInstance<ThinkingMessageUi>().single()
         assertFalse(thinking.isStreaming)
         assertTrue(thinking.collapsed)
-        assertEquals("构思情节", thinking.content)
+        assertEquals("Outline the plot", thinking.content)
         val assistant = messages.filterIsInstance<AgentMessageUi>().single()
-        assertEquals("从前有座山。", assistant.content)
+        assertEquals("Once upon a time, there was a mountain.", assistant.content)
         assertFalse(assistant.isStreaming)
     }
 
@@ -564,14 +564,14 @@ class AgentRunMessageProjectorTest {
             runId,
             round = 1,
             index = 0,
-            delta = "先想",
+            delta = "Think first",
             messages = emptyList(),
         )
         messages = projector.finalizeRun(runId, messages)
         messages = projector.resetForReplay(runId, messages)
-        messages = projector.appendReasoningDelta(runId, round = 1, index = 0, delta = "回放思考", messages)
+        messages = projector.appendReasoningDelta(runId, round = 1, index = 0, delta = "Replay reasoning", messages)
         val thinking = messages.filterIsInstance<ThinkingMessageUi>().single()
-        assertEquals("回放思考", thinking.content)
+        assertEquals("Replay reasoning", thinking.content)
         assertTrue(thinking.isStreaming)
         assertFalse(thinking.collapsed)
     }
@@ -581,10 +581,10 @@ class AgentRunMessageProjectorTest {
         val projector = AgentRunMessageProjector(nowElapsedRealtime = { 1_000L })
         val runId = "run-dup-think"
         var messages: List<AgentChatMessageUi> = projector.appendReasoningDelta(
-            runId, round = 1, index = 0, delta = "先想清楚结构", messages = emptyList(),
+            runId, round = 1, index = 0, delta = "Think through the structure first", messages = emptyList(),
         )
         messages = projector.finalizeThinkingRound(runId, 1, messages)
-        messages = projector.appendTextDelta(runId, round = 1, index = 1, delta = "修表匠的钟", messages)
+        messages = projector.appendTextDelta(runId, round = 1, index = 1, delta = "The watchmaker's clock", messages)
         val afterAnswer = messages
         messages = projector.startAssistantBlock(
             runId,
@@ -596,18 +596,18 @@ class AgentRunMessageProjectorTest {
             messages,
         )
         messages = projector.appendReasoningDelta(
-            runId, round = 1, index = 2, delta = "先想清楚结构", messages,
+            runId, round = 1, index = 2, delta = "Think through the structure first", messages,
         )
         assertEquals(afterAnswer, messages)
         assertEquals(1, messages.filterIsInstance<ThinkingMessageUi>().size)
     }
 
     @Test fun completedFallbackDoesNotReplaceVisibleStreamingAnswer() {
-        assertEquals("已显示的回答", mergeCompletedAssistantContent("已显示的回答", "完全不同的终态", 1))
-        assertEquals("已显示的回答。", mergeCompletedAssistantContent("已显示的回答", "已显示的回答。", 1))
-        assertEquals("已显示的回答", mergeCompletedAssistantContent("已显示的回答\n", "已显示的回答", 1))
-        assertEquals("短", mergeCompletedAssistantContent("短", "", 1))
-        assertEquals("终态", mergeCompletedAssistantContent("", "终态", 1))
-        assertEquals("第一段", mergeCompletedAssistantContent("第一段", "另一段", 2))
+        assertEquals("Displayed answer", mergeCompletedAssistantContent("Displayed answer", "A completely different final state", 1))
+        assertEquals("Displayed answer.", mergeCompletedAssistantContent("Displayed answer", "Displayed answer.", 1))
+        assertEquals("Displayed answer", mergeCompletedAssistantContent("Displayed answer\n", "Displayed answer", 1))
+        assertEquals("Short", mergeCompletedAssistantContent("Short", "", 1))
+        assertEquals("Final state", mergeCompletedAssistantContent("", "Final state", 1))
+        assertEquals("First paragraph", mergeCompletedAssistantContent("First paragraph", "Another paragraph", 2))
     }
 }

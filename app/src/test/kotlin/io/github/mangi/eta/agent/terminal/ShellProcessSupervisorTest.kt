@@ -59,7 +59,7 @@ class ShellProcessSupervisorTest {
         assertTrue(payload.contains("chroot"))
         assertTrue(payload.contains(AlpineEnvironmentPaths.READY_MARKER))
         assertTrue(payload.contains("/bin/busybox env -i"))
-        // Alpine 的 /bin/sh 是绝对符号链接，Android 侧就绪检查必须放行符号链接。
+        // Alpine's /bin/sh is an absolute symlink; the Android-side readiness check must allow symlinks.
         assertTrue(payload.contains("[ -h \"\$eta_rootfs/bin/sh\" ]"))
 
         val debianPayload = supervisor.buildLinuxPayload(

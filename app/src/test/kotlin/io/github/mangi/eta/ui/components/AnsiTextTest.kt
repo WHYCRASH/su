@@ -65,7 +65,7 @@ class AnsiTextTest {
     fun carriageReturnKeepsEarlierLinesAndStyleState() {
         val parsed = ansiToAnnotatedString("\u001B[31mfirst\nabc\rdef")
         assertEquals("first\ndef", parsed.text)
-        // \r 之前的颜色状态在行覆盖后仍然保留（与真实终端一致）。
+        // The color state from before \r survives the line overwrite (matching real terminal behavior).
         val lastLine = parsed.spanStyles.last()
         assertEquals(Color(0xFFCD0000), lastLine.item.color)
     }
@@ -95,7 +95,7 @@ class AnsiTextTest {
 
     @Test
     fun realColorCliBannerKeepsTextAndColors() {
-        // 真实 CLI 横幅捕获（含 CRLF、256 色与粗体 SGR）。
+        // Captured real CLI banner (with CRLF, 256-color, and bold SGR).
         val raw = "\r\n  \u001B[38;5;111m▐█▛█▛█▌\u001B[39m  \u001B[1m\u001B[38;5;111mKimi server ready\u001B[39m\u001B[22m  \u001B[38;5;244m0.39.1\u001B[39m\r\n  \u001B[38;5;111m▐█████▌\u001B[39m  \u001B[38;5;244mLocal web UI is available from this machine.\u001B[39m\r\n"
         val parsed = ansiToAnnotatedString(raw)
         assertTrue(parsed.text.contains("Kimi server ready"))

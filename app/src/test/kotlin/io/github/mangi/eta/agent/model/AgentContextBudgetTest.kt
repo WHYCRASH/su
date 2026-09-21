@@ -14,7 +14,7 @@ class AgentContextBudgetTest {
 
     @Test
     fun countTokensChineseUsesOperitStyleEstimate() {
-        val text = "一二三四五六七八九十"
+        val text = "アイウエオカキクケコ"
         assertEquals(15, AgentContextBudget.countTokens(text))
         assertTrue(AgentContextBudget.countTokens(text) > text.length / 3)
     }

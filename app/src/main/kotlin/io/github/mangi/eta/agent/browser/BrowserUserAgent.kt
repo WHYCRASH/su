@@ -43,8 +43,8 @@ internal enum class BrowserUserAgent(
         }
 
         /**
-         * 部分站点用独立 m. 域名，只改 UA 仍会停在桌面页。
-         * 仅对明确的桌面/移动主机对做替换，避免误伤普通 www 站点。
+         * Some sites use a separate m. domain, so changing only the UA still leaves you on the desktop page.
+         * Only replace explicit desktop/mobile host pairs to avoid affecting ordinary www sites.
          */
         fun reloadUrl(url: String, profile: BrowserUserAgent): String {
             val trimmed = url.trim()

@@ -6,10 +6,10 @@ import io.github.mangi.eta.EtaApp
 import io.github.mangi.eta.core.AndroidAgentLogger
 
 /**
- * 在 GUI 工具执行前确认 Eta 无障碍服务已经真实连接。
+ * Before the GUI tools execute, confirm that the Eta accessibility service is actually connected.
  *
- * 持久保护、Secure Settings 写入与断连重绑均由 system_server 后端负责。这里不申请
- * Root，也不直接改系统设置；保护关闭或后端不可用时 fail closed。
+ * Persistent protection, Secure Settings writes, and rebinding after disconnection are all handled by the system_server backend. This does not request
+ * Root, nor does it directly modify system settings; fail closed when protection is disabled or the backend is unavailable.
  */
 object AgentAccessibilityKeeper {
     internal fun ensureEnabledForGuiOperation(context: Context): AccessibilityEnableResult {
@@ -54,21 +54,21 @@ object AgentAccessibilityKeeper {
         if (!protectionAvailable() || !protectionEnabled()) {
             return AccessibilityEnableResult.failure(
                 code = "ACCESSIBILITY_UNAVAILABLE",
-                message = "Eta 无障碍服务未连接；请在系统设置中开启 Eta 无障碍服务",
+                message = "su accessibility service is not connected; enable the su accessibility service in system settings",
                 recoveryRequested = false,
             )
         }
         if (!requestRecovery()) {
             return AccessibilityEnableResult.failure(
                 code = "ACCESSIBILITY_PROTECTION_UNAVAILABLE",
-                message = "无障碍保护后端不可用；本次 GUI 操作未执行",
+                message = "Accessibility protection backend is unavailable; this GUI operation was not executed",
                 recoveryRequested = true,
             )
         }
         if (!awaitServiceBinding()) {
             return AccessibilityEnableResult.failure(
                 code = "ACCESSIBILITY_REPAIR_TIMEOUT",
-                message = "Eta 无障碍服务未在恢复时限内连接；本次 GUI 操作未执行",
+                message = "su accessibility service did not connect within the recovery time limit; this GUI operation was not executed",
                 recoveryRequested = true,
             )
         }

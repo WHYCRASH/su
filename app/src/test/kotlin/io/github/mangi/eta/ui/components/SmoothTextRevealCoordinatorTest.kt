@@ -41,7 +41,7 @@ class SmoothTextRevealCoordinatorTest {
         var pulses = 0
         coordinator.setOnRevealAdvanced { if (it > 0f) pulses++ }
         val key = RevealBlockKey(0)
-        val node = attach(coordinator, key, "正在显示的新文字")
+        val node = attach(coordinator, key, "Newly shown text")
         assertEquals(0, pulses)
         val clock = TestFrameClock()
         val job = launch(clock, start = CoroutineStart.UNDISPATCHED) { coordinator.runFrameClock() }
@@ -63,8 +63,8 @@ class SmoothTextRevealCoordinatorTest {
         val coordinator = SmoothTextRevealCoordinator()
         val earlierKey = RevealBlockKey(0)
         val laterKey = RevealBlockKey(100)
-        val earlierNode = attach(coordinator, earlierKey, "早先的思考正文")
-        attach(coordinator, laterKey, "随后到达的工具输出内容")
+        val earlierNode = attach(coordinator, earlierKey, "Earlier")
+        attach(coordinator, laterKey, "Later tool output")
 
         coordinator.detach(earlierKey, earlierNode)
 
@@ -90,14 +90,14 @@ class SmoothTextRevealCoordinatorTest {
     fun reattachedBlockKeepsCompletedPrefixAndAnimatesOnlyNewText() {
         val coordinator = SmoothTextRevealCoordinator()
         val key = RevealBlockKey(0)
-        val oldNode = attach(coordinator, key, "已有文字")
+        val oldNode = attach(coordinator, key, "Draft")
 
         coordinator.detach(key, oldNode)
         assertTrue(coordinator.drained.value)
-        attach(coordinator, key, "已有文字和新增文字")
+        attach(coordinator, key, "Draft two")
 
         val snapshot = coordinator.drawSnapshot(key)!!
-        assertEquals(4f, snapshot.progress, 0f)
+        assertEquals(5f, snapshot.progress, 0f)
         assertEquals(9, snapshot.boundaries.lastIndex)
         assertFalse(coordinator.drained.value)
     }
@@ -106,7 +106,7 @@ class SmoothTextRevealCoordinatorTest {
     fun layoutWithoutMountedNodeIsImmediatelyReadableOnLaterAttach() {
         val coordinator = SmoothTextRevealCoordinator()
         val key = RevealBlockKey(0)
-        val text = "尚未挂载时收到的历史内容"
+        val text = "History received before mounting"
         val state = SmoothTextRevealState(key, coordinator)
         state.onTextLayout(text, layout(text))
 
@@ -122,8 +122,8 @@ class SmoothTextRevealCoordinatorTest {
     fun staleDetachDoesNotCompleteTheReplacementNode() {
         val coordinator = SmoothTextRevealCoordinator()
         val key = RevealBlockKey(0)
-        val oldNode = attach(coordinator, key, "原始内容")
-        val replacementNode = attach(coordinator, key, "替换后的完整内容")
+        val oldNode = attach(coordinator, key, "Original")
+        val replacementNode = attach(coordinator, key, "Replacement text")
 
         coordinator.detach(key, oldNode)
 
@@ -139,26 +139,26 @@ class SmoothTextRevealCoordinatorTest {
         // Parent restore finishes before this old Markdown node attaches.
         coordinator.resumeAnimationsAfterCatchUp()
         val key = RevealBlockKey(20)
-        val node = attach(coordinator, key, "已有文字")
-        assertEquals(4f, coordinator.drawSnapshot(key)!!.progress, 0f)
-        coordinator.updateLayout(key, node, "已有文字和新增文字", layout("已有文字和新增文字"))
-        assertEquals(4f, coordinator.drawSnapshot(key)!!.progress, 0f)
+        val node = attach(coordinator, key, "Draft")
+        assertEquals(5f, coordinator.drawSnapshot(key)!!.progress, 0f)
+        coordinator.updateLayout(key, node, "Draft two", layout("Draft two"))
+        assertEquals(5f, coordinator.drawSnapshot(key)!!.progress, 0f)
         assertFalse(coordinator.drained.value)
         val newKey = RevealBlockKey(110)
-        attach(coordinator, newKey, "新段落")
+        attach(coordinator, newKey, "New section")
         assertEquals(0f, coordinator.drawSnapshot(newKey)!!.progress, 0f)
     }
 
     @Test fun scrollPauseThenResumeKeepsOldTextAndAnimatesNextDelta() = runBlocking {
         val coordinator = SmoothTextRevealCoordinator()
         val key = RevealBlockKey(0)
-        val node = attach(coordinator, key, "已有文字")
+        val node = attach(coordinator, key, "Draft")
         coordinator.pauseAnimationsAndCatchUp()
-        val duringScroll = "已有文字滑动期间新增"
+        val duringScroll = "Draft late"
         coordinator.updateLayout(key, node, duringScroll, layout(duringScroll))
         assertEquals(duringScroll.length.toFloat(), coordinator.drawSnapshot(key)!!.progress, 0f)
         coordinator.resumeAnimationsWithoutCatchingUp()
-        val afterScroll = duringScroll + "恢复后的新文字"
+        val afterScroll = duringScroll + " resumed"
         coordinator.updateLayout(key, node, afterScroll, layout(afterScroll))
         assertEquals(duringScroll.length.toFloat(), coordinator.drawSnapshot(key)!!.progress, 0f)
         assertFalse(coordinator.drained.value)
@@ -175,10 +175,10 @@ class SmoothTextRevealCoordinatorTest {
     @Test fun scrollReattachDoesNotResetAlreadyVisibleText() {
         val coordinator = SmoothTextRevealCoordinator()
         val key = RevealBlockKey(0)
-        val node = attach(coordinator, key, "已有文字")
+        val node = attach(coordinator, key, "Draft")
         coordinator.pauseAnimationsAndCatchUp()
         coordinator.detach(key, node)
-        val text = "已有文字以及滑动期间收到的内容"
+        val text = "Draft and extra"
         attach(coordinator, key, text)
         coordinator.resumeAnimationsWithoutCatchingUp()
         assertEquals(text.length.toFloat(), coordinator.drawSnapshot(key)!!.progress, 0f)

@@ -57,15 +57,11 @@ import io.github.mangi.eta.agent.device.BoundedRootCommandExecutor
 import io.github.mangi.eta.agent.device.DeviceLocationProvider
 import io.github.mangi.eta.agent.device.RootAccess
 import io.github.mangi.eta.core.AndroidAgentLogger
-import io.github.mangi.eta.core.safeLogType
-import io.github.mangi.eta.data.model.AppUpdateOffer
-import io.github.mangi.eta.data.repository.AppUpdateRepository
 import io.github.mangi.eta.data.repository.RuntimeConfigRepository
 import io.github.mangi.eta.ui.AppearanceSettingsScreen
 import io.github.mangi.eta.ui.HapticsSettingsScreen
 import io.github.mangi.eta.ui.ContextCompressionSettingsScreen
 import io.github.mangi.eta.ui.SettingsScreen
-import io.github.mangi.eta.ui.components.AppUpdateDialog
 import io.github.mangi.eta.ui.components.MiuixDialogActions
 import io.github.mangi.eta.ui.model.AgentChatAction
 import io.github.mangi.eta.ui.model.AgentHomeAction
@@ -106,7 +102,6 @@ import java.util.Date
 import java.util.Locale
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.ensureActive
 import top.yukonga.miuix.kmp.basic.Icon
@@ -121,7 +116,7 @@ import top.yukonga.miuix.kmp.nav.transition.NavSwipeDirection
 import top.yukonga.miuix.kmp.window.WindowDialog
 
 /**
- * Agent App 根组件：持有本地导航栈，并把 Screen actions 交给 [AgentAppState]。
+ * Agent app root: owns the local navigation stack and hands screen actions to [AgentAppState].
  */
 @Composable
 fun AgentAppRoot(
@@ -163,8 +158,6 @@ fun AgentAppRoot(
     val lifecycleOwner = LocalLifecycleOwner.current
     val focusManager = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
-    var updateOffer by remember { mutableStateOf<AppUpdateOffer?>(null) }
-    val currentVersion = remember { AppUpdateRepository.currentVersionName(context) }
     DisposableEffect(lifecycleOwner, focusManager, keyboard) {
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
@@ -175,15 +168,9 @@ fun AgentAppRoot(
                 }
                 Lifecycle.Event.ON_RESUME -> {
                     RootAccess.refresh(context)
-                    appViewModel.refreshKimiWeb()
                     agentState.refreshPermissionHealth()
                     agentState.refreshRuntimeResults()
                     agentState.refreshRequestOverhead()
-                    uiScope.launch {
-                        AppUpdateRepository.checkForUpdate(context, force = false)
-                            .getOrNull()
-                            ?.let { updateOffer = it }
-                    }
                 }
                 else -> Unit
             }
@@ -211,7 +198,7 @@ fun AgentAppRoot(
         conversationExportId = null
         if (uri == null) return@rememberLauncherForActivityResult
         if (id == null) {
-            Toast.makeText(context, "导出目标已丢失，未写入文件，请重新选择会话。", Toast.LENGTH_LONG).show()
+            Toast.makeText(context, "Export target is gone; nothing was written. Please pick the conversation again.", Toast.LENGTH_LONG).show()
             return@rememberLauncherForActivityResult
         }
         uiScope.launch {
@@ -243,12 +230,12 @@ fun AgentAppRoot(
                     runCatching { android.provider.DocumentsContract.deleteDocument(context.contentResolver, uri) }.getOrDefault(false)
                 }
                 if (failure is kotlinx.coroutines.CancellationException) {
-                    if (!cleaned && touchedDestination) Toast.makeText(context, "导出已取消，目标文件可能不完整，请删除后重试。", Toast.LENGTH_LONG).show()
+                    if (!cleaned && touchedDestination) Toast.makeText(context, "Export canceled. The target file may be incomplete; please delete it and try again.", Toast.LENGTH_LONG).show()
                     throw failure
                 }
                 val detail = failure.message ?: context.getString(R.string.conversation_export_failed)
                 Toast.makeText(context, detail + if (!cleaned) {
-                    if (touchedDestination) "\n目标文件可能不完整，请删除后重试。" else "\n未写入备份；文件选择器创建的空文件可能仍保留。"
+                    if (touchedDestination) "\nThe target file may be incomplete; please delete it and try again." else "\nNo backup was written; the empty file created by the file picker may still remain."
                 } else "", Toast.LENGTH_LONG).show()
             } finally {
                 kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable + Dispatchers.IO) {
@@ -267,17 +254,6 @@ fun AgentAppRoot(
         RuntimeConfigRepository.ensureDefaults(EtaApp.serviceInstance)
     }
 
-    LaunchedEffect(Unit) {
-        delay(800)
-        AppUpdateRepository.checkForUpdate(context, force = true)
-            .onFailure { failure ->
-                AndroidAgentLogger.warn(
-                    "App update check failed: type=${failure.safeLogType()}",
-                )
-            }
-            .getOrNull()
-            ?.let { updateOffer = it }
-    }
 
     LaunchedEffect(assistantConversationKey) {
         val conversationKey = assistantConversationKey ?: return@LaunchedEffect
@@ -307,7 +283,7 @@ fun AgentAppRoot(
     }
 
     fun pushFromDrawer(route: AppRoute) {
-        // 先收起抽屉再入栈：NavDisplay 若带着打开的侧栏+聊天页一起转场，底部按钮会顿一下。
+        // Collapse the drawer before pushing: if NavDisplay transitions with the open sidebar + chat page together, the bottom button will hitch.
         conversationPaneOpen = false
         pushRoute(route)
     }
@@ -330,7 +306,7 @@ fun AgentAppRoot(
         ).show()
     }
 
-    // NavDisplay 只在还能出栈时拦截返回；根页面必须自己接住，否则系统会直接 finish Activity。
+    // NavDisplay only intercepts back when it can still pop; the root page must handle it itself, otherwise the system will directly finish the Activity.
     val interceptExitBack = backStack.size <= 1 && !conversationPaneOpen && !browserSheetVisible
     val exitBackState = rememberNavigationEventState(NavigationEventInfo.None)
     NavigationBackHandler(
@@ -370,26 +346,6 @@ fun AgentAppRoot(
             onSearchConversations = { query -> agentState.updateSearchQuery(query) },
             onNewConversation = { createConversation() },
             onOpenTerminal = { pushRoute(AppRoute.Terminal) },
-            onLaunchKimiWeb = {
-                requestExecutionNotifications()
-                if (appViewModel.kimiWebState.phase != KimiWebPhase.NOT_INSTALLED) {
-                    appViewModel.launchKimiWeb { result ->
-                        if (result is KimiWebLaunchResult.Failed) {
-                            Toast.makeText(
-                                context,
-                                result.message(context),
-                                Toast.LENGTH_LONG,
-                            ).show()
-                        }
-                    }
-                } else {
-                    pushRoute(AppRoute.LinuxEnvironment)
-                }
-            },
-            kimiWebLabel = appViewModel.kimiWebState.actionLabel(context),
-            canStopKimiWeb = appViewModel.kimiWebState.canStop,
-            onStopKimiWeb = appViewModel::stopKimiWeb,
-            onRefreshKimiWeb = appViewModel::refreshKimiWeb,
             onOpenBrowser = { pushRoute(AppRoute.Browser) },
             onOpenWorkspace = { pushRoute(AppRoute.Workspace) },
             autoCompressEnabled = agentState.autoCompressEnabled,
@@ -427,7 +383,7 @@ fun AgentAppRoot(
             },
             onConversationExport = { conversation ->
                 if (conversationExportBusy || conversationExportId != null) {
-                    Toast.makeText(context, "已有会话导出任务，请等待完成。", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "A session export task is already in progress; please wait for it to finish.", Toast.LENGTH_SHORT).show()
                 } else {
                     conversationExportId = conversation.id
                     conversationExportTitle = conversation.title.ifBlank { context.getString(R.string.conversation_unnamed) }
@@ -842,9 +798,7 @@ fun AgentAppRoot(
                     onBack = ::popRoute,
                     onExport = agentState::exportBackup,
                     onImport = { input ->
-                        val summary = agentState.importBackup(input)
-                        appViewModel.refreshKimiWeb()
-                        summary
+                        agentState.importBackup(input)
                     },
                 )
             }
@@ -1016,7 +970,7 @@ fun AgentAppRoot(
                     conversationExportConfirmation = false
                     val stamp = SimpleDateFormat("yyyyMMdd-HHmm", Locale.US).format(Date())
                     val title = conversationExportTitle.replace(Regex("""[\\/:*?"<>|]"""), "_").take(40)
-                    conversationExportLauncher.launch("代鱼-$title-$stamp.zip")
+                    conversationExportLauncher.launch("su-$title-$stamp.zip")
                 },
             )
         }
@@ -1098,11 +1052,6 @@ fun AgentAppRoot(
         }
     }
 
-    AppUpdateDialog(
-        offer = updateOffer,
-        currentVersion = currentVersion,
-        onDismiss = { updateOffer = null },
-    )
 
     messageRegenerateTarget?.let { target ->
         WindowDialog(

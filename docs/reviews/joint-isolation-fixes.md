@@ -1,72 +1,72 @@
-# 助手 / Skills / 会话模型联合修复记录
+# Assistant / Skills / conversation-model joint fix record
 
-## 状态与验证边界
+## Status and verification boundaries
 
-用户已批准联合修改。代码仍在未提交工作区，基线 HEAD 为 `994ad3a`；未提交、未推送、未触发 GitHub Actions，未修改应用版本号。
+The user has approved the joint changes. The code is still in an uncommitted working tree with baseline HEAD `994ad3a`; uncommitted, unpushed, no GitHub Actions triggered, app version number untouched.
 
-本记录描述已经写入源码的实现，不等同于编译通过或实机复现通过。本轮新增 18 个 Kotlin 回归测试，均未执行。已有压缩、附件、备份等改动仍在工作区，不能只编译本轮文件就宣布全部通过。
+This record describes implementation already written into source — not equivalence to passing compilation or on-device reproduction. 18 new Kotlin regression tests this round, none executed. The existing compression, attachment, backup, and other changes are still in the working tree; compiling only this round's files cannot declare everything passing.
 
-## 已落码的行为
+## Behavior now in code
 
-### 任务身份
+### Task identity
 
-- `ModelConfig` 与 `RunRequest` 携带同一 `assistantId`；人格和 ID 在构造配置时一起取样，IPC 明确传递。语音 / 注入入口通过已有配置 JSON 携带身份，续轮的 request.copy 保留身份。
-- Runtime、记忆开关、记忆内容、工具操作和技能安装归属都使用任务所属 ID，不再在下一次请求时取全局 active 助手。
-- 缺失 / 删除的身份不回落到其他助手；旧配置未携带身份时需重新同步配置后发起新任务。
-- 助手索引用跨进程文件锁和 AtomicFile 发布，修改前重新加载磁盘索引；Runtime 按 ID 读取已发布状态，避免进程内旧缓存绕过撤权。
+- `ModelConfig` and `RunRequest` carry the same `assistantId`; persona and ID are sampled together when the config is built and passed explicitly over IPC. Voice / injection entry points carry identity through the existing config JSON; continued rounds keep identity across request.copy.
+- Runtime, memory toggles, memory content, tool operations, and skill-install ownership all use the owning task's ID — never the global active assistant at next-request time.
+- Missing / deleted identities never fall back to another assistant; old configs without identity must resync config and start a new task.
+- The assistant index is published with a cross-process file lock and AtomicFile, reloading the on-disk index before mutation; Runtime reads published state by ID so stale in-process caches cannot bypass deauthorization.
 
-### 记忆编辑与删除
+### Memory editing and deletion
 
-- 记忆 UI 草稿带 assistantId、baseRevision 和编辑 generation；保存 / 清空均走 CAS，过期回调不更新另一个编辑对象。
-- 助手编辑页也使用 CAS。冲突保留草稿，不用旧全文覆盖最新记忆。记忆已保存但后续资料保存失败时同步新的 revision，避免重试永远卡在旧 revision。
-- 记忆存储锁覆盖不同 Store 实例及进程；删除与写入在同一锁下执行，并写删除标记，旧句柄不能重新建立已删除的记忆。备份恢复使用单独的显式 restore 路径。
-- 助手 ID 严格验证，不再使用有损替换 / 截断生成隔离键；备份在应用前验证 profiles 与 memory keys。
+- Memory UI drafts carry assistantId, baseRevision, and edit generation; save / clear both go through CAS, and stale callbacks never update a different edit object.
+- The assistant edit page also uses CAS. Conflicts keep the draft instead of overwriting the newest memory with stale full text. When the memory saved but a later profile save failed, the new revision is synced so retries never wedge on the old revision.
+- The memory store lock covers different Store instances and processes; delete and write run under the same lock with a deletion marker, so stale handles cannot re-establish deleted memories. Backup restore uses a separate explicit restore path.
+- Assistant IDs are strictly validated; lossy substitution / truncation for isolation-key generation is gone; backups validate profiles and memory keys before applying.
 
-### Skills 快照与私有数据
+### Skills snapshots and private data
 
-- 每个 Agent run 使用独立目录 `skills/.assistant/<assistant>/.runs/<uuid>/skills`。提示词、list、read、resource 与 Linux 启动器使用同一组固定条目。
-- 代码通过完整暂存副本发布，受 SkillMutationLock 保护；新增技能不会进入旧快照。同 ID 更新时，本轮继续使用旧副本，新版本从下一 run 生效。
-- 私有可写 data 放在 `.assistant/<assistant>/.data/<skill>`；Linux 只逐项挂载该 run 已授权的 data 目录，而不是暴露整个私有数据根。
-- 停用技能移除可见代码但保留私有 data。读取时同时检查任务快照、所属助手当前授权和当前安装状态；删除全局 installed 回退和空快照动态扩容路径。
-- 撤权在下一次工具 / 请求边界收紧快照，并关闭该执行器持有的普通终端与它启动的 daemon；不能据此宣称已经撤回正在执行的代码、已打开句柄或旧请求内容。
-- 普通 run 结束释放快照。文件租约防止误删活跃 run，并允许后续 run 清理进程崩溃遗留的普通快照。长期 daemon 使用过的快照保留，避免任务结束即破坏后台服务。
-- 单技能 16 MiB / 4096 条目，单次快照 128 技能 / 256 MiB；每助手最多 128 个保留或运行视图，超过上限显式报错，不静默删数据。
-- 安装成功但为所属助手启用失败时，返回 installed_not_enabled 及明确错误，不再谎称已经启用。
+- Each Agent run uses an isolated directory `skills/.assistant/<assistant>/.runs/<uuid>/skills`. Prompts, list, read, resource, and the Linux launcher use the same pinned entry set.
+- Code is published through a full staging copy under SkillMutationLock protection; newly installed skills never enter old snapshots. On same-ID updates, this round keeps using the old copy; the new version takes effect from the next run.
+- Private writable data lives at `.assistant/<assistant>/.data/<skill>`; Linux mounts only each item of that run's authorized data directories instead of exposing the whole private data root.
+- Disabling a skill removes visible code but keeps private data. Reads check the task snapshot, the owning assistant's current authorization, and the current install state together; the global installed fallback and empty-snapshot dynamic-widening paths are deleted.
+- Deauthorization tightens the snapshot at the next tool / request boundary and closes the ordinary terminals held by that executor plus the daemons it started; this cannot be claimed to have recalled already-executing code, open handles, or already-sent request content.
+- Ordinary runs release their snapshot at the end. File leases guard against deleting live runs and let later runs clean ordinary snapshots left by crashed processes. Snapshots used by long-lived daemons are retained so ending a task never breaks a background service.
+- 16 MiB / 4096 entries per skill, 128 skills / 256 MiB per snapshot; at most 128 retained or running views per assistant — over-limit fails explicitly, never deletes data silently.
+- When install succeeds but enabling for the owning assistant fails, the result is installed_not_enabled with an explicit error — no longer falsely claiming it is enabled.
 
-### 会话模型与附件准备
+### Conversation model and attachment prep
 
-- 模型选择直接更新目标会话的 providerId + modelId，不依赖全局异步恢复回写；旧 restoringConversationModel 布尔恢复管线已移除。
-- 模型选择控件、UI action 和处理器完整传递 provider + model，避免不同提供商同内部模型 ID 时选择错误。
-- 绑定失效 / provider 停用时选中模型为空，禁止新发送。不按相同 modelId 寻找其他 provider，不静默改用全局模型。
-- 只有完全空白的旧绑定可作一次性默认迁移；部分缺失绑定不拼接另一提供商的默认值。会话导入保留原绑定，导入后找不到模型需要用户明确重选。
-- 附件发送与重新生成记录所属会话、草稿、模型 generation、助手 ID；准备期间变化时取消这次发送，保留原草稿，不借用或清空当前别的会话。
-- 模型配置、图像 / 视频分支、视频能力和本轮预算使用固定快照；自动压缩的前台 / 后台路径按所属会话模型估算窗口。显式指定的压缩模型失效时不再偷偷切其他模型。
-- 模型恢复只更新可选推理档位，不用旧模型能力改写已保存偏好。发送时再按固定模型能力归一化实际请求。
-- 开销异步估算带所属会话和 generation，迟到结果不覆盖另一个会话；归档期间的绑定刷新延迟到归档锁释放后执行。
+- Model selection updates the target conversation's providerId + modelId directly, independent of the global async-restore write-back; the old restoringConversationModel Boolean restore pipeline is removed.
+- The model picker control, UI actions, and handlers pass provider + model end to end, avoiding wrong picks on equal internal model IDs across providers.
+- On invalid bindings / disabled providers the selected model is empty and new sends are blocked. No cross-provider lookup by equal modelId, no silent switch to the global model.
+- Only fully blank legacy bindings get a one-time default migration; partially missing bindings are never spliced with another provider's defaults. Conversation import keeps the original binding; a model missing after import needs an explicit user reselect.
+- Attachment sends and regenerations record owning conversation, draft, model generation, and assistant ID; mid-prep changes cancel that send and keep the original draft — never borrowing or clearing a different current conversation.
+- Model config, image / video branches, video capability, and this round's budget use the pinned snapshot; foreground / background auto-compression paths estimate windows from the owning conversation's model. An explicitly requested compression model that goes invalid is never secretly swapped for another model.
+- Model restore only updates the optional reasoning tier; saved preferences are never rewritten with stale model capabilities. Actual requests are normalized against the pinned model capability at send time.
+- Overhead async estimates carry owning conversation and generation; late results never overwrite another conversation; binding refreshes during archiving wait until the archive lock releases.
 
-## 验证记录
+## Verification record
 
-- `git diff --check` 通过。
-- 对当前工作区 96 个修改 / 新增 Kotlin 文件执行词法括号检查，通过。该脚本不进行 Kotlin 解析、类型检查、Android 编译或测试执行。
-- 8 项源码断言通过：Runtime 不取 active、技能无全局回退、UI 无旧无版本保存入口、聊天无全局配置回退、provider 开关检查、IPC 身份、严格 ID、Linux 快照参数。
-- 新增测试：AssistantIsolationRegressionTest 6 项；SkillRunIsolationTest 7 项；AgentModelPickerProjectorTest 新增 4 项；AgentRuntimeWireTest 新增 1 项。另更新会话导入保留绑定的既有断言。
+- `git diff --check` passes.
+- Lexical bracket checks over the 96 modified / new Kotlin files in the current working tree pass. The script performs no Kotlin parsing, type checking, Android compilation, or test execution.
+- 8 source assertions pass: Runtime never takes active, skills have no global fallback, UI has no legacy versionless save entry, chat has no global config fallback, provider toggle check, IPC identity, strict IDs, Linux snapshot parameters.
+- New tests: AssistantIsolationRegressionTest 6 items; SkillRunIsolationTest 7 items; AgentModelPickerProjectorTest 4 new items; AgentRuntimeWireTest 1 new item. The existing assertion that conversation import keeps bindings is also updated.
 
-## 仍需明确的产品 / 授权边界
+## Product / authorization boundaries still to state explicitly
 
-1. 本轮没有把会话历史改成按助手的安全沙箱。同一会话切换助手不会自动删除历史；若要求会话本身也有不可变助手归属，需要另做数据迁移和历史接管交互，不能猜测旧会话属于谁。
-2. 旧全局 `.visible/<skill>/data` 的历史所有者无法可靠判断，保留原目录，不擅自归给当前助手。已能确认归属的旧 `.assistant/<id>/<skill>/data` 才迁入私有 data。
-3. Root / 任意 Shell 仍属于用户授予的设备级能力，不是多租户安全沙箱。撤权不能抹除已经发送的提示词 / 摘要、复制的文件或第三方进程已有句柄。
-4. daemon 保留视图不按时间自动删除；从其他执行器停止 daemon 后，保留视图的自动回收仍需后续完善。上限会显式阻止无限增长，不为回收空间擅自破坏长期服务。
-5. 运行请求和下一次工具边界会检查助手是否仍存在，但不宣称删除助手能立即撤销服务商侧已在进行的请求。
+1. This round does not turn conversation history into a per-assistant security sandbox. Switching assistants on one conversation never auto-deletes history; if conversations themselves need immutable assistant ownership, that takes a separate data migration plus history-takeover UX — never guess who an old conversation belongs to.
+2. The old global `.visible/<skill>/data` has no reliably determinable historical owner; the original directory is kept, never arbitrarily assigned to the current assistant. Only legacy `.assistant/<id>/<skill>/data` with confirmable ownership migrates into private data.
+3. Root / arbitrary Shell remains a user-granted device-level capability, not a multi-tenant security sandbox. Deauthorization cannot erase already-sent prompts / summaries, copied files, or handles already held by third-party processes.
+4. Daemon-retained views are never auto-deleted by age; after stopping a daemon from another executor, automatic reclamation of retained views still needs follow-up. Caps explicitly stop unbounded growth; long-lived services are never destroyed just to reclaim space.
+5. Running requests and the next tool boundary check whether the assistant still exists, but deleting an assistant is not claimed to immediately recall a provider-side already-running request.
 
-## 编译与实机回归清单
+## Build and on-device regression checklist
 
-统一通过获准的 GitHub Actions 构建 / 测试，优先验证：
+Run unified through the approved GitHub Actions builds / tests, verifying first:
 
-- A/B 快速切会话与相同 modelId 的不同 provider，删除 / 停用后发送阻断；删除当前会话后自动选中下一条。
-- 发送附件 / 编辑重发 / 重新生成期间切助手、会话、模型、能力开关或修改草稿；B 不混入 A 的消息且 A 草稿仍在。
-- 同模型摘要、专门压缩模型、模型失效、原本轮保护和持续执行策略的已有测试。
-- UI 保存 / 清空和工具 memory_write 并发；多 Store CAS；删除助手与旧句柄；非法 ID 备份先拒绝后不修改。
-- 空 / 非空技能启动快照，中途安装、同 ID 更新、停用再启用、卸载，以及 read/resource/terminal 的一致性。
-- 两助手同时运行同 ID 技能、私有 data 写入、普通终端与 PRoot / chroot / daemon 挂载、任务取消与进程崩溃后的租约回收。
-- 语音 / 注入入口的配置重新同步、IPC 往返、任务续轮，以及已有全部压缩、附件和备份回归测试。
+- A/B fast conversation switching with same-modelId different providers, send blocking after delete / disable; next-item auto-select after deleting the current conversation.
+- Switching assistant, conversation, model, capability toggles, or editing drafts mid-attachment-send / edit-resend / regeneration; B never mixes into A's messages and A's draft survives.
+- Same-model summaries, dedicated compression models, invalid models, legacy round protection, and existing tests for continuous-execution strategy.
+- UI save / clear racing tool memory_write; multi-Store CAS; deleting assistants with stale handles; illegal-ID backups refused before modifying anything.
+- Empty / non-empty skill boot snapshots, mid-run install, same-ID updates, disable-then-enable, uninstall, plus read/resource/terminal consistency.
+- Two assistants running same-ID skills concurrently, private data writes, ordinary terminals vs PRoot / chroot / daemon mounts, lease reclamation after task cancel and process crash.
+- Voice / injection entry-point config resync, IPC round trips, task continued rounds, plus all existing compression, attachment, and backup regression tests.

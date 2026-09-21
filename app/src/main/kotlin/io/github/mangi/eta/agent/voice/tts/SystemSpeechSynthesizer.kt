@@ -22,13 +22,13 @@ internal class SystemSpeechSynthesizer {
         val pending = ConcurrentHashMap<String, CompletableDeferred<Unit>>()
         val engine = TextToSpeech(context.applicationContext) { initialized.complete(it) }
         try {
-            speechCheck(withTimeout(8_000) { initialized.await() } == TextToSpeech.SUCCESS) { "系统朗读引擎不可用" }
+            speechCheck(withTimeout(8_000) { initialized.await() } == TextToSpeech.SUCCESS) { "System speech engine is unavailable" }
             val locale = if (sentences.any { it.any { char -> char.code in 0x3400..0x9fff } }) Locale.CHINESE else Locale.getDefault()
             val voice = engine.voices.orEmpty().filter {
                 !it.isNetworkConnectionRequired && "notInstalled" !in it.features.orEmpty() && it.locale.language == locale.language
             }.sortedBy { it.name }.firstOrNull()
-            speechCheck(voice != null) { "没有已安装的本地语音音色，请到系统文字转语音设置下载，或选择云端朗读" }
-            speechCheck(engine.setVoice(voice) == TextToSpeech.SUCCESS) { "系统音色不可用" }
+            speechCheck(voice != null) { "No installed local voice found; download one in the system text-to-speech settings or pick cloud read-aloud" }
+            speechCheck(engine.setVoice(voice) == TextToSpeech.SUCCESS) { "System voice is unavailable" }
             engine.setAudioAttributes(SpeechPlayback.audioAttributes)
             engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
                 override fun onStart(utteranceId: String?) = Unit
@@ -38,7 +38,7 @@ internal class SystemSpeechSynthesizer {
                 override fun onError(utteranceId: String?, errorCode: Int) { fail(utteranceId) }
                 override fun onStop(utteranceId: String?, interrupted: Boolean) { fail(utteranceId) }
                 private fun fail(id: String?) {
-                    id?.let { pending.remove(it)?.completeExceptionally(SpeechPlaybackFailure("系统朗读已中断或失败")) }
+                    id?.let { pending.remove(it)?.completeExceptionally(SpeechPlaybackFailure("System speech was interrupted or failed")) }
                 }
             })
             warmup(engine, pending)
@@ -81,7 +81,7 @@ internal class SystemSpeechSynthesizer {
         val id = UUID.randomUUID().toString()
         val done = CompletableDeferred<Unit>()
         pending[id] = done
-        speechCheck(engine.speak(sentence, queueMode, null, id) == TextToSpeech.SUCCESS) { "系统语音无法播放" }
+        speechCheck(engine.speak(sentence, queueMode, null, id) == TextToSpeech.SUCCESS) { "System voice failed to play" }
         withTimeout(90_000) { done.await() }
         pending.remove(id)
     }

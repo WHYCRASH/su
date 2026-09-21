@@ -15,10 +15,10 @@ class AgentContinuationBuilderTest {
         )
         val request = AgentRuntimeWire.RunRequest(
             runId = "run-old",
-            prompt = "观察屏幕",
+            prompt = "Observe screen",
             config = modelConfig(),
             images = listOf(image),
-            history = listOf(AgentModelClient.ConversationMessage(role = "user", content = "更早的问题")),
+            history = listOf(AgentModelClient.ConversationMessage(role = "user", content = "Earlier questions")),
             handoff = AgentRuntimeWire.EntryHandoff(
                 id = "run-old",
                 source = "agent_ui",
@@ -26,7 +26,7 @@ class AgentContinuationBuilderTest {
             ),
         )
         val response = AgentModelClient.ModelResponse.Text(
-            content = "完成",
+            content = "Done",
             transcript = listOf(
                 AgentModelClient.ConversationMessage(
                     role = "assistant",
@@ -37,14 +37,14 @@ class AgentContinuationBuilderTest {
                     toolCallId = "call-1",
                     content = "{\"ok\":true}",
                 ),
-                AgentModelClient.ConversationMessage(role = "assistant", content = "完成"),
+                AgentModelClient.ConversationMessage(role = "assistant", content = "Done"),
             ),
         )
 
         val continuation = AgentContinuationBuilder.build(
             request = request,
             response = response,
-            supplement = "继续检查",
+            supplement = "Continue checking",
             newRunId = "run-next",
             createdAt = 123L,
         )
@@ -53,13 +53,13 @@ class AgentContinuationBuilderTest {
         assertEquals("run-next", continuation.runId)
         assertEquals("run-old", continuation.effectiveTurnId)
         assertTrue(continuation.history.drop(1).all { it.turnId == "run-old" })
-        assertEquals("继续检查", continuation.prompt)
+        assertEquals("Continue checking", continuation.prompt)
         assertTrue(continuation.images.isEmpty())
         assertEquals(
             listOf("user", "user", "assistant", "tool", "assistant"),
             continuation.history.map { it.role },
         )
-        assertTrue(continuation.history[1].contentJson.contains("未写入持久会话"))
+        assertTrue(continuation.history[1].contentJson.contains("not written to the persisted session"))
         assertTrue(!continuation.history[1].contentJson.contains("base64"))
         assertEquals("call-1", continuation.history[3].toolCallId)
         assertEquals("run-next", continuation.handoff?.id)
@@ -68,7 +68,7 @@ class AgentContinuationBuilderTest {
         assertEquals(
             AgentUiHandoffPayload.Supplement(
                 index = 1,
-                text = "继续检查",
+                text = "Continue checking",
                 createdAt = 123L,
             ),
             payload.promptSupplement,
@@ -79,15 +79,15 @@ class AgentContinuationBuilderTest {
     @Test
     fun entryContinuationKeepsInitialSessionAcrossRuns() {
         val request = AgentRuntimeWire.RunRequest(
-            runId = "entry-run", prompt = "开始", config = modelConfig(), images = emptyList(),
+            runId = "entry-run", prompt = "Start", config = modelConfig(), images = emptyList(),
         )
         val continuation = AgentContinuationBuilder.build(
-            request, AgentModelClient.ModelResponse.Text("完成"), "继续", newRunId = "next-run",
+            request, AgentModelClient.ModelResponse.Text("Done"), "Continue", newRunId = "next-run",
         )
         assertEquals("entry-run", continuation.effectiveModelSessionId)
         assertEquals("entry-run", continuation.effectiveTurnId)
         val again = AgentContinuationBuilder.build(continuation,
-            AgentModelClient.ModelResponse.Text("more"), "追加", newRunId = "third-run")
+            AgentModelClient.ModelResponse.Text("more"), "Append", newRunId = "third-run")
         assertEquals("entry-run", again.effectiveTurnId)
     }
 

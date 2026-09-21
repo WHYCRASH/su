@@ -29,7 +29,7 @@ internal object AgentCompressionBoundary {
     /** Every cut is between complete tool batches; malformed/orphaned results are not compactable. */
     fun balancedCuts(history: List<AgentModelClient.ConversationMessage>): List<Int> {
         val cuts = collectCuts(history, strict = true)
-        require(cuts.lastOrNull() == history.size) { "工具批次尚未完成" }
+        require(cuts.lastOrNull() == history.size) { "Tool batch has not completed yet" }
         return cuts
     }
 
@@ -47,12 +47,12 @@ internal object AgentCompressionBoundary {
             if (message.toolCallsJson.isNotBlank()) {
                 val calls = runCatching { org.json.JSONArray(message.toolCallsJson) }.getOrNull()
                 if (calls == null) {
-                    if (strict) require(false) { "工具调用 ID 缺失或重复" }
+                    if (strict) require(false) { "Tool call ID missing or duplicated" }
                 } else {
                     for (i in 0 until calls.length()) {
                         val id = calls.optJSONObject(i)?.optString("id").orEmpty()
                         if (strict) {
-                            require(id.isNotBlank() && pending.add(id)) { "工具调用 ID 缺失或重复" }
+                            require(id.isNotBlank() && pending.add(id)) { "Tool call ID missing or duplicated" }
                         } else if (id.isNotBlank()) {
                             pending.add(id)
                         }
@@ -62,7 +62,7 @@ internal object AgentCompressionBoundary {
             if (message.role == "tool") {
                 val id = message.toolCallId
                 if (strict) {
-                    require(id.isNotBlank() && pending.remove(id)) { "工具结果缺少对应调用" }
+                    require(id.isNotBlank() && pending.remove(id)) { "Tool result is missing a corresponding call" }
                 } else if (id.isNotBlank()) {
                     pending.remove(id)
                 } else {

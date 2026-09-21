@@ -38,23 +38,23 @@ internal object ConversationArchiveMedia {
         var total = 0L
         val transformed = transform(document) { original ->
             if (!isLocal(original)) original else mapped.getOrPut(original) {
-                require(!original.startsWith("content:")) { "附件尚未保存到应用目录，无法完整导出" }
+                require(!original.startsWith("content:")) { "Attachment has not been saved to the app directory; cannot export completely" }
                 val path = original.removePrefix("file://")
                 val file = File(path)
                 val root = roots.firstOrNull { file.canonicalFile.toPath().startsWith(it.toPath()) }
-                    ?: error("会话引用了应用附件目录以外的本地文件，请先导入附件再导出")
+                    ?: error("Conversation references a local file outside the app attachment directory; import the attachment first, then export")
                 val relative = file.canonicalFile.relativeTo(root).invariantSeparatorsPath
                 BackupArchiveSafety.target(root, relative)
-                require(file.isFile && !Files.isSymbolicLink(file.toPath())) { "会话附件缺失：${file.name}" }
-                require(attachments.size < 10_000) { "会话附件数量超过限制" }
+                require(file.isFile && !Files.isSymbolicLink(file.toPath())) { "Missing conversation attachment: ${file.name}" }
+                require(attachments.size < 10_000) { "Too many conversation attachments" }
                 val id = UUID.randomUUID().toString()
                 val name = file.name
                 BackupArchiveSafety.relativePath(name)
-                require(name.none { it.isISOControl() || it == '<' || it == '>' }) { "附件文件名包含不支持的字符，请重命名后导出" }
+                require(name.none { it.isISOControl() || it == '<' || it == '>' }) { "Attachment file name contains unsupported characters; rename it before exporting" }
                 val token = "/eta-attachments/$id/$name"
                 val entry = "attachments/imports/$id/$name"
                 val size = file.length()
-                require(size >= 0 && size <= BackupArchiveSafety.TOTAL_LIMIT - total) { "会话附件超过大小限制" }
+                require(size >= 0 && size <= BackupArchiveSafety.TOTAL_LIMIT - total) { "Conversation attachments exceed the size limit" }
                 total += size
                 val sha = BackupDurability.digest(file)
                 attachments += ConversationArchiveAttachment(token, entry, size, sha)
@@ -84,7 +84,7 @@ internal object ConversationArchiveMedia {
         val request = markdown(block.request, path)
         if (block.references.isEmpty() && block.conversations.isEmpty()) return request
         return AgentFileReferencePromptCodec.format(request, block.references.map { reference ->
-            require(reference.kind != AgentFileReferenceKind.Directory) { "单会话备份暂不支持目录附件，请先打包为文件" }
+            require(reference.kind != AgentFileReferenceKind.Directory) { "Single-conversation backup does not support directory attachments yet; pack them into a file first" }
             reference.copy(absolutePath = path(reference.absolutePath))
         }, block.conversations)
     }

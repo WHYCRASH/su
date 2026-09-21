@@ -109,9 +109,9 @@ class TerminalScreenBufferTest {
     @Test
     fun wideCharOccupiesTwoCells() {
         val buffer = TerminalScreenBuffer(cols = 10, rows = 3)
-        buffer.process("中x")
+        buffer.process("あx")
         val line = buffer.screenLine(0).snapshot()
-        assertEquals("中", line[0].text)
+        assertEquals("あ", line[0].text)
         assertTrue(line[1].continuation)
         assertEquals("x", line[2].text)
         assertEquals(3, buffer.cursorCol)

@@ -34,16 +34,16 @@ internal object ModelRepository {
         val models = currentModels(providerId)
         val modelId = draft.modelId.trim()
         val displayName = draft.displayName.trim()
-        require(modelId.isNotEmpty()) { "Model ID 不能为空" }
-        require(displayName.isNotEmpty()) { "展示名称不能为空" }
+        require(modelId.isNotEmpty()) { "Model ID cannot be empty" }
+        require(displayName.isNotEmpty()) { "Display name cannot be empty" }
         require(draft.contextWindowOverride == null || draft.contextWindowOverride > 0) {
-            "上下文长度必须是正整数"
+            "Context length must be a positive integer"
         }
         require(
             models.none { existing ->
                 existing.id != draft.id && existing.modelId.trim().equals(modelId, ignoreCase = true)
             }
-        ) { "Model ID 已存在" }
+        ) { "Model ID already exists" }
 
         val existing = models.firstOrNull { it.id == draft.id }
         val saved = if (existing == null) {
@@ -178,7 +178,7 @@ internal object ModelRepository {
     fun newId(): String = UUID.randomUUID().toString()
 
     private suspend fun currentModels(providerId: String): List<Model> =
-        requireNotNull(ProviderRepository.providerById(providerId)) { "Provider 不存在" }
+        requireNotNull(ProviderRepository.providerById(providerId)) { "Provider does not exist" }
             .models
             .sortedBy { it.sortOrder }
 

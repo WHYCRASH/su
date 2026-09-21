@@ -199,7 +199,7 @@ private fun monthDisplayLabels(locale: Locale = Locale.getDefault()): Array<Stri
     return Array(12) { index ->
         val month = Month.of(index + 1)
         if (locale.language == "zh") {
-            "${index + 1}月"
+            "Month ${index + 1}"
         } else {
             month.getDisplayName(TextStyle.SHORT, locale)
         }

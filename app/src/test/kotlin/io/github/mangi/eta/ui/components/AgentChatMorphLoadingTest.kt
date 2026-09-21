@@ -24,7 +24,7 @@ class AgentChatMorphLoadingTest {
     @Test
     fun waitingAfterSendBeforeAnyOutput() {
         val messages = listOf(
-            UserMessageUi(id = "user-1", content = "你好"),
+            UserMessageUi(id = "user-1", content = "Hello"),
             AgentMessageUi(id = "agent-1", content = "", isStreaming = true),
         )
         assertTrue(isWaitingForFirstModelOutput(messages))
@@ -41,8 +41,8 @@ class AgentChatMorphLoadingTest {
     @Test
     fun hidesOnceThinkingStarts() {
         val messages = listOf(
-            UserMessageUi(id = "user-1", content = "你好"),
-            ThinkingMessageUi(id = "think-1", content = "先想想", isStreaming = true),
+            UserMessageUi(id = "user-1", content = "Hello"),
+            ThinkingMessageUi(id = "think-1", content = "Let me think first", isStreaming = true),
         )
         assertFalse(isWaitingForFirstModelOutput(messages))
         assertFalse(
@@ -58,8 +58,8 @@ class AgentChatMorphLoadingTest {
     @Test
     fun hidesOnceAssistantTextStarts() {
         val messages = listOf(
-            UserMessageUi(id = "user-1", content = "你好"),
-            AgentMessageUi(id = "agent-1", content = "好的", isStreaming = true),
+            UserMessageUi(id = "user-1", content = "Hello"),
+            AgentMessageUi(id = "agent-1", content = "OK", isStreaming = true),
         )
         assertFalse(isWaitingForFirstModelOutput(messages))
     }
@@ -67,7 +67,7 @@ class AgentChatMorphLoadingTest {
     @Test
     fun hidesOnceToolStarts() {
         val messages = listOf(
-            UserMessageUi(id = "user-1", content = "查一下"),
+            UserMessageUi(id = "user-1", content = "Look this up"),
             ToolActivityMessageUi(
                 id = "tool-1",
                 toolName = "search",
@@ -81,7 +81,7 @@ class AgentChatMorphLoadingTest {
     @Test
     fun blankPlaceholderDoesNotCountAsOutput() {
         val messages = listOf(
-            UserMessageUi(id = "user-1", content = "你好"),
+            UserMessageUi(id = "user-1", content = "Hello"),
         )
         assertTrue(isWaitingForFirstModelOutput(messages))
     }
@@ -89,8 +89,8 @@ class AgentChatMorphLoadingTest {
     @Test
     fun entireGenerationModeKeepsShowingAfterOutput() {
         val messages = listOf(
-            UserMessageUi(id = "user-1", content = "你好"),
-            AgentMessageUi(id = "agent-1", content = "好的", isStreaming = true),
+            UserMessageUi(id = "user-1", content = "Hello"),
+            AgentMessageUi(id = "agent-1", content = "OK", isStreaming = true),
         )
         assertTrue(
             shouldShowMorphLoadingIndicator(
@@ -104,7 +104,7 @@ class AgentChatMorphLoadingTest {
 
     @Test
     fun disabledOrPausedOrCompressingHidesIndicator() {
-        val messages = listOf(UserMessageUi(id = "user-1", content = "你好"))
+        val messages = listOf(UserMessageUi(id = "user-1", content = "Hello"))
         assertFalse(
             shouldShowMorphLoadingIndicator(
                 messages = messages,
@@ -144,9 +144,9 @@ class AgentChatMorphLoadingTest {
     @Test
     fun steerSupplementDoesNotCountAsNewWait() {
         val messages = listOf(
-            UserMessageUi(id = "user-1", content = "你好"),
-            AgentMessageUi(id = "agent-1", content = "先说到这", isStreaming = true),
-            UserMessageUi(id = "user-1-supplement-0", content = "继续"),
+            UserMessageUi(id = "user-1", content = "Hello"),
+            AgentMessageUi(id = "agent-1", content = "Stopping here for now", isStreaming = true),
+            UserMessageUi(id = "user-1-supplement-0", content = "Continue"),
         )
         assertFalse(isWaitingForFirstModelOutput(messages))
         assertFalse(

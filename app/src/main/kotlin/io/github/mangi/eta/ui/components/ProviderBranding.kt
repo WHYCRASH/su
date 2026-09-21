@@ -23,7 +23,6 @@ internal fun providerBrandLogoRes(sourceType: String): Int? =
         ProviderSourceTypes.STEPFUN -> R.drawable.provider_logo_stepfun
         ProviderSourceTypes.SILICONFLOW -> R.drawable.provider_logo_siliconflow
         ProviderSourceTypes.OPENROUTER -> R.drawable.provider_logo_openrouter
-        ProviderSourceTypes.DOUBAO_SPEECH -> R.drawable.model_logo_doubao
         else -> null
     }
 

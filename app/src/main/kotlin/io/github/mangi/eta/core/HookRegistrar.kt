@@ -29,7 +29,7 @@ internal data class HookInstallReport(
     val skippedCount: Int = entries.count { it.status == HookInstallStatus.SKIPPED }
 
     fun summary(): String =
-        "Hook 安装完成: installed=$installedCount, missing=$missingCount, " +
+        "Hook installation finished: installed=$installedCount, missing=$missingCount, " +
             "failed=$failedCount, skipped=$skippedCount"
 
     companion object {
@@ -58,7 +58,7 @@ internal data class HookInstallation(
     }
 }
 
-/** 安装报告的纯状态账本，不持有框架对象。 */
+/** Pure-state ledger for the install report; holds no framework objects. */
 internal class HookInstallJournal(private val group: String) {
     private val entries = mutableListOf<HookInstallEntry>()
 
@@ -68,7 +68,7 @@ internal class HookInstallJournal(private val group: String) {
         } catch (exception: Exception) {
             failed(
                 id = "install.failed",
-                description = "$group Hook 组安装",
+                description = "$group Hook group installation",
                 detail = exception.javaClass.simpleName
             )
             onFailure(exception)
@@ -104,7 +104,7 @@ internal class HookInstallJournal(private val group: String) {
 }
 
 /**
- * 单个功能域的 Hook 注册器。这里只处理 API 注册与安装诊断，目标定位仍由功能域负责。
+ * Hook registrar for a single feature area. Only handles API registration and install diagnostics here; target lookup stays with the feature area.
  */
 internal class HookRegistrar(
     private val module: XposedModule,
@@ -118,12 +118,12 @@ internal class HookRegistrar(
     private val registrationKeys = mutableSetOf<RegistrationKey>()
 
     /**
-     * 在功能组边界内完成安装。异常发生前已经注册的 Hook 仍会保留在报告和句柄集合中。
+     * Completes installation within the feature-group boundary. Hooks registered before a failure stay in the report and handle set.
      */
     fun install(block: HookRegistrar.() -> Unit): HookInstallation {
         journal.capture(block = { block() }) { exception ->
-            // XposedFrameworkError 属于 Error，不会被功能组隔离层吞掉。
-            logger.error("Hook 组安装失败", exception)
+            // XposedFrameworkError is an Error and is not swallowed by the feature-group isolation layer.
+            logger.error("Hook group installation failed", exception)
         }
         return finish()
     }
@@ -135,11 +135,11 @@ internal class HookRegistrar(
         priority: Int = XposedInterface.PRIORITY_DEFAULT,
         hooker: (XposedInterface.Chain) -> Any?
     ): XposedInterface.HookHandle? {
-        require(STABLE_ID.matches(id)) { "Hook id 格式无效: $id" }
+        require(STABLE_ID.matches(id)) { "Invalid Hook id format: $id" }
         val fullId = "eta.$id"
         val registrationKey = RegistrationKey(executable, fullId)
         if (!registrationKeys.add(registrationKey)) {
-            val detail = "重复 Hook 注册: $description ($fullId)"
+            val detail = "Duplicate Hook registration: $description ($fullId)"
             journal.failed(id, description, detail)
             logger.error(detail)
             return null
@@ -152,25 +152,25 @@ internal class HookRegistrar(
                 .intercept { chain -> hooker(chain) }
             handles += handle
             journal.installed(id, description)
-            logger.debug { "已安装 Hook: $description" }
+            logger.debug { "Installed Hook: $description" }
             handle
         } catch (exception: Exception) {
-            // HookFailedError 属于 Error，不会进入这里，必须继续交给框架处理。
+            // HookFailedError is an Error and never lands here; it must keep propagating to the framework.
             registrationKeys.remove(registrationKey)
             journal.failed(id, description, exception.javaClass.simpleName)
-            logger.error("安装 Hook 失败: $description", exception)
+            logger.error("Failed to install Hook: $description", exception)
             null
         }
     }
 
     fun missing(id: String, description: String, detail: String) {
-        require(STABLE_ID.matches(id)) { "Hook id 格式无效: $id" }
+        require(STABLE_ID.matches(id)) { "Invalid Hook id format: $id" }
         journal.missing(id, description, detail)
         logger.warn(detail)
     }
 
     fun skipped(id: String, description: String, detail: String) {
-        require(STABLE_ID.matches(id)) { "Hook id 格式无效: $id" }
+        require(STABLE_ID.matches(id)) { "Invalid Hook id format: $id" }
         journal.skipped(id, description, detail)
         logger.debug { detail }
     }

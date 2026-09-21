@@ -57,11 +57,11 @@ class EtaBackupRepositoryTest {
         ).withApiKey("sk-backup-test")
         ProviderRepository.updateProvider(provider)
         SettingsDataStore.setSelection(provider.id, provider.models.first().id)
-        AgentMemoryRepository.replaceAll("# 核心记忆\n喜欢 Kotlin")
+        AgentMemoryRepository.replaceAll("# Core memory\nLikes Kotlin")
 
         val conversation = ConversationEntity(
             id = "conversation-backup",
-            title = "备份会话",
+            title = "Backup conversation",
             thinkingEnabled = true,
             createdAt = 1L,
             updatedAt = 2L,
@@ -76,7 +76,7 @@ class EtaBackupRepositoryTest {
                     conversationId = conversation.id,
                     sortIndex = 0,
                     type = "user",
-                    content = "保留这条消息",
+                    content = "Keep this message",
                 ),
             ),
             contextCheckpoints = listOf(
@@ -92,7 +92,7 @@ class EtaBackupRepositoryTest {
         val exported = EtaBackupRepository.export(context, output)
         assertEquals(1, exported.conversationCount)
         assertTrue(exported.providerCount > 0)
-        assertEquals("# 核心记忆\n喜欢 Kotlin", AgentMemoryRepository.snapshot().content)
+        assertEquals("# Core memory\nLikes Kotlin", AgentMemoryRepository.snapshot().content)
 
         ProviderRepository.updateProvider(provider.withApiKey("changed"))
         AgentMemoryRepository.replaceAll("changed")
@@ -108,9 +108,9 @@ class EtaBackupRepositoryTest {
             ByteArrayInputStream(output.toByteArray()),
         )
         assertEquals(1, imported.conversationCount)
-        assertEquals("# 核心记忆\n喜欢 Kotlin", AgentMemoryRepository.snapshot().content)
+        assertEquals("# Core memory\nLikes Kotlin", AgentMemoryRepository.snapshot().content)
         assertEquals(
-            "保留这条消息",
+            "Keep this message",
             EtaDatabase.get(context).conversationDao().messages().single().content,
         )
         val restoredSettings = SettingsDataStore.settings()

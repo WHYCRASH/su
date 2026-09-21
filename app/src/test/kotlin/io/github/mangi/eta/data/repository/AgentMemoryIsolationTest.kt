@@ -20,14 +20,14 @@ class AgentMemoryIsolationTest {
 
     @Test
     fun assistantsKeepSeparateMemoryFiles() {
-        AgentMemoryRepository.replaceAll("助手A的记忆", "assistant-a")
-        AgentMemoryRepository.replaceAll("助手B的记忆", "assistant-b")
+        AgentMemoryRepository.replaceAll("Assistant A memory", "assistant-a")
+        AgentMemoryRepository.replaceAll("Assistant B memory", "assistant-b")
 
-        assertEquals("助手A的记忆", AgentMemoryRepository.snapshot("assistant-a").content)
-        assertEquals("助手B的记忆", AgentMemoryRepository.snapshot("assistant-b").content)
+        assertEquals("Assistant A memory", AgentMemoryRepository.snapshot("assistant-a").content)
+        assertEquals("Assistant B memory", AgentMemoryRepository.snapshot("assistant-b").content)
 
-        AgentMemoryRepository.replaceAll("助手A更新", "assistant-a")
-        assertEquals("助手A更新", AgentMemoryRepository.snapshot("assistant-a").content)
-        assertEquals("助手B的记忆", AgentMemoryRepository.snapshot("assistant-b").content)
+        AgentMemoryRepository.replaceAll("Assistant A updated", "assistant-a")
+        assertEquals("Assistant A updated", AgentMemoryRepository.snapshot("assistant-a").content)
+        assertEquals("Assistant B memory", AgentMemoryRepository.snapshot("assistant-b").content)
     }
 }

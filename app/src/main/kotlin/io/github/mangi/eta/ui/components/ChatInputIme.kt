@@ -76,7 +76,7 @@ internal fun ChatInputNonFocusableIconButton(
     modifier: Modifier = Modifier,
     contentDescription: String? = null,
     onLongClick: (() -> Unit)? = null,
-    longClickLabel: String = "协作设置",
+    longClickLabel: String = "Collaboration settings",
     content: @Composable () -> Unit,
 ) {
     val view = LocalView.current

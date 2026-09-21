@@ -3,14 +3,14 @@ package io.github.mangi.eta.agent.model
 import org.json.JSONArray
 import org.json.JSONObject
 
-/** 上下文、应用入口与屏幕观察工具 schema。 */
+/** Context, app-entry, and screen-observation tool schemas. */
 internal object AgentContextAppToolCatalog {
     fun appendTo(tools: JSONArray) {
         tools
             .put(
                 AgentToolSchema.function(
                     name = "get_current_context",
-                    description = "获取手机当前时间、时区和最近系统位置；涉及现在、今天、明天或所在位置时调用。",
+                    description = "Get the phone's current time, time zone, and recent system location; call it when now, today, tomorrow, or the user's whereabouts matter.",
                     parameters = JSONObject()
                         .put("type", "object")
                         .put("properties", JSONObject())
@@ -19,7 +19,7 @@ internal object AgentContextAppToolCatalog {
             .put(
                 AgentToolSchema.function(
                     name = "search_apps",
-                    description = "搜索手机上已安装的 Android 应用，返回应用名和包名。打开应用前如果不确定包名，先调用这个工具。",
+                    description = "Search installed Android apps on the phone; returns app names and package names. When unsure of a package name before opening an app, call this tool first.",
                     parameters = JSONObject()
                         .put("type", "object")
                         .put(
@@ -29,19 +29,19 @@ internal object AgentContextAppToolCatalog {
                                     "query",
                                     JSONObject()
                                         .put("type", "string")
-                                        .put("description", "应用名或包名片段，例如 QQ、微信、com.tencent")
+                                        .put("description", "App-name or package-name fragment, e.g. QQ, WeChat, com.tencent")
                                 )
                                 .put(
                                     "include_system",
                                     JSONObject()
                                         .put("type", "boolean")
-                                        .put("description", "是否包含系统应用，默认 false")
+                                        .put("description", "Whether to include system apps; default false")
                                 )
                                 .put(
                                     "limit",
                                     JSONObject()
                                         .put("type", "integer")
-                                        .put("description", "最多返回 1 到 20 个结果，默认 10")
+                                        .put("description", "At most 1 to 20 results; default 10")
                                 )
                         )
                         .put("required", JSONArray().put("query"))
@@ -50,7 +50,7 @@ internal object AgentContextAppToolCatalog {
             .put(
                 AgentToolSchema.function(
                     name = "launch_app",
-                    description = "启动一个已安装 Android 应用。优先提供 package_name；只有应用名时允许模糊匹配，匹配多个会返回候选而不会启动。",
+                    description = "Launch an installed Android app. Prefer package_name; with only an app name, fuzzy matching is allowed, and multiple matches return candidates instead of launching.",
                     parameters = JSONObject()
                         .put("type", "object")
                         .put(
@@ -60,13 +60,13 @@ internal object AgentContextAppToolCatalog {
                                     "package_name",
                                     JSONObject()
                                         .put("type", "string")
-                                        .put("description", "精确 Android 包名，例如 com.tencent.mobileqq")
+                                        .put("description", "Exact Android package name, e.g. com.tencent.mobileqq")
                                 )
                                 .put(
                                     "app_name",
                                     JSONObject()
                                         .put("type", "string")
-                                        .put("description", "应用显示名，例如 QQ")
+                                        .put("description", "App display name, e.g. QQ")
                                 )
                         )
                 )
@@ -74,7 +74,7 @@ internal object AgentContextAppToolCatalog {
             .put(
                 AgentToolSchema.function(
                     name = "open_uri",
-                    description = "把一个确定有效的 URI 显式交给 Android 外部应用处理，例如 https、tel、geo 或应用 deep link。它不用于读取网页或网页交互。不要编造 URI。",
+                    description = "Hand a known-valid URI explicitly to an external Android app, e.g. https, tel, geo, or an app deep link. It is not for reading pages or web interaction. Never invent URIs.",
                     parameters = JSONObject()
                         .put("type", "object")
                         .put(
@@ -84,7 +84,7 @@ internal object AgentContextAppToolCatalog {
                                     "uri",
                                     JSONObject()
                                         .put("type", "string")
-                                        .put("description", "确定有效、可由系统处理的 URI")
+                                        .put("description", "A known-valid URI the system can handle")
                                 )
                         )
                         .put("required", JSONArray().put("uri"))
@@ -93,7 +93,7 @@ internal object AgentContextAppToolCatalog {
             .put(
                 AgentToolSchema.function(
                     name = "observe_screen",
-                    description = "观察当前手机屏幕，默认只返回前台应用、屏幕尺寸、observation_id 与可见 UI 节点，不附截图。节点为空、目标无法唯一识别、界面以 Canvas/地图/图片/二维码等视觉内容为主，或任务依赖颜色、图像、空间布局时，显式设置 include_screenshot=true；补截图时保持 include_ui_tree=true，以同一次新观察刷新节点和 observation_id，禁止把新截图与旧节点混用。节点动作必须原样携带同一次观察的 observation_id；树被截断但节点语义仍有效时，优先把 max_nodes 提高到 120 后重试，不要仅因截断请求截图。",
+                    description = "Observe the phone's current screen. By default returns only the foreground app, screen size, observation_id, and visible UI nodes, with no screenshot. Set include_screenshot=true explicitly when nodes are empty, the target cannot be uniquely identified, the screen is mostly visual content such as Canvas, maps, images, or QR codes, or the task depends on color, imagery, or spatial layout. When adding a screenshot, keep include_ui_tree=true so nodes and observation_id refresh in the same new observation; never mix a new screenshot with stale nodes. Node actions must carry the observation_id from that same observation unchanged. When the tree is truncated but node semantics still hold, prefer raising max_nodes to 120 and retrying instead of requesting a screenshot for truncation alone.",
                     parameters = JSONObject()
                         .put("type", "object")
                         .put(
@@ -104,14 +104,14 @@ internal object AgentContextAppToolCatalog {
                                     JSONObject()
                                         .put("type", "boolean")
                                         .put("default", AgentScreenObservationContract.DEFAULT_INCLUDE_SCREENSHOT)
-                                        .put("description", "是否附加当前屏幕原图给模型，默认 false；仅在 UI 节点不足以完成任务时显式开启")
+                                        .put("description", "Whether to attach the raw current screenshot for the model; default false. Enable explicitly only when UI nodes cannot complete the task.")
                                 )
                                 .put(
                                     "include_ui_tree",
                                     JSONObject()
                                         .put("type", "boolean")
                                         .put("default", AgentScreenObservationContract.DEFAULT_INCLUDE_UI_TREE)
-                                        .put("description", "是否返回 UI 节点列表，默认 true")
+                                        .put("description", "Whether to return the UI node list; default true")
                                 )
                                 .put(
                                     "max_nodes",
@@ -120,7 +120,7 @@ internal object AgentContextAppToolCatalog {
                                         .put("minimum", AgentScreenObservationContract.MIN_MAX_NODES)
                                         .put("maximum", AgentScreenObservationContract.MAX_MAX_NODES)
                                         .put("default", AgentScreenObservationContract.DEFAULT_MAX_NODES)
-                                        .put("description", "最多返回 1 到 120 个 UI 节点，默认 60")
+                                        .put("description", "At most 1 to 120 UI nodes; default 60")
                                 )
                         )
                 )

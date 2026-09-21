@@ -204,7 +204,7 @@ internal class AgentAppState(
                 )
             }
             if (sent) contextBudgetPrompt = null
-            else Toast.makeText(appContext, "未能联系 Runtime，任务仍保持暂停。", Toast.LENGTH_LONG).show()
+            else Toast.makeText(appContext, "Could not reach Runtime; the task remains paused.", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -462,7 +462,7 @@ internal class AgentAppState(
     private fun rejectSendIfModelUnavailable(): Boolean {
         val selected = modelPickerState.selectedModel
         if (!modelPickerState.isChanging && selected != null && selected.providerId == homeState.providerId && selected.id == homeState.modelId) return false
-        Toast.makeText(appContext, "会话绑定的模型尚未就绪或已不可用，请明确选择模型后再发送。", Toast.LENGTH_LONG).show()
+        Toast.makeText(appContext, "The model bound to this conversation is not ready or is no longer available. Select a model explicitly before sending.", Toast.LENGTH_LONG).show()
         return true
     }
 
@@ -512,7 +512,7 @@ internal class AgentAppState(
                         draft = snapshot.content, savedContent = snapshot.content, draftBytes = snapshot.byteSize)
                     refreshRequestOverhead()
                 }, onFailure = { error ->
-                    memoryState = memoryState.copy(isLoading = false, notice = error.message ?: "读取记忆失败")
+                    memoryState = memoryState.copy(isLoading = false, notice = error.message ?: "Failed to read memory")
                 })
             }
         }
@@ -530,7 +530,7 @@ internal class AgentAppState(
             withContext(Dispatchers.Main) {
                 if (generation != memoryEditGeneration || memoryState.assistantId != owner) return@withContext
                 memoryState = if (result.isSuccess) memoryState.copy(enabled = enabled, notice = null)
-                    else memoryState.copy(notice = result.exceptionOrNull()?.message ?: "记忆开关保存失败")
+                    else memoryState.copy(notice = result.exceptionOrNull()?.message ?: "Failed to save memory toggle")
                 refreshRequestOverhead()
             }
         }
@@ -548,7 +548,7 @@ internal class AgentAppState(
         val state = memoryState
         if (state.assistantId.isBlank() || state.baseRevision.isBlank() || state.isSaving) return
         if (AssistantRepository.active().id != state.assistantId) {
-            memoryState = memoryState.copy(notice = "当前草稿属于另一助手，未保存；请返回原助手或重新读取。")
+            memoryState = memoryState.copy(notice = "The current draft belongs to another assistant and was not saved. Return to the original assistant or reload.")
             return
         }
         val generation = memoryEditGeneration
@@ -561,10 +561,10 @@ internal class AgentAppState(
                     val draft = if (memoryState.draft == state.draft) snapshot.content else memoryState.draft
                     memoryState = memoryState.copy(isSaving = false, baseRevision = snapshot.revision,
                         savedContent = snapshot.content, draft = draft, draftBytes = draft.toByteArray(Charsets.UTF_8).size,
-                        notice = "记忆已保存")
+                        notice = "Memory saved")
                     refreshRequestOverhead()
                 }, onFailure = { error ->
-                    memoryState = memoryState.copy(isSaving = false, notice = error.message ?: "记忆保存失败，草稿已保留")
+                    memoryState = memoryState.copy(isSaving = false, notice = error.message ?: "Failed to save memory; draft kept")
                 })
             }
         }
@@ -576,11 +576,11 @@ internal class AgentAppState(
 
     private fun rejectConversationArchiveMutation(): Boolean {
         if (stoppingRuns.keys.any { runConversationIds[it] == selectedConversationId }) {
-            Toast.makeText(appContext, "已停止，正在保存本轮上下文，请稍后再操作。", Toast.LENGTH_SHORT).show()
+            Toast.makeText(appContext, "Stopped. Saving this round's context; try again later.", Toast.LENGTH_SHORT).show()
             return true
         }
         if (!conversationArchiveBusy && !io.github.mangi.eta.agent.runtime.AgentExecutionService.backupMaintenance) return false
-        Toast.makeText(appContext, "正在导入或导出对话，请完成后再修改。", Toast.LENGTH_SHORT).show()
+        Toast.makeText(appContext, "A conversation import or export is in progress. Wait for it to finish before making changes.", Toast.LENGTH_SHORT).show()
         return true
     }
 
@@ -588,7 +588,7 @@ internal class AgentAppState(
         requireIdleRuns: Boolean = true,
         block: suspend () -> T,
     ): T = withContext(Dispatchers.Main.immediate) {
-        check(!conversationArchiveBusy) { "已有对话归档任务正在执行" }
+        check(!conversationArchiveBusy) { "A conversation archiving task is already running" }
         if (requireIdleRuns) {
             check(
                 !runtimeRecoveryInProgress.get() &&
@@ -597,13 +597,13 @@ internal class AgentAppState(
                     runJobs.isEmpty() &&
                     compressionJob?.isActive != true &&
                     conversationsById.values.none { it.isStreaming || it.isCompressingContext },
-            ) { "请先等待对话任务或恢复完成" }
+            ) { "Wait for the conversation task or recovery to finish first" }
         }
         conversationArchiveBusy = true
         try {
             // Force a fresh save, and inspect its Boolean result instead of only joining a Job.
             val saved = withContext(Dispatchers.Main.immediate) { persistConversations(allowArchive = true) }
-            check(saved.await()) { "当前对话保存失败，归档任务未开始，请重试" }
+            check(saved.await()) { "Failed to save the current conversation; archiving was not started. Try again." }
             conversationPersistenceMutex.withLock { block() }
         } finally {
             withContext(kotlinx.coroutines.NonCancellable + Dispatchers.Main.immediate) {
@@ -646,8 +646,8 @@ internal class AgentAppState(
             AgentRuntimeClient(appContext, AndroidAgentLogger).queryActiveRun()
         }
         when (val active = activeRunQuery) {
-            is AgentRuntimeClient.ActiveRunQuery.Known -> check(active.runId == null) { "请先停止正在运行的 Agent 任务" }
-            AgentRuntimeClient.ActiveRunQuery.Unavailable -> error("无法确认 Agent Runtime 状态，请稍后重试")
+            is AgentRuntimeClient.ActiveRunQuery.Known -> check(active.runId == null) { "Stop the running Agent task first" }
+            AgentRuntimeClient.ActiveRunQuery.Unavailable -> error("Could not determine the Agent Runtime state. Try again later.")
         }
         withContext(kotlinx.coroutines.NonCancellable) {
             try {
@@ -687,7 +687,7 @@ internal class AgentAppState(
         }
     }
 
-    /** 用 checkpoint、终态 outbox 与 active session 一次性对账，避免用进程存活推断 run 状态。 */
+    /** Reconcile checkpoint, terminal outbox, and active session in one pass, instead of inferring run state from process liveness. */
     private suspend fun recoverRuntimeRuns() {
         val client = AgentRuntimeClient(appContext, AndroidAgentLogger)
         val checkpoints = withContext(Dispatchers.IO) {
@@ -806,7 +806,7 @@ internal class AgentAppState(
         }
     }
 
-    /** 把安全事件恢复为 UI 轨迹；半截回复不进入模型 history，设备工具也不会重放。 */
+    /** Restore safety events into the UI trace; partial replies do not enter the model history, and device tools are not replayed. */
     private fun restoreCheckpointTrace(
         checkpoint: AgentRunCheckpointStore.Checkpoint,
         interrupted: Boolean,
@@ -1027,7 +1027,7 @@ internal class AgentAppState(
         billedOverheadTokens = null
         refreshBoundModelPicker()
         if (nextEffort != previousEffort) Toast.makeText(appContext,
-            "已按新模型支持的档位调整当前对话的思考深度", Toast.LENGTH_SHORT).show()
+            "Adjusted the current conversation's thinking depth to a level the new model supports", Toast.LENGTH_SHORT).show()
         if (selectedConversationId != null) persistConversations()
     }
 
@@ -1213,7 +1213,7 @@ internal class AgentAppState(
             if (deletion.await()) {
                 ids.forEach { id ->
                     runCatching { io.github.mangi.eta.agent.model.AgentCompactionArchive(appContext.filesDir, id).delete() }
-                        .onFailure { AndroidAgentLogger.warn("压缩原文清理失败：${it.javaClass.simpleName}") }
+                        .onFailure { AndroidAgentLogger.warn("Failed to clean up the compressed original: ${it.javaClass.simpleName}") }
                 }
             }
         }
@@ -1252,7 +1252,7 @@ internal class AgentAppState(
             if (deletion.await()) {
                 listOf(conversationId).forEach { id ->
                     runCatching { io.github.mangi.eta.agent.model.AgentCompactionArchive(appContext.filesDir, id).delete() }
-                        .onFailure { AndroidAgentLogger.warn("压缩原文清理失败：${it.javaClass.simpleName}") }
+                        .onFailure { AndroidAgentLogger.warn("Failed to clean up the compressed original: ${it.javaClass.simpleName}") }
                 }
             }
         }
@@ -1274,7 +1274,7 @@ internal class AgentAppState(
     fun sendCurrentMessage(submittedText: String? = null) {
         if (homeState.pendingConversationMentions.any { it.id in preparingConversationMentions }) {
             if (submittedText != null) updateCurrentConversation(homeState.copy(input = submittedText))
-            Toast.makeText(appContext, "会话引用正在准备，请稍候再发送。", Toast.LENGTH_SHORT).show()
+            Toast.makeText(appContext, "The conversation reference is being prepared; please wait before sending.", Toast.LENGTH_SHORT).show()
             return
         }
         if (rejectConversationArchiveMutation()) {
@@ -1283,7 +1283,7 @@ internal class AgentAppState(
             return
         }
         if (io.github.mangi.eta.agent.runtime.AgentExecutionService.backupMaintenance) {
-            Toast.makeText(appContext, "正在恢复备份，请等待完成。", Toast.LENGTH_SHORT).show()
+            Toast.makeText(appContext, "Restoring a backup; wait for it to complete.", Toast.LENGTH_SHORT).show()
             return
         }
         val prompt = (submittedText ?: currentDraftField().text.toString()).trim()
@@ -1307,7 +1307,7 @@ internal class AgentAppState(
         val generateVideo = selectedModelGeneratesVideos()
         val generateImage = !generateVideo && selectedModelGeneratesImages()
         if ((generateImage || generateVideo) && pendingMentions.isNotEmpty()) {
-            Toast.makeText(appContext, "会话引用需要对话模型，图像/视频生成接口暂不支持。", Toast.LENGTH_LONG).show()
+            Toast.makeText(appContext, "Conversation references need a chat model; image/video generation endpoints are not supported yet.", Toast.LENGTH_LONG).show()
             return
         }
         if ((generateImage || generateVideo) && prompt.isBlank()) {
@@ -1385,13 +1385,13 @@ internal class AgentAppState(
                 val staged = stageChatImages(conversationId, pendingImages)
                 withContext(Dispatchers.Main) {
                     if (staged.size != pendingImages.size || staged.any { it == null }) {
-                        Toast.makeText(appContext, "附件保存失败，消息未发送，附件仍保留。", Toast.LENGTH_LONG).show()
+                        Toast.makeText(appContext, "Failed to save the attachment; the message was not sent and the attachment is still kept.", Toast.LENGTH_LONG).show()
                         return@withContext
                     }
                     if (selectedConversationId != conversationId || modelBindingGeneration != ownerGeneration ||
                         homeState != ownerState || currentDraftField().text.toString() != ownerDraft ||
                         AssistantRepository.active().id != ownerAssistant) {
-                        Toast.makeText(appContext, "发送准备期间会话或配置发生变化，未发送；请返回原草稿重试。", Toast.LENGTH_LONG).show()
+                        Toast.makeText(appContext, "The conversation or configuration changed while preparing to send, so nothing was sent. Return to the original draft and try again.", Toast.LENGTH_LONG).show()
                         return@withContext
                     }
                     if (homeState.isStreaming || rejectSendIfCompressing()) return@withContext
@@ -1827,7 +1827,7 @@ internal class AgentAppState(
     }
 
     /**
-     * 判断是否应自动压缩对话历史。
+     * Determine whether the conversation history should be compressed automatically.
      */
     private fun coerceKeepRecent(value: Int): Int = AgentContextCompactor.coerceKeepRecent(value)
 
@@ -1856,7 +1856,7 @@ internal class AgentAppState(
     }
 
     /**
-     * 尝试压缩对话历史，失败时回退原历史。
+     * Try to compress the conversation history, falling back to the original history on failure.
      */
     private suspend fun tryCompressHistory(
         history: List<AgentModelClient.ConversationMessage>,
@@ -1885,7 +1885,7 @@ internal class AgentAppState(
                 val cut = io.github.mangi.eta.agent.model.AgentCompressionBoundary.selectStart(
                     working, window)
                 if (cut <= 0 || cut >= working.size) return@runInterruptible working
-                val boundArchive = archive ?: error("缺少会话身份，无法保存压缩原文")
+                val boundArchive = archive ?: error("Missing conversation identity; cannot save the compressed original")
                 val prefix = working.take(cut)
                 val id = boundArchive.save(prefix)
                 boundArchive.record(id, "started")
@@ -1897,7 +1897,7 @@ internal class AgentAppState(
                         keepStartOverride = cut,
                     )
                     val result = boundArchive.attachReferences(prefix, id, summary, working.size - cut)
-                    require(result.sumOf { AgentContextBudget.countMessage(it).toLong() } < history.sumOf { AgentContextBudget.countMessage(it).toLong() }) { "摘要及索引未缩小上下文" }
+                    require(result.sumOf { AgentContextBudget.countMessage(it).toLong() } < history.sumOf { AgentContextBudget.countMessage(it).toLong() }) { "The summary and index did not shrink the context" }
                     boundArchive.record(id, "ready")
                     result
                 } catch (failure: Exception) {
@@ -1907,8 +1907,8 @@ internal class AgentAppState(
                         failure is io.github.mangi.eta.agent.runtime.AgentRunCancelledException ||
                         Thread.currentThread().isInterrupted) throw failure
                     if (working.sumOf { AgentContextBudget.countMessage(it).toLong() } < history.sumOf { AgentContextBudget.countMessage(it).toLong() }) {
-                        summaryFailure = failure.message ?: "摘要失败"
-                        AndroidAgentLogger.warn("摘要失败，已保留工具修剪结果：${failure.javaClass.simpleName}: ${failure.message}")
+                        summaryFailure = failure.message ?: "Summarization failed"
+                        AndroidAgentLogger.warn("Summarization failed; the tool-trimmed result was kept: ${failure.javaClass.simpleName}: ${failure.message}")
                         return@runInterruptible working
                     }
                     throw failure
@@ -1916,7 +1916,7 @@ internal class AgentAppState(
             }
             if (summaryFailure != null) withContext(Dispatchers.Main) {
                 if (conversationId == selectedConversationId) Toast.makeText(appContext,
-                    "压缩会话失败：$summaryFailure", Toast.LENGTH_LONG).show()
+                    "Failed to compress the conversation: $summaryFailure", Toast.LENGTH_LONG).show()
             }
             compressed
         } catch (cancelled: CancellationException) {
@@ -1924,12 +1924,12 @@ internal class AgentAppState(
         } catch (failure: Exception) {
             if (Thread.currentThread().isInterrupted || failure is InterruptedException ||
                 failure is io.github.mangi.eta.agent.runtime.AgentRunCancelledException) {
-                throw CancellationException("摘要已取消").also { it.initCause(failure) }
+                throw CancellationException("Summarization canceled").also { it.initCause(failure) }
             }
-            AndroidAgentLogger.warn("压缩失败，保留原文：${failure.javaClass.simpleName}: ${failure.message}")
+            AndroidAgentLogger.warn("Compression failed; keeping the original: ${failure.javaClass.simpleName}: ${failure.message}")
             withContext(Dispatchers.Main) {
                 if (conversationId == selectedConversationId) Toast.makeText(appContext,
-                    failure.message ?: "压缩失败，原历史保持不变", Toast.LENGTH_LONG).show()
+                    failure.message ?: "Compression failed; the original history is unchanged", Toast.LENGTH_LONG).show()
             }
             history
         }
@@ -1989,11 +1989,11 @@ internal class AgentAppState(
         val runProvider = selectionProviders.firstOrNull { it.id == state.providerId && it.isEnabled }
         val runModel = runProvider?.models?.firstOrNull { it.id == state.modelId && it.isEnabled }
         if (runProvider == null || runModel == null) {
-            Toast.makeText(appContext, "绑定模型已不可用，未发送。请重新选择。", Toast.LENGTH_LONG).show()
+            Toast.makeText(appContext, "The bound model is no longer available, so nothing was sent. Please select again.", Toast.LENGTH_LONG).show()
             return
         }
         if (runModel.supportsSpeechSynthesis) {
-            Toast.makeText(appContext, "语音合成模型请在朗读设置中使用，不能执行对话任务", Toast.LENGTH_LONG).show()
+            Toast.makeText(appContext, "Speech synthesis models are for use in the read-aloud settings and cannot run conversation tasks", Toast.LENGTH_LONG).show()
             return
         }
         if (consumeDraft) conversationDrafts.replace(conversationId, "")
@@ -2048,7 +2048,7 @@ internal class AgentAppState(
         val initialPersistence = persistConversations()
 
         val preparationJob = scope.launch(Dispatchers.IO, start = CoroutineStart.LAZY) {
-            // write-ahead：用户消息未提交前不把可能产生副作用的 run 交给 Runtime。
+            // write-ahead: do not hand a run that may produce side effects to Runtime before the user message is committed.
             if (!initialPersistence.await()) {
                 withContext(Dispatchers.Main) {
                     applyRunResult(
@@ -2059,7 +2059,7 @@ internal class AgentAppState(
                             content = "",
                             error = lastConversationPersistenceError
                                 ?.takeIf { it.isNotBlank() }
-                                ?.let { "${appContext.getString(R.string.conversation_persistence_failed)}（$it）" }
+                                ?.let { "${appContext.getString(R.string.conversation_persistence_failed)} ($it)" }
                                 ?: appContext.getString(R.string.conversation_persistence_failed),
                         )
                     )
@@ -2068,7 +2068,7 @@ internal class AgentAppState(
             }
             if (stoppingRuns.containsKey(runId)) {
                 withContext(Dispatchers.Main) {
-                    applyRunResult(runId, AgentRuntimeWire.RunResult(runId, false, "", "已停止"))
+                    applyRunResult(runId, AgentRuntimeWire.RunResult(runId, false, "", "Stopped"))
                 }
                 return@launch
             }
@@ -2251,7 +2251,7 @@ internal class AgentAppState(
                 throw cancelled
             } catch (_: Exception) {
                 // Title requests are optional: preserve the local title and the chat run.
-                AndroidAgentLogger.warn("标题生成失败，保留本地标题")
+                AndroidAgentLogger.warn("Title generation failed; keeping the local title")
             }
         }
     }
@@ -2460,8 +2460,8 @@ internal class AgentAppState(
     }
 
     /**
-     * 压缩成功后只补丁当前会话 history，避免用发送前快照覆盖 isStreaming / messages。
-     * 失败或原样返回时不提示、不落盘。
+     * After successful compaction, patch only the current session history, avoiding overwriting isStreaming / messages with the pre-send snapshot.
+     * On failure or an unchanged return, do not show a prompt or write to disk.
      */
     private fun compressorLabel(config: AgentModelClient.ModelConfig?): String {
         val provider = config?.providerName?.trim().orEmpty()
@@ -2566,7 +2566,7 @@ internal class AgentAppState(
                 val preview = AgentImageCodec.previewFromReference(appContext, image) ?: image
                 val pending = PendingImageUi(
                     id = "img-${UUID.randomUUID()}",
-                    // 后续发送使用首次读取后的稳定引用，不再依赖 ROM Photo Picker URI 的授权生命周期。
+                    // Subsequent sends use the stable reference captured on first read, no longer depending on the ROM Photo Picker URI's permission lifecycle.
                     uri = image.reference,
                     dataUrl = preview.reference,
                     mimeType = image.mimeType,
@@ -2710,17 +2710,17 @@ internal class AgentAppState(
         val source = conversationsById[conversationId] ?: return false
         val budget = minOf(ConversationMention.MAX_TRANSCRIPT_CHARS, ConversationMention.remainingTranscriptBudget(pending))
         if (pending.size >= ConversationMention.MAX_ATTACHED || budget < 128) {
-            Toast.makeText(appContext, "最多引用 3 个会话，总内容过大时会省略中间记录。", Toast.LENGTH_SHORT).show()
+            Toast.makeText(appContext, "At most 3 sessions can be referenced; when the total content is too large, middle records are omitted.", Toast.LENGTH_SHORT).show()
             return false
         }
-        val status = if (source.isStreaming) "[选择时快照：来源会话仍在运行，未包含后续输出]\n" else ""
+        val status = if (source.isStreaming) "[Snapshot at selection time: the source session is still running; subsequent output is not included]\n" else ""
         val mentionId = "mention-${UUID.randomUUID()}"
         val ownerVersion = fileAttachmentOwnerVersion
         preparingConversationMentions += mentionId
         updateCurrentConversation(homeState.copy(pendingConversationMentions = pending + PendingConversationMentionUi(
             id = mentionId, conversationId = conversationId,
-            title = conversationTitles[conversationId].orEmpty().ifBlank { "未命名会话" },
-            transcript = "[正在准备会话原始工具记录]",
+            title = conversationTitles[conversationId].orEmpty().ifBlank { "Untitled session" },
+            transcript = "[Preparing raw tool records for the session]",
         )))
         scope.launch {
             try {
@@ -2743,7 +2743,7 @@ internal class AgentAppState(
                 val remaining = ConversationMention.remainingTranscriptBudget(current.filterNot { it.id == mentionId })
                 if (transcript.isBlank() || transcript.length > remaining) {
                     removeConversationMention(mentionId)
-                    Toast.makeText(appContext, "会话引用为空或超过总长度限制，请重新选择。", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(appContext, "The session reference is empty or exceeds the total length limit. Please select again.", Toast.LENGTH_SHORT).show()
                 } else {
                     updateCurrentConversation(homeState.copy(pendingConversationMentions = current.map {
                         if (it.id == mentionId) it.copy(transcript = transcript) else it
@@ -2752,14 +2752,14 @@ internal class AgentAppState(
             } catch (failure: Exception) {
                 if (ownerVersion == fileAttachmentOwnerVersion) {
                     removeConversationMention(mentionId)
-                    Toast.makeText(appContext, "会话引用准备失败，请重试。", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(appContext, "Failed to prepare the session reference. Please try again.", Toast.LENGTH_SHORT).show()
                 }
                 if (failure is kotlinx.coroutines.CancellationException) throw failure
             } finally {
                 preparingConversationMentions -= mentionId
                 // Switching conversations must not leave a sendable "preparing" placeholder.
                 fun isUnfinished(item: PendingConversationMentionUi) =
-                    item.id == mentionId && item.transcript == "[正在准备会话原始工具记录]"
+                    item.id == mentionId && item.transcript == "[Preparing raw tool records for the session]"
                 conversationsById.toMap().forEach { (id, state) ->
                     if (state.pendingConversationMentions.any(::isUnfinished)) {
                         updateConversation(id, state.copy(pendingConversationMentions =
@@ -2885,7 +2885,7 @@ internal class AgentAppState(
         replaceLatestAssistantWithNotice(
             runId,
             if (retrying) SystemNoticeCode.RuntimeFailed else SystemNoticeCode.Stopped,
-            detail = if (retrying) "已停止等待接口重试" else null,
+            detail = if (retrying) "Stopped waiting for API retry" else null,
         )
         // Immediate UI feedback, without cancelling the result subscriber or losing history.
         setConversationStreaming(runId, false)
@@ -2908,8 +2908,8 @@ internal class AgentAppState(
         scope.launch(Dispatchers.IO) {
             AgentRuntimeClient(appContext, AndroidAgentLogger).pauseRun(runId)
         }
-        // 只标记暂停，不把消息冻成 isStreaming=false。否则 StreamingMarkdown 会当成
-        // 生成结束切到整段 Text；继续后每个 token 都整段重组，流式输出会明显卡顿。
+        // Only mark as paused; do not freeze the message as isStreaming=false. Otherwise StreamingMarkdown will treat it as
+        // the generation having ended and switched to whole-block Text; after resuming, every token rebuilds the whole block, causing noticeable lag in streaming output.
         updateCurrentConversation(homeState.copy(isPaused = true))
     }
 
@@ -2943,7 +2943,7 @@ internal class AgentAppState(
             memoryState.assistantId != id
         applyConversationAssistant(id, persist = true)
         if (discarded) {
-            Toast.makeText(appContext, "已切换助手，未保存的记忆草稿未写入。", Toast.LENGTH_LONG).show()
+            Toast.makeText(appContext, "Switched assistants; the unsaved memory draft was not written.", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -3058,7 +3058,7 @@ internal class AgentAppState(
             state = state,
             reasoningEffort = state.reasoningEffort,
             skipAutoCompress = true,
-            // 失败那一轮已经结束并保留。点击重试是新开一轮继续，不再复用旧 turnId。
+            // The failed round has already ended and been retained. Tapping retry starts a new round to continue, no longer reusing the old turnId.
             logicalTurnId = runId,
         )
     }
@@ -3099,7 +3099,7 @@ internal class AgentAppState(
             val staged = conversationId?.let { stageChatImages(it, pendingImages) }.orEmpty()
             if (staged.size != pendingImages.size || staged.any { it == null }) {
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(appContext, "附件保存失败，追问未发送，附件仍保留。", Toast.LENGTH_LONG).show()
+                    Toast.makeText(appContext, "Failed to save the attachment; the follow-up was not sent, and the attachment is still retained.", Toast.LENGTH_LONG).show()
                 }
                 return@launch
             }
@@ -3118,17 +3118,17 @@ internal class AgentAppState(
             // Never put a large base64 preview into Binder; leave the draft intact on failure.
             if (imagesJson.length > 64_000) {
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(appContext, "附件预览保存失败，追问未发送。", Toast.LENGTH_LONG).show()
+                    Toast.makeText(appContext, "Failed to save the attachment preview; the follow-up was not sent.", Toast.LENGTH_LONG).show()
                 }
                 return@launch
             }
             val steerText = AgentFileReferencePromptCodec.format(prompt, fileReferences + references, pendingMentions.toMentionedConversations())
-                .ifBlank { "请查看我补充的附件。" }
+                .ifBlank { "Please check the attachments I added." }
             val sent = AgentRuntimeClient(appContext, AndroidAgentLogger)
                 .steerRun(runId, steerText, requestId, imagesJson)
             withContext(Dispatchers.Main) {
                 if (!sent) {
-                    Toast.makeText(appContext, "追问未送达，附件仍保留，请重试。", Toast.LENGTH_LONG).show()
+                    Toast.makeText(appContext, "The follow-up was not delivered; the attachment is still retained. Please try again.", Toast.LENGTH_LONG).show()
                 }
             }
             if (sent) {
@@ -3136,14 +3136,14 @@ internal class AgentAppState(
                 kotlinx.coroutines.delay(15_000)
                 withContext(Dispatchers.Main) {
                     if (requestId in pendingSteerDrafts) {
-                        Toast.makeText(appContext, "尚未收到追问确认，附件仍保留。请先检查会话，避免重复发送。", Toast.LENGTH_LONG).show()
+                        Toast.makeText(appContext, "No follow-up confirmation received yet; the attachment is still retained. Please check the session first to avoid sending duplicates.", Toast.LENGTH_LONG).show()
                     }
                 }
             }
           } catch (failure: Exception) {
             if (failure is kotlinx.coroutines.CancellationException) throw failure
             withContext(Dispatchers.Main) {
-                Toast.makeText(appContext, "追问发送失败，附件仍保留。", Toast.LENGTH_LONG).show()
+                Toast.makeText(appContext, "Failed to send the follow-up; the attachment is still retained.", Toast.LENGTH_LONG).show()
             }
           } finally {
             withContext(kotlinx.coroutines.NonCancellable + Dispatchers.Main) {
@@ -3385,8 +3385,8 @@ internal class AgentAppState(
     }
 
     private fun restoreRunEvents(runId: String, events: List<AgentEvent>) {
-        // 恢复是完整快照：先清除同一 run 的旧投影，再一次发布，避免历史增量重复追加
-        // 或中途的 Running 状态使已结束的思考重新展开、播放动画。
+        // Restoration is a full snapshot: first clear the old projection of the same run, then publish once, avoiding duplicate appends of history deltas
+        // or an intermediate Running state causing an already-finished thought to re-expand and play its animation.
         Snapshot.withMutableSnapshot {
             flushPendingRunDelta(runId)
             updateMessages(runId, updateTimestamp = false) { messages ->
@@ -3865,8 +3865,8 @@ internal class AgentAppState(
     }
 
     /**
-     * 用量达到自动压缩阈值时压缩已提交的历史。
-     * 运行中由 Runtime 在安全边界统一处理；结束后按已提交历史检查。
+     * Compact committed history when usage reaches the auto-compaction threshold.
+     * During a run, Runtime handles this uniformly at safe boundaries; after it ends, check against committed history.
      */
     private fun scheduleAutoCompress(
         conversationId: String,
@@ -3966,7 +3966,7 @@ internal class AgentAppState(
             stoppedDuringRetry != null -> replaceLatestAssistantWithNotice(
                 runId,
                 if (stoppedDuringRetry) SystemNoticeCode.RuntimeFailed else SystemNoticeCode.Stopped,
-                detail = if (stoppedDuringRetry) "已停止等待接口重试" else null,
+                detail = if (stoppedDuringRetry) "Stopped waiting for API retry" else null,
             )
             result.ok && result.content.isNotBlank() -> completeLatestAssistantMessage(
                 runId,
@@ -4023,8 +4023,8 @@ internal class AgentAppState(
     private fun updateAssistantUsage(runId: String, round: Int, usage: TokenUsageUi) {
         if (usage.isEmpty) return
         if (isStaleUsageAfterCompact(runId, round)) return
-        // 只补充 token 用量。不能触碰 isStreaming：Usage 事件紧跟在文本块结束之后，
-        // 若把 isStreaming 改回 true，流式渲染会在流式/静态两种视图间反复切换，整段重渲染。
+        // Only supplement token usage. Must not touch isStreaming: the Usage event immediately follows the end of a text block,
+        // If isStreaming is changed back to true, streaming rendering will repeatedly switch between streaming/static views, re-rendering the whole block.
         val overhead = runOverheadTokens[runId] ?: requestOverheadTokens
         val conversationId = conversationIdForRun(runId)
         updateMessages(runId) { messages ->
@@ -4154,8 +4154,8 @@ internal class AgentAppState(
                 messages + SystemNoticeMessageUi(AgentRunMessageProjector.resultFallbackId(runId, messages), code, detail)
             } else {
                 val target = messages[targetIndex]
-                // 已完成的回答不能被停止通知覆盖。重试/新一轮生成失败时，
-                // 否则会把上一轮完整回复替换成「已停止」，看起来像对话消失。
+                // A completed answer must not be overwritten by a stop notification. When retry/a new generation fails,
+                // otherwise the complete reply from the previous round will be replaced with "Stopped", making it look like the conversation disappeared.
                 if (target is AgentMessageUi && !target.isStreaming && target.content.isNotBlank()) {
                     val noticeId = "interrupted-$runId"
                     if (messages.any { it.id == noticeId }) messages
@@ -4556,10 +4556,10 @@ internal class AgentAppState(
     private companion object {
         const val MAX_TITLE_CHARS = 24
         const val MAX_PREVIEW_CHARS = 48
-        const val LEGACY_STOPPED_ERROR = "已停止"
+        const val LEGACY_STOPPED_ERROR = "Stopped"
         const val SYNTHETIC_STATUS_STOPPED = "eta_status:stopped"
-        // 数据状态以较粗粒度发布，文字显现由独立的帧时钟连续推进。
-        // 这与 Kimi 将流式数据和视觉动画分层的做法一致。
+        // Data state is published at a coarser granularity, while text reveal is advanced continuously by an independent frame clock.
+        // This is consistent with Kimi's approach of layering streaming data and visual animation.
         const val STREAM_UI_UPDATE_INTERVAL_MS = 150L
 
         fun emptyChatState(thinkingEnabled: Boolean): AgentChatHomeUiState =
@@ -4648,7 +4648,7 @@ internal class AgentAppState(
         modelId: String? = null,
     ) {
         val runId = runIdForConversation(conversationId) ?: run {
-            Toast.makeText(appContext, "当前任务已结束，请重新发起压缩。", Toast.LENGTH_LONG).show()
+            Toast.makeText(appContext, "The current task has ended. Please start compaction again.", Toast.LENGTH_LONG).show()
             return
         }
         if (conversationId != null && !pendingInRunCompactConversationIds.add(conversationId)) return
@@ -4676,7 +4676,7 @@ internal class AgentAppState(
             if (!sent) withContext(Dispatchers.Main) {
                 conversationId?.let(pendingInRunCompactConversationIds::remove)
                 setConversationWaitingForCompression(conversationId, false)
-                Toast.makeText(appContext, "压缩请求未送达 Runtime，当前输出未中断。", Toast.LENGTH_LONG).show()
+                Toast.makeText(appContext, "The compaction request was not delivered to Runtime; the current output was not interrupted.", Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -5034,9 +5034,6 @@ internal fun buildToolsState(context: Context): AgentToolsUiState =
                     ToolItemUi("app_usage_summary", context.getString(R.string.tool_ui_app_usage_statistics_ee20d3), context.getString(R.string.tool_ui_summarize_recent_app_usage_by_foreground_duratio_b346c8)),
                     ToolItemUi("get_current_location", context.getString(R.string.tool_ui_current_location_b458ea), context.getString(R.string.tool_ui_read_the_closest_location_the_system_already_has_255a6c)),
                     ToolItemUi("get_device_environment", context.getString(R.string.tool_ui_equipment_environment_1026ec), context.getString(R.string.tool_ui_read_lock_screen_do_not_disturb_audio_output_and_9260b8)),
-                    ToolItemUi("list_alarms", context.getString(R.string.tool_ui_alarm_clock_schedule_acae32), context.getString(R.string.tool_ui_read_the_alarm_clock_that_has_been_created_in_th_2320d6)),
-                    ToolItemUi("list_active_timers", context.getString(R.string.tool_ui_activity_timer_36f107), context.getString(R.string.tool_ui_read_running_or_paused_timers_3437c8)),
-                    ToolItemUi("search_clipboard_history", context.getString(R.string.tool_ui_clipboard_history_b377bb), context.getString(R.string.tool_ui_retrieve_clipboard_contents_saved_by_system_inpu_1dc9db)),
                     ToolItemUi("get_health_summary", context.getString(R.string.tool_ui_health_summary_951c0b), context.getString(R.string.tool_ui_summarize_steps_sleep_exercise_and_body_metrics_6ff66f)),
                     ToolItemUi("wifi_credentials", context.getString(R.string.tool_ui_wi_fi_password_80e9a4), context.getString(R.string.tool_ui_read_the_network_credentials_saved_by_the_phone_96d43a)),
                     ToolItemUi("get_setting", context.getString(R.string.tool_ui_read_system_settings_d455ce), context.getString(R.string.tool_ui_read_the_specified_settings_key_496975)),
@@ -5059,14 +5056,7 @@ internal fun buildToolsState(context: Context): AgentToolsUiState =
                     ToolItemUi("search_call_history", context.getString(R.string.tool_ui_call_history_88e57b), context.getString(R.string.tool_ui_retrieve_calls_by_number_or_contact_name_2ce431)),
                     ToolItemUi("search_messages", context.getString(R.string.tool_ui_short_message_17e1a4), context.getString(R.string.tool_ui_search_text_messages_by_sender_or_text_keywords_e14363)),
                     ToolItemUi("search_downloads", context.getString(R.string.tool_ui_download_history_8494d7), context.getString(R.string.tool_ui_retrieve_system_download_tasks_and_files_3301b9)),
-                    ToolItemUi("search_coloros_notes", context.getString(R.string.tool_ui_coloros_notes_6c324c), context.getString(R.string.tool_ui_retrieve_notes_to_dos_and_text_content_e806d7)),
-                    ToolItemUi("search_coloros_recordings", context.getString(R.string.tool_ui_coloros_recording_a4e425), context.getString(R.string.tool_ui_retrieve_normal_recordings_and_call_recordings_55c192)),
-                    ToolItemUi("search_recording_summaries", context.getString(R.string.tool_ui_recording_summary_2fe550), context.getString(R.string.tool_ui_retrieve_transcribed_summaries_and_notes_associa_9cb00f)),
-                    ToolItemUi("search_coloros_memories", context.getString(R.string.tool_ui_coloros_system_memory_eff961), context.getString(R.string.tool_ui_retrieve_collected_information_and_its_structure_9c1c71)),
-                    ToolItemUi("search_saved_places", context.getString(R.string.tool_ui_save_location_c29782), context.getString(R.string.tool_ui_retrieve_location_information_from_system_memory_52ea48)),
                     ToolItemUi("search_personal_orders", context.getString(R.string.tool_ui_personal_order_25e4c9), context.getString(R.string.tool_ui_retrieve_takeout_shopping_express_delivery_ticke_f8d002)),
-                    ToolItemUi("search_qq_chat_images", context.getString(R.string.tool_ui_qq_chat_pictures_e21bf9), context.getString(R.string.tool_ui_retrieve_recent_pictures_in_qq_chat_picture_cach_b8f009)),
-                    ToolItemUi("search_wechat_chat_images", context.getString(R.string.tool_ui_wechat_chat_pictures_72b268), context.getString(R.string.tool_ui_retrieve_recent_pictures_in_wechat_chat_picture__ab66f7)),
                 ),
             ),
             ToolGroupUi(

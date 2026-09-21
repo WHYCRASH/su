@@ -119,7 +119,7 @@ class SubAgentCoordinatorTest {
             val result = get(c, id)
             assertEquals("failed", result.getString("status"))
             assertEquals("SUB_AGENT_CONTEXT_LIMIT", result.getString("error_code"))
-            assertTrue(result.getString("result").contains("拆分任务"))
+            assertTrue(result.getString("result").contains("Split the task"))
         }
     }
     @Test fun fourSlotsRouteAdditionalImplementationWorkers() {

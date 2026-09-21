@@ -7,8 +7,8 @@ import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
 
 /**
- * 把 Linux 环境里的 /workspace、/var/minis 和 minis:// 路径还原成 Android 宿主路径。
- * chroot 下 /workspace 与 /var/minis/workspace bind 的是同一宿主工作区。
+ * Map /workspace, /var/minis, and minis:// paths inside the Linux environment back to Android host paths.
+ * Under chroot, /workspace and /var/minis/workspace bind-mount the same host workspace.
  */
 internal object LinuxGuestPathResolver {
     const val MINIS_ROOT = "/var/minis"

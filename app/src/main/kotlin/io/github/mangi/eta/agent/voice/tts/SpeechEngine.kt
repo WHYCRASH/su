@@ -7,8 +7,6 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 internal enum class SpeechEngine {
     OPENAI,
-    DOUBAO,
-    MIMO,
     MINIMAX,
     STEP,
     QWEN,
@@ -34,11 +32,6 @@ internal object SpeechEngineResolver {
         val id = model.lowercase()
         val source = sourceType.trim().lowercase()
         return when {
-            DoubaoSpeech.isOpenspeech(baseUrl) || source == ProviderSourceTypes.DOUBAO_SPEECH ||
-                (DoubaoSpeech.matchesModel(model) && !host.contains("volces.com") && !host.contains("volcengine.com")) ->
-                SpeechEngine.DOUBAO
-            host.contains("xiaomimimo") || source == ProviderSourceTypes.MIMO || id.startsWith("mimo") ->
-                SpeechEngine.MIMO
             host.contains("minimax") || source == ProviderSourceTypes.MINIMAX ||
                 id.startsWith("speech-2") || id.startsWith("speech-01") -> SpeechEngine.MINIMAX
             host.contains("stepfun") || source == ProviderSourceTypes.STEPFUN ||

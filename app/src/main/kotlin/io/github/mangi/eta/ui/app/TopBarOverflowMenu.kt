@@ -11,7 +11,6 @@ import androidx.compose.material.icons.filled.DataUsage
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material.icons.outlined.Forum
 import androidx.compose.material3.DropdownMenuItem
@@ -29,7 +28,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
@@ -50,11 +48,6 @@ private val CompactMenuItemPadding = PaddingValues(horizontal = 12.dp)
 internal fun TopBarOverflowMenu(
     onNewConversation: () -> Unit,
     onOpenTerminal: () -> Unit,
-    onLaunchKimiWeb: () -> Unit,
-    kimiWebLabel: String,
-    canStopKimiWeb: Boolean,
-    onStopKimiWeb: () -> Unit,
-    onRefreshKimiWeb: () -> Unit,
     onOpenBrowser: () -> Unit,
     onOpenWorkspace: () -> Unit,
     autoCompressEnabled: Boolean,
@@ -79,7 +72,6 @@ internal fun TopBarOverflowMenu(
         IconButton(
             onClick = {
                 TouchHaptics.click(view)
-                onRefreshKimiWeb()
                 menuState.onAnchorClick()
             }
         ) {
@@ -161,19 +153,6 @@ internal fun TopBarOverflowMenu(
                 },
                 onClick = { TouchHaptics.click(view); menuState.dismiss(); onOpenWorkspace() },
             )
-            DropdownMenuItem(
-                modifier = CompactMenuItemModifier,
-                contentPadding = CompactMenuItemPadding,
-                text = { Text(kimiWebLabel) },
-                leadingIcon = {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_kimi_code),
-                        contentDescription = null,
-                        modifier = Modifier.size(TopBarMenuIconSize),
-                    )
-                },
-                onClick = { TouchHaptics.click(view); menuState.dismiss(); onLaunchKimiWeb() },
-            )
             MenuSectionDivider()
             DropdownMenuItem(
                 modifier = CompactMenuItemModifier,
@@ -229,22 +208,6 @@ internal fun TopBarOverflowMenu(
                     onToggleAutoCompress(!autoCompressEnabled)
                 },
             )
-            if (canStopKimiWeb) {
-                MenuSectionDivider()
-                DropdownMenuItem(
-                    modifier = CompactMenuItemModifier,
-                    contentPadding = CompactMenuItemPadding,
-                    text = { Text(stringResource(R.string.capability_kimi_stop)) },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Filled.Stop,
-                            contentDescription = null,
-                            modifier = Modifier.size(TopBarMenuIconSize),
-                        )
-                    },
-                    onClick = { TouchHaptics.click(view); menuState.dismiss(); onStopKimiWeb() },
-                )
-            }
         }
     ConversationTokenUsageDialog(
         show = showTokenUsageDialog,

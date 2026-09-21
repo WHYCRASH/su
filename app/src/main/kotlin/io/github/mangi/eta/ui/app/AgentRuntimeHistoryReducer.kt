@@ -3,7 +3,7 @@ package io.github.mangi.eta.ui.app
 import io.github.mangi.eta.agent.model.AgentModelClient
 import io.github.mangi.eta.ui.model.AgentChatHomeUiState
 
-/** live result 与 outbox recovery 共用的 history 幂等提交点。 */
+/** Shared idempotent history commit point for live results and outbox recovery. */
 internal object AgentRuntimeHistoryReducer {
     data class Outcome(
         val state: AgentChatHomeUiState,

@@ -37,10 +37,10 @@ internal class AgentImageGenerationClient(
         prompt: String,
         images: List<InputImage> = emptyList(),
     ): Result {
-        require(config.baseUrl.isNotBlank()) { "请先配置 API 地址" }
-        require(prompt.isNotBlank()) { "请输入图片描述" }
+        require(config.baseUrl.isNotBlank()) { "Please configure the API address first" }
+        require(prompt.isNotBlank()) { "Please enter an image description" }
         require(config.providerType != ProviderTypes.ANTHROPIC) {
-            "当前供应商不支持生图接口"
+            "The current provider does not support the image generation API"
         }
         val headers = requestHeaders(config)
         val inputImages = images.filter { it.bytes.isNotEmpty() }
@@ -62,15 +62,15 @@ internal class AgentImageGenerationClient(
                 val parsed = AgentImageGenerationParser.parse(response.body)
                 val generated = materialize(parsed)
                 if (generated.images.isNotEmpty()) return generated
-                lastError = "响应里没有图片"
+                lastError = "The response contains no image"
                 return@forEach
             }
             lastError = AgentImageGenerationParser.errorMessage(response.body, response.code)
             if (!response.retryable) {
-                error(lastError ?: "生图失败")
+                error(lastError ?: "Image generation failed")
             }
         }
-        error(lastError ?: "生图失败")
+        error(lastError ?: "Image generation failed")
     }
 
     private enum class Attempt { Generations, Edits, ChatCompletions }

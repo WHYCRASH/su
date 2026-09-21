@@ -18,19 +18,19 @@ internal fun SubAgentSettingsScreen(onBack: () -> Unit) {
     var selections by remember { mutableStateOf((0 until SubAgentPreferences.SLOT_COUNT).map(SubAgentPreferences::selection)) }
     var editing by remember { mutableStateOf<Int?>(null) }
     val providers by remember { ProviderRepository.providersFlow() }.collectAsState(initial = emptyList())
-    MiuixScaffoldPage(title = "子代理", onBack = onBack) {
+    MiuixScaffoldPage(title = "Subagents", onBack = onBack) {
         item {
-            Text("当前聊天模型担任主代理，自动委派适合并行的任务，并审核子代理的结果。最多同时运行两个子代理。实现代理仅能读写分配的工作树，审查／总结代理只读；子代理不能继续委派。长按聊天中的模型选择器，可切换本会话协作开关。",
+            Text("The current chat model acts as the lead agent, automatically delegating tasks suited for parallel work and reviewing subagent results. At most two subagents run at once. Implementers can only read and write their assigned worktree; reviewer/summarizer agents are read-only; subagents cannot delegate further. Long-press the model picker in chat to toggle collaboration for this session.",
                 Modifier.padding(24.dp))
             Card(Modifier.padding(horizontal = 12.dp)) {
                 SubAgentPreferences.displayOrder.forEach { index ->
                     val selected = selections[index]
                     val model = AgentModelPickerProjector.project(providers, selected.providerId, selected.modelId).selectedModel
                     ArrowPreference(title = SubAgentPreferences.label(index),
-                        summary = model?.let { "${it.providerName} / ${it.displayName}" } ?: "未配置",
+                        summary = model?.let { "${it.providerName} / ${it.displayName}" } ?: "Not configured",
                         onClick = { editing = index })
                     if (selected.modelId.isNotBlank()) {
-                        ArrowPreference(title = "清除${SubAgentPreferences.label(index)}", onClick = {
+                        ArrowPreference(title = "Clear ${SubAgentPreferences.label(index)}", onClick = {
                             val empty = ModelFeatureSelection(true, "", "")
                             SubAgentPreferences.save(index, empty)
                             selections = selections.toMutableList().also { it[index] = empty }
@@ -38,7 +38,7 @@ internal fun SubAgentSettingsScreen(onBack: () -> Unit) {
                     }
                 }
             }
-            Text("只保存模型引用，使用提供商中已有的凭据。未配置的职责不可委派；允许不同槽位使用同一模型。工作区位于项目 .agent 内，需要启用终端并在所选 Linux 环境安装 Python 和 Git。构建测试由主代理执行。每项任务执行最多 3 分钟，压缩另有累计 3 分钟预算，每次主代理运行最多委派 16 项任务。",
+            Text("Only the model reference is saved, using credentials already present in the provider. Roles with no configured model cannot be delegated; different slots may share one model. The workspace lives under the project's .agent directory, requires the terminal enabled, and needs Python and Git installed in the selected Linux environment. Builds and tests run on the lead agent. Each task may run up to 3 minutes, compaction gets a separate cumulative 3-minute budget, and each lead-agent run may delegate at most 16 tasks.",
                 Modifier.padding(24.dp))
         }
     }
@@ -53,7 +53,7 @@ internal fun SubAgentSettingsScreen(onBack: () -> Unit) {
             SubAgentPreferences.save(index, selection)
             selections = selections.toMutableList().also { it[index] = selection }
             editing = null
-        }, "选择${SubAgentPreferences.label(index)}模型", onClearSelection = {
+        }, "Select ${SubAgentPreferences.label(index)} model", onClearSelection = {
             val empty = ModelFeatureSelection(true, "", "")
             SubAgentPreferences.save(index, empty)
             selections = selections.toMutableList().also { it[index] = empty }

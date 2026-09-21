@@ -9,7 +9,7 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import org.json.JSONObject
 
-/** Runtime 自己裁决可选能力，不能把入口进程提交的布尔值当作授权。 */
+/** The runtime adjudicates optional capabilities itself; it must never treat a boolean submitted by the entry process as authorization. */
 internal object AgentRuntimePolicy {
     private val COMPRESSION_EFFORT_PROBE = listOf(
         ReasoningEffort.MINIMAL,
@@ -57,7 +57,8 @@ internal object AgentRuntimePolicy {
     }
 
     /**
-     * 压缩思考探测顺序：能关先关；否则从 minimal 一档档往上，不沿用对话里的 high/max。
+     * Thinking-compression probe order: disable first when possible, otherwise step up from minimal
+     * one notch at a time instead of inheriting high/max from the conversation.
      */
     fun compressionEffortLadder(config: AgentModelClient.ModelConfig): List<ReasoningEffort> {
         val capabilities = config.reasoningCapabilities

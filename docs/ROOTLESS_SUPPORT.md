@@ -1,58 +1,127 @@
-# 普通设备与 Root 设备
+# Rootless and rooted devices
 
-Eta 使用同一个 APK，根据实际授权提供能力。基础功能不会等待 Root 探测，Root 授权与框架服务连接分别展示；授权拒绝、断连或恢复都不改写用户保存的开关。
+su ships one APK that enables capabilities based on the actual grants. Base features
+never wait for root probing; the root grant and the framework-service connection show
+separately, and denied grants, disconnects, or reconnects never rewrite the user's
+saved switches.
 
-系统增强页的“框架通信”仅表示收到框架服务 Binder，不代表 LSPosed 管理器中的 Eta 开关已开启或 Hook 已生效。当前 libxposed Service 接口没有模块开关查询或变更通知；关闭模块后，已有服务连接仍可能保留。模块开关与作用域以管理器为准，具体功能还取决于目标进程中的加载情况。运行目标列表也不能代替模块开关：空列表只能说明没有返回运行目标。
+On the system enhancements page, "framework channel" only means a framework-service
+Binder was received; it does not mean the su switch in the LSPosed manager is on or
+that hooks are active. The current libxposed Service interface offers no module-switch
+query or change notification; after the module is switched off, an existing service
+connection may linger. The manager is authoritative for the module switch and scope,
+and each feature further depends on loading inside its target process. The running-
+target list is no substitute for the module switch: an empty list only means no
+running targets were returned.
 
-## 能力边界
+## Capability boundaries
 
-| 功能 | 普通设备 | 增强条件 |
+| Feature | Rootless device | Extra requirement |
 | --- | --- | --- |
-| 聊天、模型、记忆、Skills、MCP、内置浏览器 | 可用，按各自开关与配置运行 | 无 |
-| GUI 截图、节点、手势、输入与等待 | 开启 Eta 无障碍服务 | LSPosed 系统保护可提供有限重绑 |
-| 启动应用、打开链接、闹钟与计时器 | 使用 Android 前台 Intent | 无障碍不作为前置条件 |
-| 当前通知与通知历史 | 授予通知使用权；当前通知要求监听服务已连接 | Root 用户保留已有系统来源 |
-| 应用使用情况、位置 | 授予对应 Android 访问权限 | 后台位置需要始终允许 |
-| Android Shell、文件与图片 | App UID，私有工作区或已授权来源 | Root 用户保留特权路径 |
-| Alpine、Debian、PTY、Kimi Web | 通过 PRoot 运行 | 可另外安装 chroot |
-| 系统修改、冻结应用、私有数据读取 | 不向模型提供 | 需要 Root；部分数据还要求对应 ROM |
-| 厂商助手接管、Gemini 与一圈即搜 | 可在系统增强中了解 | 需要 LSPosed 与对应 ROM，系统化另需 Root |
+| Chat, models, memory, Skills, MCP, built-in browser | Available, each running under its own switches and configuration | None |
+| GUI screenshots, nodes, gestures, input, and waits | Enable the su accessibility service | LSPosed system protection can provide limited rebinding |
+| Launching apps, opening links, alarms, and timers | Android foreground Intents | Accessibility is not a precondition |
+| Current and historical notifications | Notification-access grant; current notifications need the listener service connected | Root users keep the existing system source |
+| App usage, location | The matching Android access grants | Background location needs allow-all-the-time |
+| Android Shell, files, and images | App UID, private workspace or granted sources | Root users keep the privileged paths |
+| Alpine, Debian, PTY | Run through PRoot | A chroot can be installed additionally |
+| System modification, app freezing, private-data reads | Not offered to the model | Root required; some data additionally needs the matching ROM |
+| Gemini and Circle to Search | See system enhancements | LSPosed and the matching ROM required, root additionally for systemization |
 
-工具页默认“当前设备”。普通 Android 权限尚未开启的功能仍可发现；“全部能力”显示额外介绍与实际条件，查看不会申请权限，也不扩大模型权限。系统增强入口使用普通设置行，不持续提示未授权。Root 用户原有配置位置保持不变；失联时保留已使用配置，设置页顶部不显示重连提示卡片，框架通信状态可在系统增强页查看。
+The tools page defaults to "current device". Features still missing a plain Android
+grant stay discoverable; "all capabilities" shows extra introductions and their actual
+requirements, and viewing them requests no permission and grants the model nothing. The
+system-enhancements entry is a plain settings row with no persistent unauthorized
+prompt. Root users' existing configuration locations are unchanged; while disconnected,
+the used configuration is kept, no reconnect prompt card appears at the top of the
+settings page, and the framework-channel state stays viewable on the system-
+enhancements page.
 
-本次没有新增联系人、短信、日历等数据的普通权限版读取。
+This change adds no unprivileged reads of contacts, SMS, calendar, or similar data.
 
-## 文件与 Linux 数据
+## Files and Linux data
 
-新建普通工作区位于 `filesDir/terminal-user/workspace`，PRoot 环境位于 `filesDir/terminal-user/proot/<发行版>`，避开旧版可能由 Root 创建的 `filesDir/terminal` 父目录。已存在于旧布局的普通工作区与 PRoot 环境继续使用原位置，不自动迁移或修改属主；目录选择不依赖 Root 授权。工作区在 Linux 中仍映射为 `/workspace`。文件选择器返回的 URI 如果无法作为 App UID 可读路径使用，会先有界导入工作区再引用；不能直接导入的目录会给出明确说明。公共目录共享按需申请“所有文件访问”，拒绝后仍可使用私有工作区与导入导出。
+New rootless workspaces live at `filesDir/terminal-user/workspace`, and PRoot
+environments at `filesDir/terminal-user/proot/<distro>`, avoiding the `filesDir/terminal`
+parent directory that older versions may have created as root. Existing rootless
+workspaces and PRoot environments in the old layout keep their location with no
+automatic migration or ownership change; directory picking never depends on the root
+grant. Workspaces still map to `/workspace` inside Linux. A file-picker URI that is not
+usable as an app-UID-readable path is first imported into the workspace within bounds
+and then referenced; directories that cannot be imported directly get an explicit
+explanation. Public-directory sharing requests "all files access" on demand; declining
+still leaves the private workspace plus import/export.
 
-PRoot 与 chroot 使用独立 rootfs。旧 chroot、`/data/local/tmp/eta` 与特权共享挂载不迁移；运行会话和任务固定创建时的后端与路径。Root 状态变化不会删除环境、更改属主或自动切换已有会话。PRoot 内的模拟 root 没有 Android Root 权限。
+PRoot and chroot use independent rootfs trees. Old chroots, `/data/local/tmp/eta`, and
+privileged shared mounts are not migrated; running sessions and tasks pin the backend
+and paths chosen at creation. Root-state changes never delete environments, change
+ownership, or auto-switch existing sessions. Simulated root inside PRoot has no Android
+root privileges.
 
-免 Root 安装器复用固定 rootfs 的下载校验，在临时目录流式解包，处理归档路径、链接、取消与失败清理，运行检查成功后才写完成标记。基础工具、Python/uv、Node.js、SSH、APK 分析和 Kimi 通过所选后端执行安装与检查。
+The rootless installer reuses the pinned-rootfs download verification, streams and
+unpacks in a temp directory, handles archive paths, links, cancellation, and failure
+cleanup, and writes the done marker only after the run check passes. Base tools,
+Python/uv, Node.js, SSH, and APK analysis install and verify through the selected
+backend.
 
-## 运行与停止
+## Running and stopping
 
-普通终端、PRoot tracer 和 Kimi 使用执行前台服务的任务引用维持生命周期。离开页面不停止这些任务；可回到 Eta 打开已就绪的 Kimi 实例，或通过任务入口及执行通知主动停止。最后一个任务结束后释放前台服务。
+Rootless terminals and PRoot tracers hold their lifetime with task references owned by
+the execution foreground service. Leaving the page stops none of these tasks; they can
+be stopped explicitly through the task entry or the execution notification. The
+foreground service is released after the last task ends. The root daemon keeps its
+original standalone lifetime and is not bulk-reclaimed by the rootless task service.
 
-Kimi 使用 `kimi web --no-open`，同一发行版与后端复用实例。失败或取消只回收本次新建实例，已有实例不误杀。Root daemon 沿用原有独立生命周期，不由普通任务服务批量回收。
+Denied notification permission never directly blocks a legitimate launch. Foreground
+services still face Android's
+[background-start restrictions](https://developer.android.com/develop/background-work/services/fgs/restrictions-bg-start)
+and vendor process management; a rejected launch returns to su for retry. Force-stop or
+reboot never auto-replays commands.
 
-通知权限拒绝不会直接阻止合法启动。前台服务仍受 Android 的[后台启动限制](https://developer.android.com/develop/background-work/services/fgs/restrictions-bg-start)和厂商进程管理影响；启动被拒绝时返回 Eta 重试。强停或重启后不自动重放命令。
+## Verification limits and device checklist
 
-## 验证边界与真机清单
+Source regression covers tool-metadata completeness, the rootless capability
+projection, per-round schema and validation consistency, mid-run permission revocation,
+accessibility disconnects, archive unpacking, PRoot command quoting, backend selection,
+task references, and routing round trips. Builds and unit tests are not equivalent to
+successfully running the native binaries on Android.
 
-源码回归覆盖工具元数据完整性、普通能力投影、每轮 Schema 与校验一致、运行中撤权、无障碍断连、归档解包、PRoot 命令引用、后端选择、任务引用与路由往返。构建和单元测试不等同于 Android 上成功运行原生二进制。
+The dev environment passed `:app:compileDebugKotlin`, `:app:assembleDebug`, and the
+full `:app:testDebugUnitTest` run: 785 passed, 1 skipped for macOS missing `/proc`
+(the daemon ownership token's accidental-kill protection check). The APK's 8 new native
+ELFs were checked for 16 KiB alignment, four install ABIs, system dynamic dependencies,
+Xposed metadata, and matching source-bundle consistency; `git diff --check` passed.
 
-开发环境已通过 `:app:compileDebugKotlin`、`:app:assembleDebug` 和全量 `:app:testDebugUnitTest`：785 项通过，1 项因 macOS 缺少 `/proc` 跳过（daemon ownership token 的进程防误杀检查）。APK 中 8 个新增原生 ELF 的 16 KiB 对齐、四种安装 ABI、系统动态依赖、Xposed 元数据及对应源码包一致性均已检查；`git diff --check` 通过。
+The directory-isolation fix additionally passed 32 targeted tests covering unwritable
+old parent directories, in-place reads of old rootless data, file import, install
+unpacking, backend selection, and rootless terminals. On an Android 16 arm64 device, it
+was verified that with the old `terminal` owned by root and unwritable, the new
+workspace can be created by the app UID, the Debian PRoot base environment installs,
+the workspace page reads normally, and host/guest read/write the test file in both
+directions. The old chroot directory's inode, owner, permissions, size, mtime, and
+ready-marker hash stayed identical before and after verification. Full tool installs on
+that device, long background runs, and the complete root-grant switching matrix are not
+yet covered.
 
-目录隔离修复另通过 32 项定向测试，覆盖旧父目录不可写、旧普通数据原位读取、文件导入、安装解包、后端选择及普通终端。在 Android 16 arm64 真机上，已验证旧 `terminal` 为 Root 属主且不可写时，新工作区可以由 App UID 创建、Debian PRoot 基础环境安装成功、工作区页面正常读取，以及宿主与 guest 双向读写测试文件。旧 chroot 目录的 inode、属主、权限、大小、修改时间及就绪标记哈希在验证前后保持一致。尚未覆盖该机全部工具安装、长期后台运行及完整 Root 授权切换矩阵。
+Full acceptance still needs an Android 14+ device:
 
-以下完整验收仍需在 Android 14+ 真机执行：
-
-- 无 Root、仅 Root、仅 LSPosed、两者都有：查看工具目录和系统增强，验证拒绝、30 秒超时、撤销、断连和恢复；确认开关不重置，查看全部能力不弹授权。
-- 无障碍开启后完成截图、节点点击、中文输入与等待；执行中断连立即报告错误，节点过期或动作结果不确定后不能盲目重放。
-- 拒绝公共文件访问后导入文件、在私有工作区读写并导出；授权后检查共享目录双向读写。
-- 在 arm64 与 x86_64 环境分别安装 Alpine 和 Debian PRoot；验证下载失败、空间不足、取消、重新安装、基础工具与可选工具安装。Root 设备同时回归旧 chroot 与共享挂载。
-- 运行 PTY、多会话和后台命令；验证调整窗口、Ctrl-C、自然退出、停止通知、进程回收与日志。停止普通任务不影响 Root daemon。
-- Kimi 首次准备、失败重试、启动、切到浏览器、离开 Eta、返回打开、停止与取消；确认复用实例不会被新启动的失败路径关闭。
-- 工具视图切换与详情返回恢复阅读位置；重新进入默认当前设备。验证窄屏、大字体、横屏、深浅色、系统栏和 IME。
-- 强停与重启后没有自动重放命令，状态可刷新并手动重启；模型配置保存不出现普通用户无法处理的 LSPosed 同步提示。
+- No-root, root-only, LSPosed-only, both: inspect the tool catalog and system
+  enhancements, verify deny, 30-second timeout, revoke, disconnect, and recovery;
+  confirm switches never reset and viewing all capabilities pops no grant.
+- With accessibility on, complete screenshot, node tap, Chinese input, and wait; a
+  mid-run disconnect must report an error immediately, and stale nodes or uncertain
+  action results must never blindly replay.
+- After declining public file access, import files, read/write in the private workspace,
+  and export; after granting, check two-way shared-directory reads/writes.
+- Install Alpine and Debian PRoot on arm64 and x86_64 environments; verify download
+  failure, low space, cancellation, reinstall, and base plus optional tool installs.
+  Rooted devices also regress old chroots and shared mounts.
+- Run PTY, multi-session, and background commands; verify window resize, Ctrl-C,
+  natural exit, stop notification, process reclamation, and logs. Stopping rootless
+  tasks never affects the root daemon.
+- Tool-view switching and detail-back restore the reading position; re-entering lands
+  on the current device by default. Verify narrow screens, large fonts, landscape,
+  dark/light themes, system bars, and IME.
+- Force-stop and reboot never auto-replay commands; state refreshes and restarts
+  manually; saving model configuration never shows an LSPosed sync prompt that a
+  rootless user cannot act on.

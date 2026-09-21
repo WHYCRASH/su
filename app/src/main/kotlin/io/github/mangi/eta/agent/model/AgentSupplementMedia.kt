@@ -9,14 +9,14 @@ internal object AgentSupplementMedia {
     const val MAX_ATTACHMENTS = 8
 
     fun persistedImages(raw: String): List<AgentConversationCodec.PersistedImage> {
-        require(raw.length <= MAX_JSON_CHARS) { "附件描述过大" }
+        require(raw.length <= MAX_JSON_CHARS) { "Attachment description is too large" }
         val array = JSONArray(raw)
-        require(array.length() <= MAX_ATTACHMENTS) { "附件数量过多" }
+        require(array.length() <= MAX_ATTACHMENTS) { "Too many attachments" }
         return (0 until array.length()).map { index ->
             val obj = array.optJSONObject(index)
             val source = if (obj == null) array.getString(index) else
                 obj.optString("source").ifBlank { obj.optString("preview") }
-            require(source.startsWith('/') && source.length <= 4096 && !source.contains('\u0000')) { "附件必须是已保存的本地文件" }
+            require(source.startsWith('/') && source.length <= 4096 && !source.contains('\u0000')) { "Attachments must be saved local files" }
             val video = obj?.optString("kind") == "video"
             AgentConversationCodec.PersistedImage(source,
                 if (video) "video/mp4" else "image/jpeg", source.substringAfterLast('/'))

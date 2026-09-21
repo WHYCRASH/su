@@ -1,20 +1,26 @@
-# 中转语音合成
+# Relay speech synthesis
 
-使用普通 OpenAI-compatible 提供商添加或获取 CosyVoice2、MOSS-TTSD 模型，
-然后在朗读设置中选择。移除单独的“新增语音合成”入口，豆包入口保留。
-旧入口保存的模型、地址和凭据无需重新录入，不再依赖未持久化的 compatible_speech 类型。
-保留旧导航枚举的反序列化兼容，但进入普通配置表单。
+Add or fetch CosyVoice2 and MOSS-TTSD models through a regular OpenAI-compatible provider,
+then select them in the read-aloud settings. The standalone "add speech synthesis" entry
+is removed; models saved through the old entry keep working without re-entering the model,
+endpoint, or credentials, and no longer depend on the unpersisted compatible_speech type.
+The old navigation enum stays deserializable for compatibility but now opens the regular
+configuration form.
 
-朗读设置必须以选择器解析出的 modelId（API 模型名）选择引擎和音色，不能使用数据库记录 UUID。
-普通提供商的语音模型可用于朗读，仍不出现在聊天模型列表中。
+Read-aloud settings must select the engine and voice by the selector-resolved modelId
+(the API model name), never by the database record UUID. Speech models on regular
+providers are available for reading aloud but still do not appear in the chat model list.
 
-先前使用的 longxiaochun_v2 和 default 在用户配置的中转返回 HTTP 400 Invalid voice。
-依据 https://docs.siliconflow.cn/docs/userguide/capabilities/text-to-speech ，预设音色需带上游模型前缀。
-CosyVoice2 使用 FunAudioLLM/CosyVoice2-0.5B:alex 等八个预设，
-MOSS-TTSD 使用 fnlp/MOSS-TTSD-v0.5:alex 等八个预设。
-完整模型名保留自己的前缀。使用既有地址和凭据、短文本“你好”分别实测两种短别名模型，
-均返回 HTTP 200、audio/mpeg 且具有 MP3 文件头。凭据及生成音频不写入仓库。
-不同中转是否采用相同命名仍以其接口文档为准。
+The previously used longxiaochun_v2 and default aliases returned HTTP 400 Invalid voice
+on the user's relay. Per https://docs.siliconflow.cn/docs/userguide/capabilities/text-to-speech ,
+preset voices need the upstream model prefix: CosyVoice2 uses presets such as
+FunAudioLLM/CosyVoice2-0.5B:alex (eight presets), MOSS-TTSD uses presets such as
+fnlp/MOSS-TTSD-v0.5:alex (eight presets). Full model names keep their own prefixes.
+Both short-alias models were tested against the existing endpoint and credentials with
+the short test utterance "hello", and each returned HTTP 200 with audio/mpeg and an MP3 header.
+Credentials and generated audio are not stored in the repo. Whether other relays use
+the same naming is determined by their own API documentation.
 
-回归覆盖数据库往返后进入朗读列表、UUID 与模型名分离、旧入口配置兼容、
-请求发往配置的 /audio/speech 且保持模型别名与正确音色字段。
+Regression coverage: entering the read-aloud list after a database round trip, UUID/model-name
+separation, old-entry configuration compatibility, and requests going to the configured
+/audio/speech endpoint with the model alias and correct voice fields preserved.

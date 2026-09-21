@@ -191,7 +191,7 @@ internal fun DataBackupScreen(
         WindowDialog(
             show = true,
             title = stringResource(R.string.data_backup_import_confirm_title),
-            summary = stringResource(R.string.data_backup_import_confirm_summary) + "\n如果选择单会话归档，则导入为独立新会话，不覆盖已有会话或模型配置。",
+            summary = stringResource(R.string.data_backup_import_confirm_summary) + "\nImporting a single-conversation archive creates a separate new conversation; it does not overwrite existing conversations or model configurations.",
             onDismissRequest = {
                 if (!busy) {
                     showImportDialog = false
@@ -266,4 +266,4 @@ private fun BackupIcon(icon: ImageVector, loading: Boolean) {
 }
 
 private fun defaultBackupFileName(): String =
-    "代鱼-${SimpleDateFormat("yyyyMMdd-HHmm", Locale.US).format(Date())}-备份.zip"
+    "su-backup-${SimpleDateFormat("yyyyMMdd-HHmm", Locale.US).format(Date())}.zip"

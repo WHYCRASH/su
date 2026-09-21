@@ -47,7 +47,7 @@ fun AgentToolsScreen(
     var showAll by rememberSaveable { mutableStateOf(false) }
     val currentListState = rememberLazyListState()
     val allListState = rememberLazyListState()
-    val groups = projectToolGroups(state.groups, showAll, capabilities.root.isGranted, capabilities.tools.colorOs)
+    val groups = projectToolGroups(state.groups, showAll, capabilities.root.isGranted)
     MiuixScaffoldPage(
         title = stringResource(R.string.ui_tool_ability_9f0f80),
         onBack = { onAction(AgentToolsAction.NavigateBack) },

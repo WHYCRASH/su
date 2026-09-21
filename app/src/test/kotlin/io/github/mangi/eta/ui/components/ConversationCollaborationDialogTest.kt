@@ -29,15 +29,14 @@ class ConversationCollaborationDialogTest {
                     { enabled.value = it }, { visible.value = false })
             }
         }
-        compose.onNodeWithText("本会话协作").assertExists()
-        listOf("执行代理 1", "执行代理 2", "执行代理 3", "审查／总结代理").forEach {
+        compose.onNodeWithText("In-session collaboration").assertExists()
+        listOf("Execution Agent 1", "Execution Agent 2", "Execution Agent 3", "Review/Summary Agent").forEach {
             compose.onNodeWithText(it).assertExists()
         }
-        compose.onNodeWithText("单击选模型 · 长按调整思考深度", substring = true).assertExists()
-        compose.onNodeWithText("最多两个只读子代理", substring = true).assertDoesNotExist()
-        compose.onNodeWithText("自动委派").performClick()
+        compose.onNodeWithText("Tap to select model · Long-press to adjust thinking depth", substring = true).assertExists()
+        compose.onNodeWithText("Auto delegation").performClick()
         compose.runOnIdle { assertTrue(enabled.value) }
-        compose.onNodeWithText("完成").performClick()
+        compose.onNodeWithText("Done").performClick()
         compose.runOnIdle { assertFalse(visible.value) }
     }
     @Test fun emptySlotClickOpensModelPickerAndLongPressDoesNotTriggerClick() {
@@ -52,15 +51,15 @@ class ConversationCollaborationDialogTest {
                     ConversationCollaborationDialog(true, true, {}, {})
                 }
             }
-            compose.onNodeWithText("执行代理 1").performTouchInput { longClick() }
-            compose.onNodeWithText("选择执行代理 1模型").assertDoesNotExist()
-            compose.onNodeWithText("执行代理 1").performTouchInput { click() }
-            compose.onNodeWithText("选择执行代理 1模型").assertExists()
-            compose.onNodeWithText("无").performClick()
-            compose.onNodeWithText("本会话协作").assertExists()
-            compose.onNodeWithText("执行代理 1").performTouchInput { longClick() }
-            compose.onNodeWithText("调整思考深度").assertDoesNotExist()
-            compose.onNodeWithText("选择执行代理 1模型").assertDoesNotExist()
+            compose.onNodeWithText("Execution Agent 1").performTouchInput { longClick() }
+            compose.onNodeWithText("Select Execution Agent 1 model").assertDoesNotExist()
+            compose.onNodeWithText("Execution Agent 1").performTouchInput { click() }
+            compose.onNodeWithText("Select Execution Agent 1 model").assertExists()
+            compose.onNodeWithText("None").performClick()
+            compose.onNodeWithText("In-session collaboration").assertExists()
+            compose.onNodeWithText("Execution Agent 1").performTouchInput { longClick() }
+            compose.onNodeWithText("Only affects this sub-agent slot").assertDoesNotExist()
+            compose.onNodeWithText("Select Execution Agent 1 model").assertDoesNotExist()
             compose.runOnIdle {
                 assertTrue(io.github.mangi.eta.agent.delegation.SubAgentPreferences.selection(slot).modelId.isBlank())
             }
@@ -79,24 +78,24 @@ class ConversationCollaborationDialogTest {
                 ConversationCollaborationDialog(true, true, { changes++ }, { dismissals++ }, taskRunning = running.value)
             }
         }
-        compose.onNodeWithText("执行代理 1").performClick()
-        compose.onNodeWithText("选择执行代理 1模型").assertExists()
+        compose.onNodeWithText("Execution Agent 1").performClick()
+        compose.onNodeWithText("Select Execution Agent 1 model").assertExists()
         compose.runOnIdle { running.value = true }
-        compose.onNodeWithText("选择执行代理 1模型").assertDoesNotExist()
-        compose.onNodeWithText("完成").assertIsDisplayed().assertIsNotEnabled()
-        compose.onNodeWithText("执行代理 1").assertIsNotEnabled()
-        compose.onNodeWithText("执行代理 1").performTouchInput { click(); longClick() }
+        compose.onNodeWithText("Select Execution Agent 1 model").assertDoesNotExist()
+        compose.onNodeWithText("Done").assertIsDisplayed().assertIsNotEnabled()
+        compose.onNodeWithText("Execution Agent 1").assertIsNotEnabled()
+        compose.onNodeWithText("Execution Agent 1").performTouchInput { click(); longClick() }
         compose.runOnIdle { org.junit.Assert.assertEquals("disabled model row must not dismiss", 0, dismissals) }
-        compose.onNodeWithText("自动委派").performTouchInput { click() }
+        compose.onNodeWithText("Auto delegation").performTouchInput { click() }
         compose.runOnIdle { org.junit.Assert.assertEquals("disabled toggle must not dismiss", 0, dismissals) }
-        compose.onNodeWithText("完成").performTouchInput { click() }
+        compose.onNodeWithText("Done").performTouchInput { click() }
         compose.runOnIdle {
             org.junit.Assert.assertEquals(0, changes)
             org.junit.Assert.assertEquals(0, dismissals)
             running.value = false
         }
-        compose.onNodeWithText("执行代理 1").assertIsEnabled()
-        compose.onNodeWithText("完成").assertIsEnabled().performClick()
+        compose.onNodeWithText("Execution Agent 1").assertIsEnabled()
+        compose.onNodeWithText("Done").assertIsEnabled().performClick()
         compose.runOnIdle { org.junit.Assert.assertEquals(1, dismissals) }
     }
 
@@ -109,7 +108,7 @@ class ConversationCollaborationDialogTest {
                 ConversationCollaborationDialog(true, true, {}, { dismissals++ }, taskRunning = true)
             }
         }
-        compose.onNodeWithText("完成").assertIsDisplayed().assertIsNotEnabled()
+        compose.onNodeWithText("Done").assertIsDisplayed().assertIsNotEnabled()
             .performTouchInput { click() }
         compose.runOnIdle { org.junit.Assert.assertEquals(0, dismissals) }
     }

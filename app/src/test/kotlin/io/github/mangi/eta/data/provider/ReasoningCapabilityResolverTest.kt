@@ -21,9 +21,9 @@ class ReasoningCapabilityResolverTest {
     private val allTiers = allSelectable.filter { it != ReasoningEffort.OFF }
 
     @Test
-    fun userFacingEffortLabelsAreChinese() {
+    fun userFacingEffortLabelsAreEnglish() {
         assertEquals(
-            listOf("关闭", "默认", "最小", "低", "中", "高", "超高", "极高"),
+            listOf("Off", "Default", "Minimal", "Low", "Medium", "High", "Extra High", "Max"),
             ReasoningEffort.entries.map(ReasoningEffort::displayName),
         )
     }

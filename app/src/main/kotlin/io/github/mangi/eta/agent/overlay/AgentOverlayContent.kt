@@ -85,7 +85,7 @@ import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
-// Miuix 未提供语义 success 色，沿用项目既有值；失败色走主题 error
+// Miuix provides no semantic success color, so reuse the project's existing value; failure uses the theme error color
 private val SuccessColor = Color(0xFF34C759)
 
 private const val SupplementExitDelayMs = 380L
@@ -99,8 +99,8 @@ private fun phaseAccent(phase: AgentOverlayPhase): Color = when (phase) {
 }
 
 /**
- * 助手光球窗口：始终显示在屏幕右侧中下，点击展开/收起小气泡。
- * 独立小窗口（WRAP_CONTENT），不遮挡页面操作。
+ * Assistant orb window: always shown at the lower-middle right of the screen; tap to expand/collapse the bubble.
+ * Standalone small window (WRAP_CONTENT) that never blocks page interaction.
  */
 @Composable
 internal fun AgentOverlayOrb(
@@ -127,15 +127,15 @@ internal fun AgentOverlayOrb(
             animationSpec = tween(durationMillis = 150)
         ) + fadeOut(animationSpec = tween(durationMillis = 150)),
     ) {
-        // 点击直接交给 Service 侧 toggle，不在 Compose 协程作用域里做延迟动作，
-        // 避免 scope 取消导致浮层残留。
+        // Taps go straight to the Service-side toggle with no deferred work in the Compose coroutine scope,
+        // so a cancelled scope cannot leave the overlay behind.
         AssistantOrb(phase = phase, onClick = onToggleCollapse)
     }
 }
 
 /**
- * 助手光球：外层径向光晕 + 实心球体 + 高光点。
- * 运行中光晕呼吸，暂停/完成/失败静止，颜色随阶段变化。
+ * Assistant orb: outer radial halo + solid sphere + highlight dot.
+ * The halo breathes while running, rests when paused/finished/failed, and changes color by phase.
  */
 @Composable
 private fun AssistantOrb(
@@ -180,8 +180,8 @@ private fun AssistantOrb(
 }
 
 /**
- * 运行时小气泡窗口：WRAP_CONTENT，跟随光球，窗口外触摸穿透。
- * 一句话状态 + 动作按钮 + 可展开补充输入。结束时由 Service 撤掉、改显结果卡片。
+ * Runtime bubble window: WRAP_CONTENT, follows the orb, touch-through outside the window.
+ * One-line status + action buttons + expandable follow-up input. The Service removes it on finish and shows the result card instead.
  */
 @Composable
 internal fun AgentOverlayBubble(
@@ -267,7 +267,7 @@ internal fun AgentOverlayBubble(
                 color = MiuixTheme.colorScheme.surfaceContainer.copy(alpha = 0.8f)
             ),
         ) {
-            // 一句话状态
+            // One-line status
             Text(
                 text = statusText,
                 color = statusColor,
@@ -467,8 +467,8 @@ private fun SupplementInput(
 }
 
 /**
- * 结束时半屏结果卡片窗口：Markdown 渲染完整结果，可滚动，底部对齐。
- * 窗口本身已由 Service 定为半屏尺寸，此处填满窗口。
+ * End-of-run half-screen result card window: renders the full Markdown result, scrollable, bottom-aligned.
+ * The Service already sized the window to half screen; fill the window here.
  */
 @Composable
 internal fun AgentResultCard(
@@ -521,7 +521,7 @@ internal fun AgentResultCard(
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    // 状态行降级为圆点 + 灰色小字，关闭用幽灵图标，视觉重心留给内容
+                    // Status line degrades to a dot + gray small text, close uses a ghost icon, keeping visual focus on the content
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
@@ -539,7 +539,7 @@ internal fun AgentResultCard(
                             fontSize = 13.sp,
                         )
                         Spacer(modifier = Modifier.weight(1f))
-                        // 关闭直接交给 Service，不经 Compose 协程延迟
+                        // Close goes straight to the Service with no Compose coroutine delay
                         IconButton(
                             onClick = onClose,
                             backgroundColor = Color.Transparent,
@@ -558,7 +558,7 @@ internal fun AgentResultCard(
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    // Markdown 结果，可滚动
+                    // Markdown result, scrollable
                     val markdownState = rememberMarkdownState(content = content, retainState = true)
                     val typography = markdownTypography(
                         h1 = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold, color = textColor),

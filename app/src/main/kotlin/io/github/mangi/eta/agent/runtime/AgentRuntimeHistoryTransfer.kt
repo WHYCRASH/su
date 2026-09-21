@@ -11,10 +11,10 @@ import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * 把 history 正文从 Messenger Bundle 中移出。
+ * Move the history body out of the Messenger Bundle.
  *
- * 发送端把 history 序列化后写入临时文件，并通过只读文件描述符交给 Runtime；
- * 接收端读取文件后恢复成消息列表。文件本身由发送端持有并负责清理。
+ * The sender serializes history into a temp file and hands it to Runtime via a read-only file descriptor;
+ * the receiver reads the file back into a message list. The sender owns the file and cleans it up.
  */
 internal object AgentRuntimeHistoryTransfer {
     private const val HISTORY_TRANSFER_DIRECTORY = "agent-runtime-history"
@@ -41,7 +41,7 @@ internal object AgentRuntimeHistoryTransfer {
     ): PreparedHistory {
         val cacheDirectory = File(context.cacheDir, HISTORY_TRANSFER_DIRECTORY).apply {
             if (!isDirectory && !mkdirs()) {
-                throw IllegalStateException("无法创建 history 传输缓存")
+                throw IllegalStateException("Could not create the history transfer cache")
             }
         }
         cleanupStaleFiles(cacheDirectory)
@@ -53,7 +53,7 @@ internal object AgentRuntimeHistoryTransfer {
         }
         file.writeText(encoded, Charsets.UTF_8)
         val descriptor = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
-            ?: throw IllegalStateException("无法打开 history 文件描述符")
+            ?: throw IllegalStateException("Could not open the history file descriptor")
         return PreparedHistory(descriptor, file)
     }
 
@@ -67,7 +67,7 @@ internal object AgentRuntimeHistoryTransfer {
                 val raw = String(bytes, Charsets.UTF_8)
                 return AgentConversationCodec.decodeTranscript(raw)
             }
-        // 兼容旧客户端：history 仍内联在 Bundle 中。
+        // Compatibility with old clients: history is still inlined in the Bundle.
         return bundle.getParcelableArrayList(AgentRuntimeWire.KEY_HISTORY, Bundle::class.java)
             .orEmpty()
             .map { message ->

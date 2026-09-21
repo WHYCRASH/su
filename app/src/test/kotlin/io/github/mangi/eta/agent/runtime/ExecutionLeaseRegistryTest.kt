@@ -10,7 +10,7 @@ class ExecutionLeaseRegistryTest {
     fun taskAcquiredDuringServiceRestartIsNotDrainedByThePreviousOwner() {
         val registry = ExecutionLeaseRegistry()
         registry.attachOwner(1)
-        registry.acquire("old") { error("已完成的任务不应取消") }
+        registry.acquire("old") { error("A finished task must not be cancelled") }
         assertFalse(registry.closeOwnerIfIdle(1))
         registry.release("old")
         assertTrue(registry.closeOwnerIfIdle(1))
@@ -44,7 +44,7 @@ class ExecutionLeaseRegistryTest {
         assertTrue(registry.acquire("run:1") { stopped += "run" })
         assertTrue(registry.acquire("user:daemon") { stopped += "daemon" })
         assertTrue(registry.acquire("user:pty") { stopped += "pty" })
-        assertFalse(registry.acquire("user:daemon") { error("复用任务不能替换持有者") })
+        assertFalse(registry.acquire("user:daemon") { error("A reused task must not replace its owner") })
         registry.release("run:1")
         assertEquals(2, registry.count())
         val callbacks = registry.drain()

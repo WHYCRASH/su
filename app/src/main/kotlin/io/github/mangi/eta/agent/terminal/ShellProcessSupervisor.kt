@@ -7,7 +7,7 @@ import java.util.UUID
 import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 
-/** 负责 Shell 进程的启动接纳、所有权识别、进程树终止与回收。 */
+/** Owns shell process admission, ownership tracking, process-tree termination, and reaping. */
 internal class ShellProcessSupervisor(
     private val allowTreeFallback: Boolean = !isAndroidRuntime(),
     private val setsidCommand: String = "setsid",
@@ -36,8 +36,8 @@ internal class ShellProcessSupervisor(
         private set
 
     /**
-     * ProcessBuilder.start() 必须在锁外执行；启动完成后再以短临界区完成接纳或拒绝。
-     * 每个 Shell 优先进入独立 session，并把真实 Shell PID 写入仅本进程使用的临时文件。
+     * ProcessBuilder.start() must run outside the lock; admission or rejection completes in a short critical section after startup.
+     * Each shell prefers its own session, and the real shell PID is written to a temp file used only by this process.
      */
     fun startShellProcess(
         identity: String,
@@ -51,9 +51,9 @@ internal class ShellProcessSupervisor(
         ptyRows: Int = DEFAULT_PTY_ROWS,
     ): Process? {
         if (isClosing) return null
-        require(identity == "root" || identity == "user") { "identity 仅支持 root/user" }
+        require(identity == "root" || identity == "user") { "identity only supports root/user" }
         require(!environment.isLinux || identity == "root" || LinuxEnvironmentPaths.backendOf(linuxRootfsPath) == LinuxExecutionBackend.PROOT) {
-            "Linux 工具环境仅支持 root identity"
+            "The Linux tool environment only supports the root identity"
         }
         if (environment.isLinux && identity == "root" && LinuxEnvironmentPaths.backendOf(linuxRootfsPath) == LinuxExecutionBackend.PROOT) return null
         if (identity == "root" && !rootAvailable()) return null
@@ -170,7 +170,7 @@ internal class ShellProcessSupervisor(
         metadata?.commandFile?.delete()
     }
 
-    /** leader 已退出后只废止所有权；禁止再向可能复用的 PID/PGID 发信号。 */
+    /** Once the leader has exited, only retire ownership; never signal a possibly reused PID/PGID. */
     fun retireExitedProcess(process: Process) {
         unregisterProcess(process)
     }
@@ -197,7 +197,7 @@ internal class ShellProcessSupervisor(
             )
             else -> buildLinuxPayload(
                 rootfsPath = requireNotNull(linuxRootfsPath) {
-                    "Linux 工具环境 rootfs 未配置"
+                    "Linux tool environment rootfs is not configured"
                 },
                 command = managedCommand,
                 sharedMounts = linuxSharedMounts,
@@ -255,8 +255,8 @@ internal class ShellProcessSupervisor(
     }
 
     /**
-     * PTY 控制台启动器：经 BusyBox script 为负载分配伪终端（stty 设定初始尺寸、TERM 宣告全彩）。
-     * script 缺失时写入 unavailable，由调用方拒绝接纳，控制台入口依赖 [ptySupported] 提前探测。
+     * PTY console launcher: allocates a pseudo-terminal for the payload via BusyBox script (stty sets the initial size, TERM advertises full color).
+     * When script is missing, writes unavailable so the caller refuses admission; the console entry relies on [ptySupported] to probe ahead.
      */
     private fun buildPtyLauncher(
         exportOwner: String,
@@ -275,7 +275,7 @@ internal class ShellProcessSupervisor(
             "exec $safeSetsid -w $run; else $run; fi"
     }
 
-    /** Root 会话优先进入 Magisk/KernelSU/APatch BusyBox standalone ash，补齐 Android PATH 外的 applet。 */
+    /** Root sessions prefer the Magisk/KernelSU/APatch BusyBox standalone ash, filling in applets missing from the Android PATH. */
     internal fun buildAndroidPayload(identity: String, command: String?): String {
         val shellArgument = command?.let { "-c ${shellQuote(it)}" }.orEmpty()
         if (identity != "root") {
@@ -290,10 +290,10 @@ internal class ShellProcessSupervisor(
     }
 
     /**
-     * Linux 工具环境始终在独立 mount namespace 中启动，避免 bind mount 泄漏到 Android 全局。
-     * chroot 不是安全沙箱；它只负责提供完整 Linux userland，Android 系统操作仍应走 android 环境。
-     * [sharedMounts] 在 namespace 建立时按当前配置逐个 bind 到 rootfs 的 workspace/mounts/<name>，
-     * 会话结束即随 namespace 回收，Android 侧不留需要卸载的全局挂载。
+     * The Linux tool environment always starts in its own mount namespace so bind mounts never leak into the global Android namespace.
+     * chroot is not a security sandbox; it only provides a full Linux userland. Android system operations should still use the android environment.
+     * [sharedMounts] are bound one by one into the rootfs workspace/mounts/<name> as the namespace is created, following the current configuration,
+     * and are reclaimed with the namespace when the session ends, leaving no global mounts on the Android side to unmount.
      */
     internal fun buildLinuxPayload(
         rootfsPath: String,
@@ -307,7 +307,7 @@ internal class ShellProcessSupervisor(
         val rootfs = shellQuote(rootfsPath)
         val mode = if (command == null) "session" else "command"
         val payload = shellQuote(command.orEmpty())
-        // name 经 SharedFolderMounts 校验只含 [A-Za-z0-9._-]，可安全拼进双引号路径。
+        // name is validated by SharedFolderMounts to contain only [A-Za-z0-9._-], so it is safe to splice into a double-quoted path.
         val skillsRoot = skillsDirectoryProvider()?.takeIf { it.isDirectory }
         val skillsDir = skillsRoot?.absolutePath
         val offloadsDir = TerminalRuntime.minisOffloadsDirectory()?.absolutePath
@@ -404,8 +404,8 @@ internal class ShellProcessSupervisor(
             "$innerScriptHead\n$mountsBlock\n$innerScriptTail"
         }
         val discovery = AndroidBusyBox.discoveryScript()
-        // Alpine 的 /bin/sh 是指向 /bin/busybox 的绝对符号链接，Android 侧 -x 会按宿主根目录
-        // 解析链接目标而误判缺失；符号链接视为存在，真实可执行性由 chroot 后的内核解析兜底。
+        // Alpine's /bin/sh is an absolute symlink to /bin/busybox, which Android-side -x resolves against the host root
+        // and misreports as missing; treat symlinks as present and let the kernel resolve real executability after chroot.
         return "$discovery; " +
             "[ -n \"${'$'}eta_busybox\" ] || { echo 'ETA_LINUX_BUSYBOX_MISSING' >&2; exit 127; }; " +
             "eta_rootfs=$rootfs; " +
@@ -546,7 +546,7 @@ internal class ShellProcessSupervisor(
     )
 }
 
-/** 写入托管进程环境块的归属标记；巡检与停止前用它防止 PID 复用误杀。 */
+/** Ownership marker written into a managed process's environment block; consulted before inspection and stop to avoid killing reused PIDs. */
 internal const val ETA_PROCESS_OWNER_ENV = "ETA_PROCESS_OWNER"
 
 internal fun shellQuote(value: String): String =
@@ -559,9 +559,9 @@ internal data class OneShotShellResult(
 )
 
 /**
- * 探测控制台 PTY 的前提：Root 侧 BusyBox 带 script applet。
- * 用 --list 精确匹配 applet 名；--help 的首行是版本横幅，不含 applet 名。
- * 只在控制台入口调用，不在进程启动热路径使用。
+ * Prerequisite for probing console PTY: the root-side BusyBox ships the script applet.
+ * Match the applet name exactly with --list; --help's first line is a version banner without applet names.
+ * Called only at the console entry, never on the process-start hot path.
  */
 internal fun ptySupported(processSupervisor: ShellProcessSupervisor): Boolean {
     val command = AndroidBusyBox.discoveryScript() +
@@ -576,8 +576,8 @@ internal fun ptySupported(processSupervisor: ShellProcessSupervisor): Boolean {
 }
 
 /**
- * 一次性 Shell 命令原语：带超时回收与有界输出收集。调用方负责命令构造与输出解释；
- * 超时或 supervisor 关闭时整棵进程树由 [ShellProcessSupervisor] 回收。
+ * One-shot shell command primitive with timeout reaping and bounded output collection. The caller owns command construction and output interpretation;
+ * on timeout or supervisor shutdown the whole process tree is reaped by [ShellProcessSupervisor].
  */
 internal fun runOneShotShell(
     processSupervisor: ShellProcessSupervisor,
@@ -599,7 +599,7 @@ internal fun runOneShotShell(
     ) ?: return OneShotShellResult(
         if (processSupervisor.isClosing) -3 else -1,
         ByteArray(0),
-        if (processSupervisor.isClosing) "操作已取消".toByteArray() else "无法启动进程".toByteArray(),
+        if (processSupervisor.isClosing) "Operation cancelled".toByteArray() else "Cannot start process".toByteArray(),
     )
 
     try {
@@ -624,7 +624,7 @@ internal fun runOneShotShell(
             stderrThread.join(500)
             stdinThread.join(500)
             processSupervisor.reapProcess(process)
-            return OneShotShellResult(-2, output.bytes(), "命令执行超时".toByteArray())
+            return OneShotShellResult(-2, output.bytes(), "Command timed out".toByteArray())
         }
 
         outputThread.join(500)

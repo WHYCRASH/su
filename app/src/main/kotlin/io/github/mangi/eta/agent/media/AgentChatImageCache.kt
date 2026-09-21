@@ -9,8 +9,8 @@ import java.io.File
 import java.util.UUID
 
 /**
- * 将原始附件落盘，UI 预览和模型能力相互独立。纯文本模型只能接收路径，不能通过 read_image 获得视觉能力。
- * 不写入用户工作区；删除会话或变成孤儿后清理，避免缓存无限涨。
+ * Persist raw attachments to disk; UI preview and model capability are independent. Text-only models receive only a path and gain no vision via read_image.
+ * Never written to the user workspace; cleaned up when the conversation is deleted or orphaned so the cache cannot grow without bound.
  */
 internal class AgentChatImageCache(context: Context) {
     private val root = File(context.applicationContext.cacheDir, CACHE_DIRECTORY)
@@ -99,8 +99,8 @@ internal class AgentChatImageCache(context: Context) {
     }
 
     /**
-     * 模型侧常见的 /home/workdir/attachments/image.jpg 并不是 Android 路径。
-     * 只在缓存目录内按附件名查找，不跟随任意外部路径。
+     * A model-side path like /home/workdir/attachments/image.jpg is not an Android path.
+     * Only look up attachment names inside the cache directory; never follow arbitrary external paths.
      */
     fun resolveReadableFile(raw: String): File? {
         val path = raw.trim().removePrefix("file://")

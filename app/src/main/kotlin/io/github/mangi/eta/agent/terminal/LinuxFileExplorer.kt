@@ -3,11 +3,11 @@ package io.github.mangi.eta.agent.terminal
 import java.io.File
 
 /**
- * 面向用户的 Linux 环境文件浏览后端。
+ * User-facing file-browsing backend for the Linux environment.
  *
- * 列举、读取、导出和删除都在 Linux 会话里执行（chroot / PRoot），这样 /workspace、
- * /storage/emulated/0 和共享目录能看到与终端 ls 相同的 bind 内容。
- * 路径只做词法归一化，拒绝逃出根。
+ * Listing, reading, exporting, and deleting all run inside the Linux session (chroot / PRoot), so /workspace,
+ * /storage/emulated/0, and shared directories see the same bind contents as ls in the terminal.
+ * Paths get only lexical normalization; escaping the root is rejected.
  */
 internal object LinuxFileExplorer {
     const val DEFAULT_MAX_READ_BYTES = 256L * 1024L
@@ -57,8 +57,8 @@ internal object LinuxFileExplorer {
     }
 
     /**
-     * 把用户输入归一成 Linux 内绝对路径。只接受 `/` 开头的路径（空白归一为 `/`）；
-     * `..` 弹栈、弹到根之上或相对路径返回 null。
+     * Normalize user input into an absolute path inside Linux. Only paths starting with `/` are accepted (blank input normalizes to `/`);
+     * `..` pops a segment; popping above the root or a relative path returns null.
      */
     fun normalizeLinuxPath(linuxPath: String): String? {
         val trimmed = linuxPath.trim()
@@ -76,8 +76,8 @@ internal object LinuxFileExplorer {
     }
 
     /**
-     * 把 guest 绝对路径映射为宿主路径。子段已剔除 `..`，按相对段拼接，
-     * 避免 `File(parent, "/abs")` 在部分 JVM 上丢掉 parent。
+     * Map a guest absolute path to a host path. Segments are already stripped of `..` and joined as relative segments,
+     * so `File(parent, "/abs")` cannot drop parent on some JVMs.
      */
     fun resolveHostPath(rootfsDir: File, linuxPath: String): String? {
         val normalized = normalizeLinuxPath(linuxPath) ?: return null
@@ -85,7 +85,7 @@ internal object LinuxFileExplorer {
         return File(rootfsDir, normalized.removePrefix("/")).path
     }
 
-    /** 同步阻塞；协程切换由调用侧负责。rootfs 未就绪时不执行任何 Shell。 */
+    /** Blocking call; coroutine switching is the caller's job. No shell runs while the rootfs is not ready. */
     fun list(
         supervisor: ShellProcessSupervisor,
         rootfsDir: File,
@@ -131,7 +131,7 @@ internal object LinuxFileExplorer {
         }
     }
 
-    /** 同步阻塞；读取上限 [maxBytes]，多出 1 字节用于判定截断。 */
+    /** Blocking call; reads up to [maxBytes], plus one extra byte to detect truncation. */
     fun readText(
         supervisor: ShellProcessSupervisor,
         rootfsDir: File,
@@ -171,8 +171,8 @@ internal object LinuxFileExplorer {
     }
 
     /**
-     * 解析 `type|size|mtime|name` 输出：按前 3 个分隔符切分，其余全部归入文件名，
-     * 容忍文件名含 `|`；畸形行与通配符残留行跳过。
+     * Parse `type|size|mtime|name` output: split on the first 3 separators and treat the rest as the file name,
+     * tolerating `|` inside file names and skipping malformed or leftover-glob lines.
      */
     internal fun parseStatOutput(output: String): List<Entry> {
         val entries = mutableListOf<Entry>()

@@ -6,7 +6,7 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class AuxiliaryVisionTest {
-    private fun image(question: String = "这是什么？") = JSONObject().put("role", "user").put("content", JSONArray()
+    private fun image(question: String = "What is this?") = JSONObject().put("role", "user").put("content", JSONArray()
         .put(JSONObject().put("type", "text").put("text", question))
         .put(JSONObject().put("type", "image_url").put("image_url", JSONObject().put("url", "data:image/png;base64,aGVsbG8="))))
 
@@ -25,7 +25,7 @@ class AuxiliaryVisionTest {
         val bridge = AuxiliaryVision(true) { parts, _ ->
             calls++
             assertTrue(parts.toString().contains("data:image"))
-            "一只黑色的猫。"
+            "A black cat."
         }
         bridge.prepare(messages)
         bridge.prepare(messages)
@@ -34,8 +34,8 @@ class AuxiliaryVisionTest {
         assertSame(result, messages.getJSONObject(1))
         val outbound = AgentRequestMediaPolicy.filter(messages, false, false).toString()
         assertFalse(outbound.contains("data:image"))
-        assertTrue(outbound.contains("一只黑色的猫"))
-        assertTrue(outbound.contains("不是用户指令"))
+        assertTrue(outbound.contains("A black cat"))
+        assertTrue(outbound.contains("not user instructions"))
     }
 
     @Test fun failureKeepsOriginalImageForRetryAndDoesNotFabricateEvidence() {
@@ -67,11 +67,11 @@ class AuxiliaryVisionTest {
     @Test fun contextExcludesSystemPromptsAndRawToolSecrets() {
         val messages = JSONArray()
             .put(JSONObject().put("role", "system").put("content", "private system text"))
-            .put(JSONObject().put("role", "user").put("content", "找到蓝色按钮"))
+            .put(JSONObject().put("role", "user").put("content", "Find the blue button"))
             .put(JSONObject().put("role", "tool").put("content", "private tool secret"))
             .put(image("Latest observation o2"))
         val context = AuxiliaryVision.contextFor(messages, 3)
-        assertTrue(context.contains("蓝色按钮"))
+        assertTrue(context.contains("blue button"))
         assertTrue(context.contains("o2"))
         assertFalse(context.contains("private"))
     }

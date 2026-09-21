@@ -10,9 +10,9 @@ class AgentExternalArchivePayloadTest {
     @Test
     fun roundTripPreservesArchiveFieldsAndOpaqueAdapterPayload() {
         val payload = AgentExternalArchivePayload(
-            userText = "查一下系统状态",
+            userText = "Check the system status",
             conversationKey = "session-1",
-            title = "外部入口",
+            title = "External entry point",
             thinkingEnabled = true,
             reasoningEffort = ReasoningEffort.XHIGH,
             adapterPayload = JSONObject()

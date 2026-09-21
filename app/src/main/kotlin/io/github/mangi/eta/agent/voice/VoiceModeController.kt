@@ -1,6 +1,5 @@
 package io.github.mangi.eta.agent.voice
 
-import io.github.mangi.eta.agent.voice.doubao.DoubaoVoiceConfig
 import kotlinx.coroutines.flow.collect
 import android.Manifest
 import android.content.Context
@@ -8,11 +7,8 @@ import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
 import io.github.mangi.eta.agent.voice.offline.OfflineSpeechPack
 import io.github.mangi.eta.agent.voice.offline.OfflineSpeechSession
-import io.github.mangi.eta.agent.voice.tts.DoubaoSpeech
 import io.github.mangi.eta.agent.voice.tts.SpeechPlayback
 import io.github.mangi.eta.agent.voice.tts.SpeechSpeakableText
-import io.github.mangi.eta.config.Prefs
-import io.github.mangi.eta.data.repository.ProviderRepository
 import java.util.UUID
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -26,10 +22,10 @@ import kotlinx.coroutines.withTimeout
 
 enum class VoiceEntryMode(val wireValue: String) {
     DICTATION("dictation"),
-    UNIVERSAL("universal"),
-    DOUBAO_DUPLEX("doubao_duplex");
+    UNIVERSAL("universal");
 
     companion object {
+        // Unknown legacy values fall back to dictation instead of enabling a missing mode.
         fun fromWireValue(value: String): VoiceEntryMode =
             entries.firstOrNull { it.wireValue == value } ?: DICTATION
     }
@@ -53,7 +49,7 @@ data class VoiceChatSnapshot(
     val lastAgentText: String = "",
 )
 
-/** Owns either the cascaded chat loop or the direct SeedDuplex call, never both. */
+/** Owns the cascaded voice-chat loop: offline recognition, model reply, spoken output. */
 internal class VoiceModeController(
     context: Context,
     private val scope: CoroutineScope,
@@ -64,15 +60,13 @@ internal class VoiceModeController(
     val state = mutableState.asStateFlow()
     private val chat = MutableStateFlow(VoiceChatSnapshot())
     private var job: Job? = null
-    private var duplex: DoubaoDuplexSession? = null
-    private var generation = 0L
     private var diagnostic: VoiceDiagnostics? = null
 
     init {
-        DoubaoVoiceConfig.load(app)
+        VoiceInputConfig.load(app)
         OfflineSpeechPack.initialize(app)
         scope.launch {
-            DoubaoVoiceConfig.state.collect { config ->
+            VoiceInputConfig.state.collect { config ->
                 state.value.mode?.let { if (!VoiceEntryPolicy.enabled(config, it)) stop() }
             }
         }
@@ -89,25 +83,24 @@ internal class VoiceModeController(
 
     fun start(mode: VoiceEntryMode) {
         if (mode == VoiceEntryMode.DICTATION || job?.isActive == true ||
-            !VoiceEntryPolicy.enabled(DoubaoVoiceConfig.state.value, mode)) return
+            !VoiceEntryPolicy.enabled(VoiceInputConfig.state.value, mode)) return
         if (ContextCompat.checkSelfPermission(app, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-            mutableState.value = VoiceModeState(mode, VoiceModePhase.Error, error = "需要麦克风权限")
+            mutableState.value = VoiceModeState(mode, VoiceModePhase.Error, error = "Microphone permission is required")
             return
         }
         when (mode) {
             VoiceEntryMode.UNIVERSAL -> startUniversal()
-            VoiceEntryMode.DOUBAO_DUPLEX -> startDuplex()
             VoiceEntryMode.DICTATION -> Unit
         }
     }
 
     private fun startUniversal() {
-        io.github.mangi.eta.agent.voice.doubao.DoubaoVoiceConfig.load(app)
+        VoiceInputConfig.load(app)
         if (!SpeechInputSession.ready(VoiceEntryMode.UNIVERSAL)) {
             mutableState.value = VoiceModeState(
                 VoiceEntryMode.UNIVERSAL,
                 VoiceModePhase.Error,
-                error = "请在语音转文字设置中配置豆包 ASR 或启用离线语音包",
+                error = "Enable conversation mode and download the offline speech pack first",
             )
             return
         }
@@ -204,7 +197,7 @@ internal class VoiceModeController(
                 mutableState.value = VoiceModeState(
                     mode = VoiceEntryMode.UNIVERSAL,
                     phase = VoiceModePhase.Error,
-                    error = e.message ?: "语音对话失败",
+                    error = e.message ?: "Voice conversation failed",
                 )
             } finally {
                 SpeechPlayback.stop()
@@ -212,77 +205,13 @@ internal class VoiceModeController(
         }
     }
 
-    private fun startDuplex() {
-        stop()
-        val sessionGeneration = generation
-        val trace = VoiceDiagnostics("duplex")
-        diagnostic = trace
-        trace.mark("controller.start")
-        job = scope.launch {
-            var ownedSession: DoubaoDuplexSession? = null
-            try {
-                val providerId = Prefs.getString(Prefs.Keys.AGENT_VOICE_DOUBAO_PROVIDER_ID)
-                val provider = ProviderRepository.providerById(providerId)
-                    ?.takeIf(io.github.mangi.eta.data.model.SpeechSynthesisModels::isRealtimeVoiceProvider)
-                    ?: error("请先在语音对话设置中选择豆包语音提供商")
-                check(DoubaoSpeech.isOpenspeech(provider.baseUrl)) { "实时通话只能使用豆包语音提供商" }
-                val apiKey = provider.apiKey.trim()
-                check(apiKey.isNotBlank()) { "豆包语音提供商尚未配置 API Key" }
-                io.github.mangi.eta.agent.voice.doubao.PersonalVoices.load(app)
-                val storedVoice = Prefs.getString(Prefs.Keys.AGENT_VOICE_DOUBAO_VOICE)
-                val personal = io.github.mangi.eta.agent.voice.doubao.PersonalVoices.selected(storedVoice, apiKey)
-                val voice = personal?.id ?: DoubaoDuplexProtocol.resolveVoice(storedVoice)
-                val instructions = Prefs.getString(Prefs.Keys.AGENT_VOICE_DOUBAO_INSTRUCTIONS)
-                    .ifBlank { DEFAULT_DUPLEX_INSTRUCTIONS }
-                mutableState.value = VoiceModeState(VoiceEntryMode.DOUBAO_DUPLEX, VoiceModePhase.Connecting)
-                val token = SpeechPlayback.beginInput()
-                try {
-                    val session = DoubaoDuplexSession(app, onState = { next ->
-                        trace.mark("controller.phase", "phase" to next.phase.ordinal, sampled = true)
-                        val accepted = generation == sessionGeneration
-                        val changed = mutableState.value.reply != next.reply
-                        if (accepted) mutableState.value = next
-                        if (changed || !accepted) trace.mark("text.controller",
-                            "accepted" to if (accepted) 1 else 0, "changed" to if (changed) 1 else 0,
-                            "chars" to next.reply.length, sampled = true)
-                    }, diagnostic = trace)
-                    ownedSession = session
-                    duplex = session
-                    session.run(apiKey, voice, instructions)
-                } finally {
-                    SpeechPlayback.endInput(token)
-                }
-            } catch (cancelled: CancellationException) {
-                throw cancelled
-            } catch (e: Exception) {
-                if (generation != sessionGeneration) return@launch
-                mutableState.value = VoiceModeState(
-                    mode = VoiceEntryMode.DOUBAO_DUPLEX,
-                    phase = VoiceModePhase.Error,
-                    error = e.message ?: "豆包实时通话失败",
-                )
-            } finally {
-                ownedSession?.close()
-                if (duplex === ownedSession) duplex = null
-            }
-        }
-    }
-
     fun stop() {
         diagnostic?.mark("controller.stop")
-        generation++
         job?.cancel()
         job = null
-        duplex?.close()
-        duplex = null
         SpeechPlayback.stop()
         mutableState.value = VoiceModeState()
         diagnostic?.finish()
         diagnostic = null
-    }
-
-    companion object {
-        const val DEFAULT_DUPLEX_VOICE = DoubaoRealtimeVoices.DEFAULT_ID
-        const val DEFAULT_DUPLEX_INSTRUCTIONS = "你是代鱼，一个简洁、自然、友善的中文语音助手。"
     }
 }

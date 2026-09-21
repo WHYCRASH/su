@@ -11,11 +11,11 @@ internal object SubAgentTools {
     private val readOnly = setOf(
         "get_current_context", "search_apps", "device_status", "network_info",
         "top_memory_apps", "top_storage_apps", "get_setting", "get_current_location",
-        "get_device_environment", "list_alarms", "list_active_timers", "recent_notifications",
+        "get_device_environment", "recent_notifications",
         "search_notification_history", "recent_app_activity", "app_usage_summary",
         "get_health_summary", "search_media", "search_audio", "search_recordings", "search_files",
         "search_calendar_events", "search_contacts", "search_call_history", "search_messages",
-        "search_downloads", "search_personal_orders", "search_qq_chat_images", "search_wechat_chat_images",
+        "search_downloads", "search_personal_orders",
         "read_file", "list_directory", "skills_list", "skills_read", "skills_read_resource", "memory_get",
     )
     fun allows(name: String) = name in readOnly

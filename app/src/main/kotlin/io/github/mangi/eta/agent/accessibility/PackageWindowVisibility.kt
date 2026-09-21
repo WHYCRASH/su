@@ -1,6 +1,6 @@
 package io.github.mangi.eta.agent.accessibility
 
-/** 查询主线程超时时不能把 UNKNOWN 当成窗口已经消失。 */
+/** A main-thread query timeout must not treat UNKNOWN as the window already being gone. */
 internal enum class PackageWindowVisibility {
     VISIBLE,
     GONE,

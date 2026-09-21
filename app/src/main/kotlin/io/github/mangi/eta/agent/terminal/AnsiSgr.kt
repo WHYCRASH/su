@@ -1,8 +1,8 @@
 package io.github.mangi.eta.agent.terminal
 
 /**
- * 终端单元格样式的中性表示：颜色为 0xAARRGGBB 的 Long，不依赖 Compose。
- * 块式输出渲染（ui 层）与控制台屏幕缓冲区共用同一份 SGR 解释，避免两套调色板漂移。
+ * Neutral representation of terminal cell style: the color is a 0xAARRGGBB Long and does not depend on Compose.
+ * Block-style output rendering (ui layer) and the console screen buffer share the same SGR interpretation, avoiding drift between two palettes.
  */
 internal data class SgrStyle(
     val fg: Long? = null,
@@ -20,11 +20,11 @@ internal data class SgrStyle(
     }
 }
 
-/** SGR 参数序列解释器；[params] 为 CSI 与结尾 m 之间的原文（空串等价于 0）。 */
+/** SGR parameter sequence interpreter; [params] is the raw text between CSI and the trailing m (an empty string is equivalent to 0). */
 internal object AnsiSgr {
 
     fun apply(params: String, style: SgrStyle): SgrStyle {
-        // 分隔符同时兼容 ; 与 :（部分程序以冒号发 truecolor 子参数）。
+        // The separator accepts both ; and : (some programs send truecolor subparameters with a colon).
         val tokens = if (params.isEmpty()) {
             listOf(0)
         } else {
@@ -62,7 +62,7 @@ internal object AnsiSgr {
         return current
     }
 
-    /** 解析 38/48 的扩展颜色参数，返回颜色与额外消费的 token 数；参数不足时返回 null。 */
+    /** Parses the extended color parameters for 38/48 and returns the color and the number of additional tokens consumed; returns null when there are not enough parameters. */
     private fun readExtendedColor(tokens: List<Int>, index: Int): Pair<Long, Int>? =
         when (tokens.getOrNull(index + 1)) {
             5 -> tokens.getOrNull(index + 2)?.let { n -> color256(n)?.let { it to 2 } }

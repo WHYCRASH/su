@@ -3,7 +3,7 @@ package io.github.mangi.eta.ui.app
 import io.github.mangi.eta.agent.runtime.AgentRunCheckpointStore
 import io.github.mangi.eta.agent.runtime.AgentRuntimeWire
 
-/** 用持久 checkpoint、终态 outbox 与 Runtime 活跃状态共同判定恢复动作。 */
+/** Decides recovery from the persisted checkpoint, the terminal-state outbox, and live runtime state together. */
 internal object AgentRunRecoveryCoordinator {
     data class Completed(
         val result: AgentRuntimeWire.CompletedRun,

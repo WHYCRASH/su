@@ -27,7 +27,7 @@ class AgentModelRetryTest {
         }
         assertEquals(4, calls)
         assertEquals(listOf(2_000L, 4_000L, 8_000L), delays)
-        assertTrue(failure.message.orEmpty().contains("已重试 3 次"))
+        assertTrue(failure.message.orEmpty().contains("retried 3 times"))
         delays.clear()
         calls = 0
         val result = complete(retry, provider { _, _ ->
@@ -54,7 +54,7 @@ class AgentModelRetryTest {
 
     @Test
     fun callbackFailuresAndHostedToolFailuresDoNotReplayProvider() {
-        val noRetry = AgentModelRetry { _, _ -> fail("不应重试") }
+        val noRetry = AgentModelRetry { _, _ -> fail("must not retry") }
         val callbackFailure = IOException("checkpoint write failed")
         val thrown = assertThrows(IOException::class.java) {
             complete(noRetry, provider { _, emit ->
@@ -82,8 +82,8 @@ class AgentModelRetryTest {
         assertFalse(AgentModelFailure.http(429, """{"error":{"code":"insufficient_quota"}}""").retryable)
         assertNull(AgentModelFailure.transport(SSLHandshakeException("certificate")))
         assertNull(AgentModelFailure.transport(org.json.JSONException("invalid JSON")))
-        assertTrue(AgentModelFailure.stream(JSONObject().put("type", "overloaded_error"), "过载").retryable)
-        assertFalse(AgentModelFailure.stream(JSONObject().put("type", "authentication_error"), "认证失败").retryable)
+        assertTrue(AgentModelFailure.stream(JSONObject().put("type", "overloaded_error"), "overloaded").retryable)
+        assertFalse(AgentModelFailure.stream(JSONObject().put("type", "authentication_error"), "authentication failed").retryable)
         assertFalse(AgentModelFailure.http(503, "secret request text").message.orEmpty().contains("secret"))
         assertTrue(
             AgentModelFailure.http(
@@ -92,7 +92,7 @@ class AgentModelRetryTest {
             ).message.orEmpty().contains("reasoning_content"),
         )
         assertEquals(
-            "模型请求参数无效（HTTP 400），请检查模型配置。",
+            "Invalid model request parameters (HTTP 400); check the model configuration.",
             AgentModelFailure.http(400, "").message,
         )
     }
@@ -115,7 +115,7 @@ class AgentModelRetryTest {
         discardAttemptReasoning = {},
     )
 
-    private fun response() = ProviderResponse(JSONObject().put("content", "完成").put("finish_reason", "stop"))
+    private fun response() = ProviderResponse(JSONObject().put("content", "done").put("finish_reason", "stop"))
 
     private fun provider(action: (ProviderRequest, (ProviderEvent) -> Unit) -> ProviderResponse) =
         object : AgentProviderClient {

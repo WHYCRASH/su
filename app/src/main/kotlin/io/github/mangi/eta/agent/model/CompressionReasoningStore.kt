@@ -6,7 +6,7 @@ import java.util.concurrent.ConcurrentHashMap
 import org.json.JSONObject
 
 /**
- * 压缩模型试出来的思考档。进程内先记一份，并写入本地配置，避免每次压缩都从 off/minimal 重试。
+ * The thinking level determined by trying the compression model. Keep an in-process copy and write it to local config, so each compression doesn't have to retry from off/minimal every time.
  */
 internal object CompressionReasoningStore {
     const val PREFS_KEY = "agent_compress_reasoning_effort_json"

@@ -11,10 +11,10 @@ internal object SubAgentPreferences {
     val displayOrder = listOf(0, 2, 3, 1)
     fun role(slot: Int): String = if (slot == 1) "review" else "implementation"
     fun label(slot: Int): String = when (slot) {
-        0 -> "执行代理 1"
-        1 -> "审查／总结代理"
-        2 -> "执行代理 2"
-        3 -> "执行代理 3"
+        0 -> "Execution Agent 1"
+        1 -> "Review/Summary Agent"
+        2 -> "Execution Agent 2"
+        3 -> "Execution Agent 3"
         else -> error("Invalid slot")
     }
     fun selection(slot: Int) = ModelFeatureSelection(true,

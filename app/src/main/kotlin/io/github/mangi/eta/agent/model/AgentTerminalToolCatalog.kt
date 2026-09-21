@@ -39,7 +39,7 @@ internal object AgentTerminalToolCatalog {
                                     JSONObject()
                                         .put("type", "string")
                                         .put("enum", JSONArray().put("user").put("root"))
-                                        .put("description", "宿主执行身份。Android 默认使用当前可用身份；Linux 根据已选择的后端使用 user 或 root。PRoot 内模拟 root 不授予 Android 特权。")
+                                        .put("description", "Host execution identity. Android defaults to the currently available identity; Linux uses user or root depending on the selected backend. Emulated root inside PRoot grants no Android privileges.")
                                 )
                                 .put(
                                     "environment",
@@ -121,7 +121,7 @@ internal object AgentTerminalToolCatalog {
             .put(
                 AgentToolSchema.function(
                     name = "run_command",
-                    description = "在 Android 设备上用非交互 Root Shell 执行命令。适合系统信息、包管理、文件检查、Linux 命令流水线。每次调用都是新 shell；不要运行交互式或长期驻留命令。",
+                    description = "Run commands on the Android device with a non-interactive root shell. Good for system info, package management, file inspection, and Linux command pipelines. Each call starts a fresh shell; do not run interactive or long-lived commands.",
                     parameters = JSONObject()
                         .put("type", "object")
                         .put(
@@ -131,19 +131,19 @@ internal object AgentTerminalToolCatalog {
                                     "command",
                                     JSONObject()
                                         .put("type", "string")
-                                        .put("description", "要执行的 shell 命令，可使用管道和重定向。")
+                                        .put("description", "Shell command to execute; pipes and redirection may be used.")
                                 )
                                 .put(
                                     "cwd",
                                     JSONObject()
                                         .put("type", "string")
-                                        .put("description", "工作目录，默认 /data/local/tmp/eta。相对路径也按该目录解析；用户存储可用 ~/ 表示 /storage/emulated/0。")
+                                        .put("description", "Working directory, default /data/local/tmp/eta. Relative paths also resolve against it; user storage is available as ~/ for /storage/emulated/0.")
                                 )
                                 .put(
                                     "timeout_seconds",
                                     JSONObject()
                                         .put("type", "integer")
-                                        .put("description", "超时秒数，1 到 180，默认 30。")
+                                        .put("description", "Timeout in seconds, 1 to 180, default 30.")
                                 )
                         )
                         .put("required", JSONArray().put("command"))
@@ -152,7 +152,7 @@ internal object AgentTerminalToolCatalog {
             .put(
                 AgentToolSchema.function(
                     name = "read_file",
-                    description = "读取 Android 文件内容；支持当前所选 Linux 的 /workspace、/var/minis 和 minis:// 路径，自动映射到宿主文件。适合配置、日志、小文本文件；大文件用 offset_bytes/max_bytes 分段读取。",
+                    description = "Read Android file contents; supports the selected Linux environment's /workspace, /var/minis, and minis:// paths, auto-mapped to host files. Good for configs, logs, and small text files; read large files in chunks with offset_bytes/max_bytes.",
                     parameters = JSONObject()
                         .put("type", "object")
                         .put(
@@ -163,13 +163,13 @@ internal object AgentTerminalToolCatalog {
                                     "offset_bytes",
                                     JSONObject()
                                         .put("type", "integer")
-                                        .put("description", "从第几个字节开始，默认 0。")
+                                        .put("description", "Byte offset to start from, default 0.")
                                 )
                                 .put(
                                     "max_bytes",
                                     JSONObject()
                                         .put("type", "integer")
-                                        .put("description", "最多读取字节数，1 到 262144，默认 65536。")
+                                        .put("description", "Maximum bytes to read, 1 to 262144, default 65536.")
                                 )
                         )
                         .put("required", JSONArray().put("path"))
@@ -178,7 +178,7 @@ internal object AgentTerminalToolCatalog {
             .put(
                 AgentToolSchema.function(
                     name = "write_file",
-                    description = "写入 Android 文件。可覆盖或追加；会自动创建父目录。用于明确需要修改文件的任务。",
+                    description = "Write an Android file. Can overwrite or append; parent directories are created automatically. Use for tasks that clearly require modifying files.",
                     parameters = JSONObject()
                         .put("type", "object")
                         .put(
@@ -190,7 +190,7 @@ internal object AgentTerminalToolCatalog {
                                     "append",
                                     JSONObject()
                                         .put("type", "boolean")
-                                        .put("description", "true 追加，false 覆盖，默认 false。")
+                                        .put("description", "true appends, false overwrites, default false.")
                                 )
                         )
                         .put("required", JSONArray().put("path").put("content"))
@@ -199,7 +199,7 @@ internal object AgentTerminalToolCatalog {
             .put(
                 AgentToolSchema.function(
                     name = "list_directory",
-                    description = "列出目录内容；支持当前所选 Linux 的 /workspace、/var/minis 和 minis:// 路径，自动映射到宿主目录。默认 /data/local/tmp/eta，输出类似 ls -l。",
+                    description = "List directory contents; supports the selected Linux environment's /workspace, /var/minis, and minis:// paths, auto-mapped to host directories. Defaults to /data/local/tmp/eta with ls -l style output.",
                     parameters = JSONObject()
                         .put("type", "object")
                         .put(
@@ -211,7 +211,7 @@ internal object AgentTerminalToolCatalog {
                                     "limit",
                                     JSONObject()
                                         .put("type", "integer")
-                                        .put("description", "最多返回 1 到 200 行，默认 80。")
+                                        .put("description", "Return at most 1 to 200 lines, default 80.")
                                 )
                         )
                 )

@@ -7,8 +7,10 @@ import io.github.mangi.eta.core.ModuleConfig
 import java.util.Locale
 
 /**
- * 目标进程只读 Eta 的安装包资源。缓存不保存翻译结果，系统语言变化后会重建配置 Context。
- * 任何解析失败都回退英文，不能让资源问题影响厂商助手原有进程。
+ * The target process only reads su's installed-package resources. The cache keeps no translated
+ * results, so a system-language change rebuilds the configuration Context.
+ * Any parse failure falls back to English; resource problems must never affect the vendor
+ * assistant's original process.
  */
 internal object EtaInjectedStrings {
     private data class CachedContext(

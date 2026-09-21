@@ -38,15 +38,15 @@ class VisibleTurnSpeechPrefaceTest {
 
     @Test fun readsVisibleAssistantTextAndSkipsThinking() {
         val messages = listOf(
-            UserMessageUi(id = "u", content = "第三项是什么"),
+            UserMessageUi(id = "u", content = "What is the third item"),
             ThinkingMessageUi(
                 id = "t",
-                content = "内部推理：先核对 Voice Mode 再写答案，这段不该被朗读。",
+                content = "Internal reasoning: double-check Voice Mode before answering; this part should not be read aloud.",
                 isStreaming = false,
             ),
             AgentMessageUi(
                 id = "mid",
-                content = "先把 RikkaHub 的 Voice Mode 流程说清楚：它是语音进、语音出的对话，不是点一下朗读。",
+                content = "First explain RikkaHub's Voice Mode flow: it is voice-in, voice-out conversation, not tap-to-read-aloud.",
             ),
             ToolActivityMessageUi(
                 id = "tool",
@@ -54,38 +54,38 @@ class VisibleTurnSpeechPrefaceTest {
                 status = ToolActivityStatusUi.Success,
                 argumentsSummary = "search",
             ),
-            AgentMessageUi(id = "final", content = "第三项是 Voice Mode：语音对话，不是朗读。"),
+            AgentMessageUi(id = "final", content = "The third item is Voice Mode: voice conversation, not read-aloud."),
         )
         val preface = visibleTurnSpeechPreface(messages, "final")
         assertEquals(
-            "先把 RikkaHub 的 Voice Mode 流程说清楚：它是语音进、语音出的对话，不是点一下朗读。",
+            "First explain RikkaHub's Voice Mode flow: it is voice-in, voice-out conversation, not tap-to-read-aloud.",
             preface,
         )
-        assertFalse(preface.contains("内部推理"))
+        assertFalse(preface.contains("Internal reasoning"))
     }
     @Test fun doesNotLeakVisibleTextFromThePreviousTurn() {
         val messages = listOf(
-            UserMessageUi(id = "u1", content = "第一问"),
-            AgentMessageUi(id = "a1", content = "第一轮可见正文"),
-            UserMessageUi(id = "u2", content = "第二问"),
-            AgentMessageUi(id = "mid2", content = "第二轮前置正文"),
-            AgentMessageUi(id = "final2", content = "第二轮最终正文"),
+            UserMessageUi(id = "u1", content = "First question"),
+            AgentMessageUi(id = "a1", content = "First-round visible text"),
+            UserMessageUi(id = "u2", content = "Second question"),
+            AgentMessageUi(id = "mid2", content = "Second-round leading text"),
+            AgentMessageUi(id = "final2", content = "Second-round final text"),
         )
 
-        assertEquals("第二轮前置正文", visibleTurnSpeechPreface(messages, "final2"))
+        assertEquals("Second-round leading text", visibleTurnSpeechPreface(messages, "final2"))
     }
 
     @Test fun keepsVisibleTextAcrossSteeringSupplement() {
         val messages = listOf(
-            UserMessageUi(id = "u", content = "开始任务"),
-            AgentMessageUi(id = "mid1", content = "第一段可见正文"),
-            UserMessageUi(id = "u-supplement-1", content = "补充要求"),
-            AgentMessageUi(id = "mid2", content = "第二段可见正文"),
-            AgentMessageUi(id = "final", content = "最终正文"),
+            UserMessageUi(id = "u", content = "Start task"),
+            AgentMessageUi(id = "mid1", content = "First visible section"),
+            UserMessageUi(id = "u-supplement-1", content = "Additional request"),
+            AgentMessageUi(id = "mid2", content = "Second visible section"),
+            AgentMessageUi(id = "final", content = "Final text"),
         )
 
         assertEquals(
-            "第一段可见正文\n\n第二段可见正文",
+            "First visible section\n\nSecond visible section",
             visibleTurnSpeechPreface(messages, "final"),
         )
     }

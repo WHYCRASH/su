@@ -6,7 +6,7 @@ import java.io.InterruptedIOException
 import java.net.ProtocolException
 import javax.net.ssl.SSLException
 
-/** Provider 边界只分类失败；重试预算与上下文由 Loop 持有。 */
+/** Provider boundary only classifies failures; retry budget and context are owned by the Loop. */
 internal class AgentModelFailure(
     val code: String,
     val retryable: Boolean,
@@ -37,7 +37,7 @@ internal class AgentModelFailure(
                 null
             }
             if (status in setOf(400, 413) && isContextOverflow(error)) {
-                return AgentModelFailure("CONTEXT_WINDOW_EXCEEDED", false, "提供方确认上下文超限，需缩减上下文后重试。", diagnostic = diagnostic)
+                return AgentModelFailure("CONTEXT_WINDOW_EXCEEDED", false, "Provider reported context overflow; shrink the context and retry.", diagnostic = diagnostic)
             }
             val permanent = isPermanent(error, body)
             val providerMessage = error?.optString("message")
@@ -51,21 +51,21 @@ internal class AgentModelFailure(
             return AgentModelFailure(
                 code = "HTTP_$status",
                 retryable = status in transientStatus && !permanent,
-                message = if (permanent) "模型接口额度或计费受限（HTTP $status），请检查服务商账户。" +
-                    safeProviderMessage.takeIf { it.isNotBlank() }?.let { " 服务端：$it" }.orEmpty()
+                message = if (permanent) "Model quota or billing is limited (HTTP $status); check the provider account." +
+                    safeProviderMessage.takeIf { it.isNotBlank() }?.let { " Server: $it" }.orEmpty()
                 else when (status) {
                     400 -> {
                         val detail = safeProviderMessage.takeIf { it.isNotBlank() }
                             ?: body.replace('\n', ' ').replace('\r', ' ').trim().take(400)
                                 .takeIf { it.isNotBlank() }
-                        if (detail != null) "模型请求参数无效（HTTP 400）：$detail"
-                        else "模型请求参数无效（HTTP 400），请检查模型配置。"
+                        if (detail != null) "Invalid model request parameters (HTTP 400): $detail"
+                        else "Invalid model request parameters (HTTP 400); check the model configuration."
                     }
                     401 -> {
                         val detail = safeProviderMessage.takeIf { it.isNotBlank() }
                         if (detail != null && detail.contains("verify", true))
-                            "Google 要求验证这个账号（HTTP 401）：$detail"
-                        else "模型接口认证失败（HTTP 401）。OAuth 请重新登录，API Key 请检查密钥。"
+                            "Google requires verification for this account (HTTP 401): $detail"
+                        else "Model authentication failed (HTTP 401). For OAuth sign in again; for API keys check the key."
                     }
                     403 -> {
                         val detail = safeProviderMessage.takeIf { it.isNotBlank() }
@@ -76,24 +76,24 @@ internal class AgentModelFailure(
                         )
                         when {
                             validationUrl != null ->
-                                "Google 要求验证这个账号（HTTP 403）。请用无痕浏览器打开：$validationUrl 登录被标记的账号完成验证，然后再发消息。官网首页通常不会弹验证。"
-                            verify -> "Google 要求先验证这个账号（HTTP 403）。请用无痕浏览器打开接口返回的 validation_url 完成账号验证。"
-                            detail != null -> "模型接口拒绝访问（HTTP 403）：$detail"
-                            else -> "模型接口拒绝访问（HTTP 403），请检查账户与模型权限。"
+                                "Google requires verification for this account (HTTP 403). Open this link in an incognito window: $validationUrl sign in to the flagged account to complete verification, then send your message. The homepage usually does not show the verification."
+                            verify -> "Google requires verification for this account first (HTTP 403). Open the validation_url from the API response in an incognito window to complete verification."
+                            detail != null -> "Model access denied (HTTP 403): $detail"
+                            else -> "Model access denied (HTTP 403); check account and model permissions."
                         }
                     }
-                    404 -> "模型接口或模型不存在（HTTP 404），请检查接口地址与模型名称。"
-                    429 -> "模型接口暂时限流（HTTP 429）。" +
-                        safeProviderMessage.takeIf { it.isNotBlank() }?.let { " 服务端：$it" }.orEmpty() +
-                        retryAfter?.let { " Retry-After：$it" }.orEmpty()
+                    404 -> "Model endpoint or model not found (HTTP 404); check the endpoint URL and model name."
+                    429 -> "Model rate-limited temporarily (HTTP 429)." +
+                        safeProviderMessage.takeIf { it.isNotBlank() }?.let { " Server: $it" }.orEmpty() +
+                        retryAfter?.let { " Retry-After: $it" }.orEmpty()
                     else -> {
                         val title = htmlTitle(body)
                         if (title != null || body.contains("<html", ignoreCase = true) ||
                             body.contains("<!DOCTYPE", ignoreCase = true)
                         ) {
-                            "模型接口返回了错误网页（HTTP $status${title?.let { "：$it" } ?: ""}）"
+                            "Model endpoint returned an error page (HTTP $status${title?.let { ": $it" } ?: ""})"
                         } else {
-                            "模型接口返回 HTTP $status"
+                            "Model endpoint returned HTTP $status"
                         }
                     }
                 },
@@ -123,12 +123,11 @@ internal class AgentModelFailure(
             is AgentModelFailure -> failure
             is InterruptedIOException -> AgentModelFailure(
                 "MODEL_TIMEOUT", true,
-                "模型请求等待超时（连接或写入超时，或读取响应等待超过 ${AgentHttpClient.MODEL_READ_TIMEOUT_MS / 60_000} 分钟）。",
-                failure,
+                "Model request timed out (connect/write timeout, or waited over ${AgentHttpClient.MODEL_READ_TIMEOUT_MS / 60_000} minutes for a response).",
             )
             is SSLException, is ProtocolException -> null
             is IOException -> AgentModelFailure(
-                "MODEL_CONNECTION_FAILED", true, "模型连接中断或暂时无法建立，请检查网络与服务商状态。", failure,
+                "MODEL_CONNECTION_FAILED", true, "Model connection dropped or temporarily unavailable; check the network and provider status.", failure,
             )
             else -> unexpectedMediaType(failure)
         }
@@ -148,7 +147,7 @@ internal class AgentModelFailure(
                 return AgentModelFailure(
                     "HTTP_${status ?: 200}",
                     false,
-                    "接口返回了 Responses API 事件流。请把该提供商的 Endpoint 模式改为 Responses API。",
+                    "Endpoint returned a Responses API event stream. Switch this provider's endpoint mode to Responses API.",
                     cause,
                 )
             }
@@ -156,16 +155,16 @@ internal class AgentModelFailure(
                 trimmed.startsWith("<!doctype", ignoreCase = true) ||
                 trimmed.startsWith("<html", ignoreCase = true)
             val title = htmlTitle(trimmed)
-            val statusLabel = status?.let { "HTTP $it" } ?: type.ifBlank { "未知类型" }
+            val statusLabel = status?.let { "HTTP $it" } ?: type.ifBlank { "unknown type" }
             val detail = title
                 ?: trimmed.replace('\n', ' ').replace('\r', ' ').trim().take(120).ifBlank { null }
             return AgentModelFailure(
                 code = "HTTP_${status ?: 200}",
                 retryable = status == null || status in transientStatus,
                 message = if (html) {
-                    "模型接口返回了网页而不是数据流（$statusLabel${detail?.let { "：$it" } ?: ""}）。Chat Completions 可能被反代拦截，可改用 Responses API 或检查隧道/上游。"
+                    "Model endpoint returned a web page instead of a data stream ($statusLabel${detail?.let { ": $it" } ?: ""}). Chat Completions may be intercepted by a proxy; switch to Responses API or check the tunnel/upstream."
                 } else {
-                    "模型接口返回了无法解析的响应（$statusLabel）${detail?.let { "：$it" } ?: ""}"
+                    "Model endpoint returned an unparseable response ($statusLabel)${detail?.let { ": $it" } ?: ""}"
                 },
                 cause = cause,
             )

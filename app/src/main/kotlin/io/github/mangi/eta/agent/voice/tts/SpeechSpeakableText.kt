@@ -11,7 +11,7 @@ internal object SpeechSpeakableText {
     const val MIN_NEWLINE_SENTENCE_CHARS = 24
 
     fun speakable(markdown: String): String {
-        require(markdown.length <= MAX_SOURCE_CHARS) { "回复过长，请分段朗读" }
+        require(markdown.length <= MAX_SOURCE_CHARS) { "Reply is too long; read it in segments" }
         val root = MarkdownParser(GFMFlavourDescriptor()).buildMarkdownTreeFromString(markdown)
         val out = StringBuilder()
         fun visit(node: ASTNode) {

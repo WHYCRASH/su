@@ -3,14 +3,14 @@ package io.github.mangi.eta.agent.model
 import org.json.JSONArray
 import org.json.JSONObject
 
-/** 文本输入、等待与系统操作工具 schema。 */
+/** Text input, wait, and system-action tool schemas. */
 internal object AgentTextSystemToolCatalog {
     fun appendTo(tools: JSONArray) {
         tools
             .put(
                 AgentToolSchema.function(
                     name = "input_text",
-                    description = "向真正获得输入焦点的输入框键入不超过 1000 字符的文本。默认 mode=append，会在当前光标插入或替换选区；密码等不可读输入框会拒绝重建，请用 replace_text 提供完整值。",
+                    description = "Type up to 1000 characters into the input field that truly holds input focus. Default mode=append inserts at the cursor or replaces the selection; password and other unreadable fields refuse reconstruction, so use replace_text with the full value instead.",
                     parameters = JSONObject()
                         .put("type", "object")
                         .put(
@@ -21,26 +21,26 @@ internal object AgentTextSystemToolCatalog {
                                     JSONObject()
                                         .put("type", "string")
                                         .put("maxLength", 1_000)
-                                        .put("description", "要输入的文本，最多 1000 字符；需要无障碍服务确认真实输入焦点。")
+                                        .put("description", "Text to type, up to 1000 characters; requires the accessibility service to confirm genuine input focus.")
                                 )
                                 .put(
                                     "mode",
                                     JSONObject()
                                         .put("type", "string")
                                         .put("enum", JSONArray().put("append").put("replace").put("paste"))
-                                        .put("description", "append 在光标键入或替换选区，replace 替换文本，paste 使用粘贴路径；本工具三种模式都限 1000 字符。默认 append。")
+                                        .put("description", "append types at the cursor or replaces the selection, replace replaces text, paste uses the paste path; all three modes of this tool are limited to 1000 characters. Default append.")
                                 )
                                 .put(
                                     "index",
                                     JSONObject()
                                         .put("type", "integer")
-                                        .put("description", "mode=replace 时可指定 editable 节点 index；必须同时传入同一次 observe_screen 的 observation_id。")
+                                        .put("description", "Optional editable node index when mode=replace; must be passed together with the observation_id from the same observe_screen call.")
                                 )
                                 .put(
                                     "observation_id",
                                     JSONObject()
                                         .put("type", "string")
-                                        .put("description", "mode=replace 且指定 index 时必传，必须与 index 来自同一次最近 observe_screen。")
+                                        .put("description", "Required when mode=replace with an index; must come from the same recent observe_screen call as the index.")
                                 )
                         )
                         .put("required", JSONArray().put("text"))
@@ -49,7 +49,7 @@ internal object AgentTextSystemToolCatalog {
             .put(
                 AgentToolSchema.function(
                     name = "replace_text",
-                    description = "把当前聚焦输入框或指定 editable 节点的文本替换为给定内容。指定 index 时，index 与 observation_id 必须来自同一次最近的 observe_screen；若观察已过期，先重新观察。需要启用无障碍服务。",
+                    description = "Replace the text of the currently focused input field or the given editable node. When an index is given, the index and observation_id must come from the same recent observe_screen call; re-observe first if the observation has expired. Requires the accessibility service to be enabled.",
                     parameters = JSONObject()
                         .put("type", "object")
                         .put(
@@ -63,13 +63,13 @@ internal object AgentTextSystemToolCatalog {
                                     "index",
                                     JSONObject()
                                         .put("type", "integer")
-                                        .put("description", "可选，最近一次 observe_screen 的 editable 节点 index；传入时必须同时传入同一次观察的 observation_id，不传则使用当前聚焦输入框。")
+                                        .put("description", "Optional editable node index from the latest observe_screen call; when given, the observation_id from the same observation must also be passed, otherwise the currently focused input field is used.")
                                 )
                                 .put(
                                     "observation_id",
                                     JSONObject()
                                         .put("type", "string")
-                                        .put("description", "指定 index 时必传，且必须与 index 来自同一次最近 observe_screen；不指定 index 时省略。")
+                                        .put("description", "Required when an index is given, and must come from the same recent observe_screen call as the index; omit when no index is given.")
                                 )
                         )
                         .put("required", JSONArray().put("text"))
@@ -78,7 +78,7 @@ internal object AgentTextSystemToolCatalog {
             .put(
                 AgentToolSchema.function(
                     name = "clear_text",
-                    description = "清空当前聚焦输入框或指定 editable 节点。指定 index 时，index 与 observation_id 必须来自同一次最近的 observe_screen；若观察已过期，先重新观察。需要启用无障碍服务。",
+                    description = "Clear the currently focused input field or the given editable node. When an index is given, the index and observation_id must come from the same recent observe_screen call; re-observe first if the observation has expired. Requires the accessibility service to be enabled.",
                     parameters = JSONObject()
                         .put("type", "object")
                         .put(
@@ -88,13 +88,13 @@ internal object AgentTextSystemToolCatalog {
                                     "index",
                                     JSONObject()
                                         .put("type", "integer")
-                                        .put("description", "可选，最近一次 observe_screen 的 editable 节点 index；传入时必须同时传入同一次观察的 observation_id，不传则使用当前聚焦输入框。")
+                                        .put("description", "Optional editable node index from the latest observe_screen call; when given, the observation_id from the same observation must also be passed, otherwise the currently focused input field is used.")
                                 )
                                 .put(
                                     "observation_id",
                                     JSONObject()
                                         .put("type", "string")
-                                        .put("description", "指定 index 时必传，且必须与 index 来自同一次最近 observe_screen；不指定 index 时省略。")
+                                        .put("description", "Required when an index is given, and must come from the same recent observe_screen call as the index; omit when no index is given.")
                                 )
                         )
                 )
@@ -102,7 +102,7 @@ internal object AgentTextSystemToolCatalog {
             .put(
                 AgentToolSchema.function(
                     name = "set_clipboard",
-                    description = "把文本写入系统剪贴板。适合准备粘贴长文本、中文、emoji 或特殊字符。",
+                    description = "Write text to the system clipboard. Useful for staging long text, CJK characters, emoji, or special characters.",
                     parameters = JSONObject()
                         .put("type", "object")
                         .put(
@@ -119,7 +119,7 @@ internal object AgentTextSystemToolCatalog {
             .put(
                 AgentToolSchema.function(
                     name = "get_clipboard",
-                    description = "读取系统剪贴板文本。Android 版本或后台限制可能导致读取失败。",
+                    description = "Read text from the system clipboard. The Android version or background restrictions may cause reads to fail.",
                     parameters = JSONObject()
                         .put("type", "object")
                         .put("properties", JSONObject())
@@ -128,7 +128,7 @@ internal object AgentTextSystemToolCatalog {
             .put(
                 AgentToolSchema.function(
                     name = "paste_text",
-                    description = "确认真实输入焦点后按当前选区输入长文本；目标不支持直接设置时才回退系统剪贴板粘贴。无焦点时不会覆盖剪贴板；密码等不可读字段请改用 replace_text 提供完整值。",
+                    description = "Type long text into the current selection after confirming genuine input focus; falls back to system clipboard paste only when the target does not support direct setting. Never overwrites the clipboard when there is no focus; for password and other unreadable fields use replace_text with the full value instead.",
                     parameters = JSONObject()
                         .put("type", "object")
                         .put(
@@ -145,7 +145,7 @@ internal object AgentTextSystemToolCatalog {
             .put(
                 AgentToolSchema.function(
                     name = "press_key",
-                    description = "按系统按键或全局动作。BACK/HOME/RECENTS/NOTIFICATIONS/QUICK_SETTINGS 优先走无障碍全局动作；ENTER 优先走输入法回车。",
+                    description = "Press a system key or perform a global action. BACK/HOME/RECENTS/NOTIFICATIONS/QUICK_SETTINGS prefer the accessibility global action; ENTER prefers the input-method enter key.",
                     parameters = JSONObject()
                         .put("type", "object")
                         .put(
@@ -174,7 +174,7 @@ internal object AgentTextSystemToolCatalog {
             .put(
                 AgentToolSchema.function(
                     name = "wait",
-                    description = "等待一段时间，让动画、网络加载或页面跳转完成。不要用它代替 wait_for_text/wait_for_package 的可验证等待。",
+                    description = "Wait for a while so animations, network loads, or page transitions can finish. Do not use it as a substitute for the verifiable waits of wait_for_text/wait_for_package.",
                     parameters = JSONObject()
                         .put("type", "object")
                         .put(
@@ -184,7 +184,7 @@ internal object AgentTextSystemToolCatalog {
                                     "duration_ms",
                                     JSONObject()
                                         .put("type", "integer")
-                                        .put("description", "等待时长，100 到 30000，默认 1000。")
+                                        .put("description", "Wait duration, 100 to 30000, default 1000.")
                                 )
                         )
                 )
@@ -192,7 +192,7 @@ internal object AgentTextSystemToolCatalog {
             .put(
                 AgentToolSchema.function(
                     name = "wait_for_text",
-                    description = "等待当前屏幕出现指定文本或描述，适合点击后确认页面已到达、列表加载完成、弹窗出现。",
+                    description = "Wait for the given text or description to appear on the current screen; useful after a tap to confirm the page arrived, a list finished loading, or a dialog appeared.",
                     parameters = JSONObject()
                         .put("type", "object")
                         .put(
@@ -203,20 +203,20 @@ internal object AgentTextSystemToolCatalog {
                                     "timeout_ms",
                                     JSONObject()
                                         .put("type", "integer")
-                                        .put("description", "最长等待时间，500 到 60000，默认 10000。")
+                                        .put("description", "Maximum wait time, 500 to 60000, default 10000.")
                                 )
                                 .put(
                                     "include_desc",
                                     JSONObject()
                                         .put("type", "boolean")
-                                        .put("description", "是否匹配 content-desc，默认 true。")
+                                        .put("description", "Whether to match content-desc, default true.")
                                 )
                                 .put(
                                     "match",
                                     JSONObject()
                                         .put("type", "string")
                                         .put("enum", JSONArray().put("contains").put("exact").put("prefix").put("regex"))
-                                        .put("description", "匹配方式，默认 contains。")
+                                        .put("description", "Match mode, default contains.")
                                 )
                         )
                         .put("required", JSONArray().put("text"))
@@ -225,7 +225,7 @@ internal object AgentTextSystemToolCatalog {
             .put(
                 AgentToolSchema.function(
                     name = "wait_for_package",
-                    description = "等待指定 Android package 到前台，适合 launch_app/open_uri 后确认目标应用已打开。",
+                    description = "Wait for the given Android package to come to the foreground; useful after launch_app/open_uri to confirm the target app opened.",
                     parameters = JSONObject()
                         .put("type", "object")
                         .put(
@@ -236,7 +236,7 @@ internal object AgentTextSystemToolCatalog {
                                     "timeout_ms",
                                     JSONObject()
                                         .put("type", "integer")
-                                        .put("description", "最长等待时间，500 到 60000，默认 10000。")
+                                        .put("description", "Maximum wait time, 500 to 60000, default 10000.")
                                 )
                         )
                         .put("required", JSONArray().put("package_name"))
@@ -245,7 +245,7 @@ internal object AgentTextSystemToolCatalog {
             .put(
                 AgentToolSchema.function(
                     name = "open_system_panel",
-                    description = "打开通知栏或快捷设置面板。",
+                    description = "Open the notification shade or quick-settings panel.",
                     parameters = JSONObject()
                         .put("type", "object")
                         .put(

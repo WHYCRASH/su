@@ -52,9 +52,9 @@ internal fun ConversationMentionPanel(
                             color = MiuixTheme.colorScheme.primary, style = MiuixTheme.textStyles.body2)
                         Text(
                             text = when {
-                                mention.transcript.contains("[已截取：") -> "已截取中间记录 · ${mention.transcript.length} 字符"
-                                mention.transcript.startsWith("[选择时快照：") -> "运行中会话快照 · ${mention.transcript.length} 字符"
-                                else -> "选择时快照 · ${mention.transcript.length} 字符"
+                                mention.transcript.contains("[Truncated:") -> "Truncated middle records · ${mention.transcript.length} chars"
+                                mention.transcript.startsWith("[Snapshot at selection:") -> "Running session snapshot · ${mention.transcript.length} chars"
+                                else -> "Snapshot at selection · ${mention.transcript.length} chars"
                             },
                             style = MiuixTheme.textStyles.body2,
                             color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
@@ -62,7 +62,7 @@ internal fun ConversationMentionPanel(
                         )
                     }
                     IconButton(onClick = { state.onRemove(mention.id) }, minWidth = 40.dp, minHeight = 48.dp) {
-                        Icon(Icons.Rounded.Close, contentDescription = "移除会话引用 ${mention.title}", modifier = Modifier.size(18.dp))
+                        Icon(Icons.Rounded.Close, contentDescription = "Remove conversation reference ${mention.title}", modifier = Modifier.size(18.dp))
                     }
                 }
             }
@@ -73,19 +73,19 @@ internal fun ConversationMentionPanel(
         state.pending.map { it.conversationId }.toSet())
     Column(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
         .clip(RoundedCornerShape(14.dp)).background(MiuixTheme.colorScheme.surfaceContainerHigh)) {
-        Text("引用其他会话 · 尽量全文，只读快照", modifier = Modifier.padding(12.dp), style = MiuixTheme.textStyles.body2,
+        Text("Mention other conversations · full text when possible, read-only snapshots", modifier = Modifier.padding(12.dp), style = MiuixTheme.textStyles.body2,
             color = MiuixTheme.colorScheme.onSurfaceVariantSummary)
         if (state.pending.size >= ConversationMention.MAX_ATTACHED || ConversationMention.remainingTranscriptBudget(state.pending) < 128) {
-            Text("引用数量或内容已达上限，请先移除一个引用。", modifier = Modifier.padding(12.dp))
+            Text("Mention count or content has reached the limit; remove one mention first.", modifier = Modifier.padding(12.dp))
         } else if (candidates.isEmpty()) {
-            Text("没有匹配的其他会话", modifier = Modifier.padding(12.dp))
+            Text("No matching conversations", modifier = Modifier.padding(12.dp))
         } else {
             LazyColumn(modifier = Modifier.heightIn(max = 220.dp)) {
                 items(candidates, key = { it.id }) { candidate ->
                     Column(modifier = Modifier.fillMaxWidth().clickable { onSelect(candidate.id) }
                         .padding(horizontal = 12.dp, vertical = 10.dp)) {
                         Text("@${candidate.title}", style = MiuixTheme.textStyles.body1, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(listOf(candidate.preview, candidate.timeLabel, if (candidate.isActiveRun) "运行中" else "")
+                        Text(listOf(candidate.preview, candidate.timeLabel, if (candidate.isActiveRun) "Running" else "")
                             .filter { it.isNotBlank() }.joinToString(" · "),
                             style = MiuixTheme.textStyles.body2, color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                             maxLines = 1, overflow = TextOverflow.Ellipsis)

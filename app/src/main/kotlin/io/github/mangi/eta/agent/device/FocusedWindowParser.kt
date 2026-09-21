@@ -1,6 +1,6 @@
 package io.github.mangi.eta.agent.device
 
-/** 从 dumpsys window 中提取精确前台包，避免 `contains` 把相似包名判成同一 App。 */
+/** Extracts the exact foreground package from dumpsys window, so `contains` cannot mistake similar package names for the same app. */
 internal object FocusedWindowParser {
     data class Result(
         val packageName: String,

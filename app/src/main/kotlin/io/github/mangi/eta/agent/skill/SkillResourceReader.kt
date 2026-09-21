@@ -13,7 +13,7 @@ data class SkillResourceLimits(
     val maxPathDepth: Int = 16,
 )
 
-/** 在已安装 Skill 根目录内列出和读取有界 UTF-8 文本资源。 */
+/** List and read size-bounded UTF-8 text resources inside an installed skill root. */
 class SkillResourceReader internal constructor(
     skillsRoot: File,
     private val limits: SkillResourceLimits = SkillResourceLimits(),
@@ -34,7 +34,7 @@ class SkillResourceReader internal constructor(
         val skillRoot = validateSkillRoot(entry)
             ?: return failure(
                 SkillResourceErrorCode.INVALID_SKILL_ROOT,
-                "Skill 根目录不在应用私有 Skills 目录内",
+                "Skill root is outside the app-private skills directory",
             )
         val start = if (relativeDirectory.isNullOrBlank() || relativeDirectory == ".") {
             skillRoot
@@ -42,22 +42,22 @@ class SkillResourceReader internal constructor(
             val segments = validateResourcePath(relativeDirectory)
                 ?: return failure(
                     SkillResourceErrorCode.INVALID_RELATIVE_PATH,
-                    "资源目录必须是 Skill 内的安全相对路径",
+                    "Resource directory must be a safe relative path inside the skill",
                 )
             if (hasSymbolicLinkComponent(skillRoot, segments)) {
                 return failure(
                     SkillResourceErrorCode.INVALID_RELATIVE_PATH,
-                    "Skill 资源路径包含不允许的符号链接",
+                    "Skill resource path contains a disallowed symlink",
                 )
             }
             resolveInside(skillRoot, segments)
                 ?: return failure(
                     SkillResourceErrorCode.INVALID_RELATIVE_PATH,
-                    "资源目录超出 Skill 根目录",
+                    "Resource directory escapes the skill root",
                 )
         }
         if (!start.isDirectory || Files.isSymbolicLink(start.toPath())) {
-            return failure(SkillResourceErrorCode.RESOURCE_NOT_FOUND, "资源目录不存在")
+            return failure(SkillResourceErrorCode.RESOURCE_NOT_FOUND, "Resource directory does not exist")
         }
 
         val resources = mutableListOf<SkillResourceInfo>()
@@ -66,12 +66,12 @@ class SkillResourceReader internal constructor(
         while (pending.isNotEmpty()) {
             val directory = pending.removeFirst()
             val children = directory.listFiles()?.sortedBy { it.name }
-                ?: return failure(SkillResourceErrorCode.IO_ERROR, "无法读取 Skill 资源目录")
+                ?: return failure(SkillResourceErrorCode.IO_ERROR, "Cannot read the skill resource directory")
             for (child in children) {
                 if (Files.isSymbolicLink(child.toPath())) {
                     return failure(
                         SkillResourceErrorCode.INVALID_RELATIVE_PATH,
-                        "Skill 资源中包含不允许的符号链接",
+                        "Skill resources contain a disallowed symlink",
                     )
                 }
                 val relative = child.relativeTo(skillRoot).invariantSeparatorsPath
@@ -79,7 +79,7 @@ class SkillResourceReader internal constructor(
                 if (depth > limits.maxPathDepth) {
                     return failure(
                         SkillResourceErrorCode.INVALID_RELATIVE_PATH,
-                        "Skill 资源路径层级超过 ${limits.maxPathDepth} 层",
+                        "Skill resource path exceeds the ${limits.maxPathDepth}-level depth limit",
                     )
                 }
                 when {
@@ -89,7 +89,7 @@ class SkillResourceReader internal constructor(
                         if (resources.size > limits.maxResources) {
                             return failure(
                                 SkillResourceErrorCode.TOO_MANY_RESOURCES,
-                                "Skill 资源数超过 ${limits.maxResources} 个",
+                                "Skill resource count exceeds the ${limits.maxResources}-item limit",
                             )
                         }
                     }
@@ -113,40 +113,40 @@ class SkillResourceReader internal constructor(
         val skillRoot = validateSkillRoot(entry)
             ?: return readFailure(
                 SkillResourceErrorCode.INVALID_SKILL_ROOT,
-                "Skill 根目录不在应用私有 Skills 目录内",
+                "Skill root is outside the app-private skills directory",
             )
         val segments = validateResourcePath(relativePath)
             ?: return readFailure(
                 SkillResourceErrorCode.INVALID_RELATIVE_PATH,
-                "资源路径必须是 Skill 内的安全相对路径",
+                "Resource path must be a safe relative path inside the skill",
             )
         val target = resolveInside(skillRoot, segments)
             ?: return readFailure(
                 SkillResourceErrorCode.INVALID_RELATIVE_PATH,
-                "资源路径超出 Skill 根目录",
+                "Resource path escapes the skill root",
             )
         if (!target.isFile || Files.isSymbolicLink(target.toPath())) {
-            return readFailure(SkillResourceErrorCode.RESOURCE_NOT_FOUND, "Skill 资源不存在")
+            return readFailure(SkillResourceErrorCode.RESOURCE_NOT_FOUND, "Skill resource does not exist")
         }
         if (hasSymbolicLinkComponent(skillRoot, segments)) {
             return readFailure(
                 SkillResourceErrorCode.INVALID_RELATIVE_PATH,
-                "Skill 资源路径包含不允许的符号链接",
+                "Skill resource path contains a disallowed symlink",
             )
         }
         if (target.length() > limits.maxTextBytes) {
             return readFailure(
                 SkillResourceErrorCode.RESOURCE_TOO_LARGE,
-                "Skill 文本资源超过 ${limits.maxTextBytes} 字节限制",
+                "Skill text resource exceeds the ${limits.maxTextBytes}-byte limit",
             )
         }
         val text = try {
             readStrictUtf8(target, limits.maxTextBytes)
         } catch (_: Exception) {
-            return readFailure(SkillResourceErrorCode.IO_ERROR, "读取 Skill 资源失败")
+            return readFailure(SkillResourceErrorCode.IO_ERROR, "Failed to read the skill resource")
         } ?: return readFailure(
             SkillResourceErrorCode.BINARY_RESOURCE,
-            "该资源不是可安全读取的 UTF-8 文本",
+            "This resource is not safely readable UTF-8 text",
         )
         return SkillResourceReadResult.Success(
             relativePath = segments.joinToString("/"),
@@ -203,7 +203,7 @@ class SkillResourceReader internal constructor(
         SkillResourceReadResult.Failure(SkillResourceError(code, message))
 }
 
-/** 严格 UTF-8 解码；超限、NUL 或除换行/回车/制表符外的控制字符均视为非文本。 */
+/** Strict UTF-8 decoding; over-limit, NUL, or control characters other than newline/CR/tab count as non-text. */
 internal fun readStrictUtf8(file: File, maxBytes: Long): String? {
     if (file.length() > maxBytes) return null
     val bytes = file.inputStream().use { input ->

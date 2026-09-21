@@ -141,17 +141,17 @@ internal object AgentBrowserSession {
     fun execute(context: Context, args: JSONObject, runId: String?, toolCallId: String?): BrowserToolResult {
         initialize(context)
         val action = args.optString("action").trim().lowercase()
-        if (Looper.myLooper() == Looper.getMainLooper()) return error(action, "MAIN_THREAD_CALL", "浏览器工具不能阻塞主线程")
+        if (Looper.myLooper() == Looper.getMainLooper()) return error(action, "MAIN_THREAD_CALL", "The browser tool cannot block the main thread")
         val job = synchronized(gate) {
-            if (isUserControlling) return error(action, "USER_CONTROL_ACTIVE", "用户正在接管浏览器，请等待用户离开浏览器页面")
-            if (active?.isCompleted == false) return error(action, "BROWSER_BUSY", "浏览器正在执行另一项操作，请等待完成")
+            if (isUserControlling) return error(action, "USER_CONTROL_ACTIVE", "The user is taking over the browser. Please wait for the user to leave the browser page")
+            if (active?.isCompleted == false) return error(action, "BROWSER_BUSY", "The browser is performing another operation. Please wait for it to finish")
             scope.async(start = CoroutineStart.LAZY) {
-                if (isUserControlling) return@async error(action, "USER_CONTROL_ACTIVE", "用户正在接管浏览器")
+                if (isUserControlling) return@async error(action, "USER_CONTROL_ACTIVE", "The user is taking over the browser")
                 lastRunId = runId
                 lastCallId = toolCallId
                 val normalized = JSONObject(args.toString()).put("action", action)
                 val input = BrowserActionInput.parse(normalized.toString())
-                    ?: return@async error(action, "INVALID_ARGUMENT", "浏览器参数或 action 无效")
+                    ?: return@async error(action, "INVALID_ARGUMENT", "The browser parameter or action is invalid")
                 val browser = ensurePool()
                 try {
                     val timeout = normalized.optLong("timeout_ms", normalized.optLong("timeout", 30000L)).coerceIn(500, 60000)
@@ -174,11 +174,11 @@ internal object AgentBrowserSession {
         return try {
             runBlocking { job.await() }
         } catch (_: TimeoutCancellationException) {
-            error(action, "BROWSER_TIMEOUT", "浏览器操作超时；有副作用的操作结果未确认，请先观察页面")
+            error(action, "BROWSER_TIMEOUT", "The browser operation timed out; the result of an operation with side effects is unconfirmed. Please observe the page first")
         } catch (_: CancellationException) {
-            error(action, "CANCELLED", "浏览器操作已中断，结果未确认，请先观察页面")
+            error(action, "CANCELLED", "The browser operation was interrupted, and the result is unconfirmed. Please observe the page first")
         } catch (_: Exception) {
-            error(action, "BROWSER_ERROR", "浏览器操作失败，请检查页面后重试")
+            error(action, "BROWSER_ERROR", "The browser operation failed. Please check the page and try again")
         } finally {
             synchronized(gate) {
                 if (active === job) { active = null; activeRunId = null }

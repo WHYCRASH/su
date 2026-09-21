@@ -1,8 +1,8 @@
 package io.github.mangi.eta.agent.skill
 
 /**
- * 安装前与读取前共用的 Skill 运行时检测。
- * 只根据 SKILL.md 元数据和正文做静态判断，不执行脚本。
+ * Skill runtime check shared by pre-install and pre-read paths.
+ * Judges statically from SKILL.md metadata and body only; never executes scripts.
  */
 object SkillCompatibilityChecker {
     fun evaluate(entry: SkillIndexEntry): SkillCompatibilityResult = evaluate(
@@ -37,13 +37,13 @@ object SkillCompatibilityChecker {
         }.lowercase()
         return when {
             containsAny(haystack, APPLE_RUNTIME) ->
-                SkillCompatibilityResult(available = false, reason = "不支持 Apple 专属运行时")
+                SkillCompatibilityResult(available = false, reason = "Apple-only runtime is not supported")
             containsAny(haystack, MINIS_ANDROID_CLI) ->
-                SkillCompatibilityResult(available = false, reason = "依赖 MiniS 专属 Android CLI，Eta 无法运行")
+                SkillCompatibilityResult(available = false, reason = "Requires the MiniS-only Android CLI, which su cannot run")
             containsAny(haystack, MINIS_IOS_RUNTIME) ->
-                SkillCompatibilityResult(available = false, reason = "依赖 MiniS / iSH 的 iOS 沙箱，Eta 无法运行")
+                SkillCompatibilityResult(available = false, reason = "Requires the MiniS / iSH iOS sandbox, which su cannot run")
             mentionsIosOnly(haystack) ->
-                SkillCompatibilityResult(available = false, reason = "该 Skill 标注为 iOS 专属")
+                SkillCompatibilityResult(available = false, reason = "This Skill is marked iOS-only")
             else -> SkillCompatibilityResult(available = true)
         }
     }

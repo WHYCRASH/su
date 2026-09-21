@@ -24,8 +24,7 @@ internal sealed interface PackageProfileInstallResult {
     data object AlreadyReady : PackageProfileInstallResult
     data object EnvironmentNotReady : PackageProfileInstallResult
 
-    /** 依赖的 profile 尚未安装，按依赖链先装它。 */
-    data class DependencyMissing(val profileId: String) : PackageProfileInstallResult
+    /** The dependency profile is not installed yet; install it first following the dependency chain. */
     data object Installed : PackageProfileInstallResult
     data class Failed(val stage: PackageProfileInstallStage) : PackageProfileInstallResult
 }
@@ -41,8 +40,7 @@ internal data class LinuxPackageProfile(
     val markerName: String,
     val revision: Int,
     val specs: Map<LinuxDistribution, LinuxPackageSpec>,
-    /** 安装前必须就绪的前置 profile。 */
-    val dependsOn: LinuxPackageProfile? = null,
+    /** Prerequisite profile that must be ready before installation. */
 ) {
     fun spec(distribution: LinuxDistribution): LinuxPackageSpec = requireNotNull(specs[distribution])
 }
@@ -76,7 +74,7 @@ internal object LinuxPackageProfiles {
                 packages = listOf("nodejs-current", "npm"),
             ),
             LinuxDistribution.DEBIAN to LinuxPackageSpec(
-                // Node 官方 arm64 二进制链接 libatomic.so.1，归档安装不含系统依赖，需补装。
+                // The official Node arm64 binaries link against libatomic.so.1, which the archived install does not include, so install it as well.
                 packages = listOf("libatomic1"),
                 managedTool = ManagedLinuxTool.NODE,
             ),
@@ -97,28 +95,7 @@ internal object LinuxPackageProfiles {
             ),
         ),
     )
-
-    /**
-     * Kimi Code 使用 npm 分发，运行在 Node profile 之上；可选原生扩展由 npm 按平台安装。
-     * 始终安装最新正式版（升级重装即可）；--prefix /usr/local 让 kimi 进入 PATH 首位，
-     * 与 Node 归档自身的 prefix 无关。国内镜像优先，官方 registry 兜底。
-     */
-    private const val KIMI_INSTALL_SCRIPT =
-        "npm install -g --prefix /usr/local --registry=https://registry.npmmirror.com " +
-            "@moonshot-ai/kimi-code@latest || " +
-            "npm install -g --prefix /usr/local @moonshot-ai/kimi-code@latest"
-
-    val KIMI = LinuxPackageProfile(
-        id = "kimi",
-        markerName = AlpineEnvironmentPaths.KIMI_TOOLS_MARKER,
-        revision = AlpineEnvironmentPaths.KIMI_TOOLS_REVISION,
-        dependsOn = NODE,
-        specs = mapOf(
-            LinuxDistribution.ALPINE to LinuxPackageSpec(setupScript = KIMI_INSTALL_SCRIPT),
-            LinuxDistribution.DEBIAN to LinuxPackageSpec(setupScript = KIMI_INSTALL_SCRIPT),
-        ),
-    )
-    val ALL = listOf(PYTHON, NODE, SSH, KIMI)
+    val ALL = listOf(PYTHON, NODE, SSH)
 }
 
 internal fun linuxPackageProfileReady(rootfs: File, profile: LinuxPackageProfile): Boolean =
@@ -127,7 +104,7 @@ internal fun linuxPackageProfileReady(rootfs: File, profile: LinuxPackageProfile
         "profile=${profile.revision}",
     )
 
-/** 为当前选中的发行版按需安装单个工具 profile；成功后只写对应完成标记。 */
+/** Install a single tool profile on demand for the selected distribution; only writes the matching completion marker on success. */
 internal class LinuxPackageProfileInstaller(
     private val context: Context,
     private val distribution: LinuxDistribution,
@@ -159,12 +136,6 @@ internal class LinuxPackageProfileInstaller(
         ) {
             return@withContext PackageProfileInstallResult.EnvironmentNotReady
         }
-        profile.dependsOn?.let { dependency ->
-            if (!linuxPackageProfileReady(rootfs, dependency)) {
-                return@withContext PackageProfileInstallResult.DependencyMissing(dependency.id)
-            }
-        }
-
         val spec = profile.spec(distribution)
         spec.managedTool?.let { tool ->
             val installed = managedToolInstaller.install(
@@ -209,7 +180,6 @@ internal class LinuxPackageProfileInstaller(
         val activateCommand = buildString {
             append("set -e\n")
             spec.setupScript?.let { script -> append(script).append('\n') }
-            if (profile == LinuxPackageProfiles.KIMI) append("kimi --version >/dev/null\nkimi web --help >/dev/null\n")
             append("cat > /").append(profile.markerName).append(" <<'ETA_PROFILE_EOF'\n")
             append("profile=").append(profile.revision).append('\n')
             append("ETA_PROFILE_EOF\n")

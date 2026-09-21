@@ -2,6 +2,7 @@ package io.github.mangi.eta.ui.model
 
 import android.app.Application
 import io.github.mangi.eta.agent.model.AgentCompactionArchive
+import io.github.mangi.eta.agent.model.AgentContextCompactor
 import io.github.mangi.eta.agent.model.AgentModelClient.ConversationMessage
 import java.io.File
 import org.json.JSONArray
@@ -30,7 +31,7 @@ class ConversationToolEvidenceTest {
     )
     @Test fun exportsFullStoredResultAndDistinctImmutableSnapshots() {
         val tool = tool()
-        val raw = "正文🙂".repeat(3000) + "END"
+        val raw = "Body text 🙂".repeat(3000) + "END"
         val evidence = ConversationToolEvidence(listOf(tool)).apply { add(history(raw), "history") }
         fun snapshot() = ConversationMention.transcript(listOf(tool), filesDir = temp.root,
             conversationId = "conv-a", toolEvidence = evidence)
@@ -45,7 +46,7 @@ class ConversationToolEvidenceTest {
     }
     @Test fun missingOriginalIsExplicitlySummaryOnly() {
         val text = ConversationMention.transcript(listOf(tool()), filesDir = temp.root, conversationId = "a")
-        assertTrue(text.contains("仅有摘要"))
+        assertTrue(text.contains("summary only"))
         val file = File(text.substringAfter("Details file: ").substringBefore('\n'))
         assertTrue(file.readText().contains("Result summary:"))
     }
@@ -57,7 +58,7 @@ class ConversationToolEvidenceTest {
         assertNull(evidence.original(message.id))
         val normal = tool()
         val redacted = ConversationToolEvidence(listOf(normal)).apply {
-            add(history("[敏感工具参数与原始结果仅供当前回合使用，未写入持久会话]"), "history")
+            add(history("[Sensitive tool parameters and raw results are used only for the current turn and are not written to the persistent session]"), "history")
             add(history("earlier unredacted"), "archive")
         }
         assertNull(redacted.original(normal.id))
@@ -89,9 +90,21 @@ class ConversationToolEvidenceTest {
     }
 
     @Test fun prunedHistoryFallsBackToVerifiedSourceArchiveOnly() {
+        val current = tool()
+        val currentEvidence = ConversationToolEvidence(listOf(current)).apply {
+            add(history("head ${AgentContextCompactor.TOOL_PRUNED_PREFIX} checkpoint] tail"), "history")
+        }
+        assertNull(currentEvidence.original(current.id))
+
+        val legacy = tool()
+        val legacyEvidence = ConversationToolEvidence(listOf(legacy)).apply {
+            add(history("head ${AgentContextCompactor.LEGACY_TOOL_PRUNED_PREFIX} checkpoint] tail"), "history")
+        }
+        assertNull(legacyEvidence.original(legacy.id))
+
         val message = tool()
         val evidence = ConversationToolEvidence(listOf(message)).apply {
-            add(history("head [Eta tool output pruned; checkpoint] tail"), "history")
+            add(history("head ${AgentContextCompactor.TOOL_PRUNED_PREFIX} checkpoint] tail"), "history")
         }
         val archive = AgentCompactionArchive(temp.root, "a")
         archive.save(history("original"))

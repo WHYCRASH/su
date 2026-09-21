@@ -81,7 +81,7 @@ class AssistantIsolationRegressionTest {
     }
 
     @Test fun idsAreValidatedWithoutLossyNormalization() {
-        listOf("", ".", "..", "../other", "/absolute", "a/b", "a\\b", " a", "a ", "中文", "a".repeat(81)).forEach { raw ->
+        listOf("", ".", "..", "../other", "/absolute", "a/b", "a\\b", " a", "a ", "café", "a".repeat(81)).forEach { raw ->
             assertThrows(IllegalArgumentException::class.java) { AssistantStorage.id(raw) }
         }
         assertEquals("a.b", AssistantStorage.id("a.b"))

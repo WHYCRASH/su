@@ -15,11 +15,11 @@ class FileLogSinkTest {
     @Test
     fun appendWritesUtf8AndAddsTrailingNewline() {
         val sink = FileLogSink(temporaryFolder.root, "eta-app.log")
-        sink.append("你好")
+        sink.append("Hello")
         sink.append("world\n")
         sink.close()
 
-        assertEquals("你好\nworld\n", File(temporaryFolder.root, "eta-app.log").readText())
+        assertEquals("Hello\nworld\n", File(temporaryFolder.root, "eta-app.log").readText())
         assertEquals(listOf("eta-app.log"), sink.files().map { it.name })
     }
 

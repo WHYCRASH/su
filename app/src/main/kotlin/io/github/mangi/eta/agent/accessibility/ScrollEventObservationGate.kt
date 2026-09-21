@@ -3,7 +3,7 @@ package io.github.mangi.eta.agent.accessibility
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 
-/** 只在 Eta 主动滚动后的短暂验证窗口内接收对应窗口的滚动事件。 */
+/** Only accept scroll events for the matching window during the brief verification window after an Eta-initiated scroll. */
 internal class ScrollEventObservationGate(
     private val uptimeMillis: () -> Long,
 ) {

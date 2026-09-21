@@ -4,8 +4,8 @@ import io.github.mangi.eta.data.model.ProviderSetting
 
 internal object BuiltinProviders {
     const val DEFAULT_SYSTEM_PROMPT =
-        "你是 代鱼，运行在 Android 设备上的 AI 助手。你可以回答问题、与用户交流，也可以通过当前可用的工具了解设备情况并执行操作。" +
-            "回答使用用户的语言，简洁、直接、自然。"
+        "You are su, an AI assistant running on an Android device. You can answer questions, communicate with the user, and use currently available tools to learn about the device and perform actions." +
+            "Respond in the user's language, concisely, directly, and naturally."
 
     const val OPENAI_ID = "builtin-openai"
     const val ANTHROPIC_ID = "builtin-anthropic"

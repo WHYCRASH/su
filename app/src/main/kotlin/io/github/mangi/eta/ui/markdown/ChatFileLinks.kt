@@ -43,7 +43,7 @@ internal fun stageChatFile(context: Context, requested: String): File {
     val source = File(mapped).canonicalFile
     val roots = listOf(File("/storage/emulated/0"), File("/sdcard"), LinuxGuestPathResolver.workspaceHostForApp(context))
         .map { it.canonicalPath }
-    require(roots.any { source.path.startsWith("$it/") }) { "此链接不在共享存储或工作区内" }
+    require(roots.any { source.path.startsWith("$it/") }) { "This link is outside shared storage and the workspace" }
     val directory = File(context.cacheDir, "chat-files").apply { mkdirs() }
     val folder = File(directory, java.util.UUID.randomUUID().toString()).apply { mkdirs() }
     val destination = File(folder, source.name)
@@ -51,18 +51,18 @@ internal fun stageChatFile(context: Context, requested: String): File {
         if (source.isFile && source.canRead()) {
             source.inputStream().use { input -> destination.outputStream().use { BoundedFileCopy.copy(input, it, MAX_CHAT_FILE_BYTES) } }
         } else {
-            check(RootAccess.isGranted) { "文件不存在或没有读取权限" }
+            check(RootAccess.isGranted) { "File does not exist or there is no read permission" }
             // Resolve symlinks in the same privileged context that reads the file.
             val cases = roots.joinToString("|") { shellQuote("$it/") + "*" }
             val command = "p=\$(realpath -- ${shellQuote(source.path)}) || exit 1; " +
                 "case \"\$p\" in $cases) ;; *) exit 1;; esac; " +
                 "[ -f \"\$p\" ] && [ \$(stat -c %s -- \"\$p\") -le $MAX_CHAT_FILE_BYTES ] || exit 1; " +
                 "head -c ${MAX_CHAT_FILE_BYTES + 1} -- \"\$p\" > ${shellQuote(destination.path)}"
-            check(destination.createNewFile()) { "无法创建文件副本" }
+            check(destination.createNewFile()) { "Could not create a file copy" }
             BoundedRootCommandExecutor(AndroidAgentLogger).use { root ->
-                check(root.execute(command, timeoutMillis = 15_000, maxOutputBytes = 1024).ok) { "文件不存在、无法读取或超过 64 MB" }
+            check(root.execute(command, timeoutMillis = 15_000, maxOutputBytes = 1024).ok) { "File does not exist, cannot be read, or exceeds 64 MB" }
             }
-            check(destination.length() <= MAX_CHAT_FILE_BYTES) { "文件超过 64 MB" }
+            check(destination.length() <= MAX_CHAT_FILE_BYTES) { "File exceeds 64 MB" }
         }
         return destination
     } catch (e: Exception) {
@@ -83,7 +83,7 @@ internal fun rememberChatUriHandler(parent: UriHandler): UriHandler {
                     try {
                         val path = chatLocalFilePath(uri)
                         if (path == null) {
-                            require(Uri.parse(uri).scheme !in listOf(null, "file")) { "不支持此文件链接" }
+                            require(Uri.parse(uri).scheme !in listOf(null, "file")) { "This file link is not supported" }
                             parent.openUri(uri)
                         } else {
                             val file = withContext(Dispatchers.IO) { stageChatFile(context, path) }
@@ -97,7 +97,7 @@ internal fun rememberChatUriHandler(parent: UriHandler): UriHandler {
                     } catch (cancelled: CancellationException) {
                         throw cancelled
                     } catch (e: Exception) {
-                        Toast.makeText(context, "无法打开链接：${e.message ?: "没有可处理此文件的应用"}", Toast.LENGTH_LONG).show()
+                        Toast.makeText(context, "Could not open link: ${e.message ?: "No app can handle this file"}", Toast.LENGTH_LONG).show()
                     }
                 }
             }

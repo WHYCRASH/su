@@ -1,168 +1,168 @@
 # Agent Runtime
 
-Eta 的 Agent Runtime 负责把一次用户输入组织为模型回合、工具执行和可持久化的增量 transcript。它运行在模块自身进程；Hook 进程只负责识别入口、发送请求和接收结果。
+su's Agent Runtime organizes a single user input into model turns, tool execution, and a persistable incremental transcript. It runs in the module's own process; hook processes only recognize the entry point, send the request, and receive the result.
 
-## 代码边界
+## Code boundaries
 
-- `AgentModelClient`：稳定门面、配置与跨进程会话 DTO。
-- `AgentLoop`：单次 run 的状态机，不依赖 Android Service、Room 或 Compose。
-- `AgentPromptBuilder`：系统约束、Skill 索引、历史和当前用户输入。
-- `AgentConversationCodec`：Provider JSON 与稳定会话 DTO 的转换。
-- `AgentToolCatalog` 及分组目录：模型可见的工具 schema，不执行工具。
-- `AgentTraceFormatter`：只生成可展示、可记录的脱敏摘要。
-- `AgentProviderClient`：OpenAI-compatible、Anthropic 等协议边界。
-- `AgentRunController`：取消、暂停和 steering 队列。
-- `AgentRuntimeSession`：每个 run 自持 reply channel，并保证唯一最终结果。
-- `AgentRuntimeRunExecutor`：从 Skill/工具初始化到模型执行、资源清理和终态提交的统一异常边界。
-- `AgentRuntimeService`：Android 生命周期、入口 IPC 和浮层宿主；不再内联 Agent 执行循环。
-- `ShellProcessSupervisor`：Android/Alpine/Debian Shell 进程的接纳、独立进程组、取消和回收；终端协议不承担进程所有权细节。
+- `AgentModelClient`: stable facade, configuration, and cross-process session DTOs.
+- `AgentLoop`: the state machine for a single run; no dependency on Android services, Room, or Compose.
+- `AgentPromptBuilder`: system constraints, skill index, history, and the current user input.
+- `AgentConversationCodec`: conversion between provider JSON and the stable session DTOs.
+- `AgentToolCatalog` and its grouping directories: model-visible tool schemas; never executes tools.
+- `AgentTraceFormatter`: only produces redacted summaries safe to display and log.
+- `AgentProviderClient`: protocol boundary for OpenAI-compatible, Anthropic, and similar providers.
+- `AgentRunController`: cancellation, pausing, and the steering queue.
+- `AgentRuntimeSession`: holds one reply channel per run and guarantees a single final result.
+- `AgentRuntimeRunExecutor`: the single exception boundary from skill/tool initialization through model execution, resource cleanup, and terminal-state commit.
+- `AgentRuntimeService`: Android lifecycle, entry-point IPC, and overlay hosting; no longer inlines the agent execution loop.
+- `ShellProcessSupervisor`: admission, dedicated process groups, cancellation, and reaping for Android/Alpine/Debian shell processes; the terminal protocol does not own process-ownership details.
 
-## Loop 语义
+## Loop semantics
 
-一个 turn 是“一次 assistant 响应 + 该响应提交的完整工具批次”。循环遵守以下顺序：
+A turn is "one assistant response plus the complete tool batch submitted by that response". The loop follows this order:
 
 ```text
 pending steering
 → provider response
 → assistant history
-→ tool batch（按模型顺序串行执行）
+→ tool batch (serial, in model order)
 → contiguous tool results
 → optional image observations
 → next turn / final result
 ```
 
-关键不变量：
+Key invariants:
 
-- steering 默认逐条排队。流式正文中途到达时会打断当前模型 SSE、保留已写出的内容，再注入下一轮；工具批次仍跑完，不取消正在执行的工具。
-- 同一 assistant 消息中的全部 tool result 必须连续写入，再追加不受 Provider 原生 tool-result image 支持的图片观察。
-- `finish_reason=length` 或 `max_tokens` 且包含工具调用时，不执行任何可能被截断的参数；为每个调用写入结构化错误结果，让模型重新规划。
-- 只有明确的 `tool_calls` / `tool_use` 终止原因才允许执行工具；`stop`、内容过滤或未知终止原因中夹带的调用一律作为协议矛盾拒绝。
-- 工具参数在执行前按本轮实际下发的 JSON Schema 校验，支持本地 `$ref`、组合 Schema、条件 Schema 与常用对象、数组、字符串、数值约束；这只检查调用合同，不承担权限确认或额外安全策略。
-- transcript 只返回本次 run 新增的 assistant、tool 和运行中 steering 消息，不重复旧 history 或本轮初始用户消息。
-- GUI/终端工具保持串行。Android 前台状态和会话式 Shell 都不具备可安全并行的通用语义。
-- 单次 run 不设置固定回合数或总时限，由模型自然结束、用户取消或不可恢复错误终止。
-- cancel 是终止信号；pause 是检查点阻塞；steering 是下一回合输入。暂停中的 steering 只排队，不解除 pause，也不打断当前请求。
-- cancel 的主线程路径只做原子终态与资源关闭：共享浏览器按 runId 校验归属；终端立即封闭新的进程接纳，并在后台按独立进程组终止同步命令、会话和 async job，再完成线程与流回收。Android 上 `setsid` 或 PID/PGID ownership 握手不可用时会 fail closed；非 Android 测试环境才允许父子树快照回退。终止前还会核验随机 ownership token，避免陈旧 PGID 复用后误杀无关进程。
-- 最终 steering 检查会原子关闭接收入口；Loop 返回后不会再把无人消费的补充指令误报为已接收。补充指令也不会解除 pause。
-- 新 run 替换旧 run、用户取消和正常完成都通过 `AgentRuntimeSession` 的 `RUNNING → COMMITTING → TERMINAL` 状态机竞争唯一终态；提交胜者独占 outbox、归档和最终发布，客户端等待最终结果或 Binder 断连，不按等待时长取消任务。
-- 入口请求只能缩小工具能力，不能自行授权。Runtime 在开始 run 时裁剪配置，在每次浏览器、终端和设备工具执行前重新读取用户开关，并在 thinking 关闭时移除自定义请求体中的 reasoning/thinking 覆盖字段。
-- 设备工具分为直达工具、敏感读取工具和敏感操作工具，当前均默认开启。Runtime 在每次执行前重新读取用户开关；开关允许且参数符合工具 Schema 后即可执行，不再匹配用户原话，也不维护关键包、系统应用或 Settings key 黑名单。
-- 微信发送不提供专用工具、参数协议或额外策略层，完全使用通用 GUI 工具观察和操作微信界面。
-- 通知、短信验证码、Wi‑Fi 凭据和日志属于瞬时敏感工具数据。当前模型回合可以使用原始值，但持久 transcript 会同时替换对应工具参数和结果，避免进入会话数据库或后续 IPC。
+- Steering is queued one item at a time by default. Steering that arrives mid-stream interrupts the current model SSE, keeps already-written content, and is injected in the next turn; the tool batch still runs to completion — running tools are never cancelled.
+- All tool results within the same assistant message must be written contiguously; image observations that the provider's native tool-result image support cannot carry are appended afterwards.
+- When `finish_reason=length` or `max_tokens` arrives together with tool calls, none of the potentially truncated parameters are executed; a structured error result is written for each call so the model can re-plan.
+- Tools run only for explicit `tool_calls` / `tool_use` stop reasons; calls smuggled inside `stop`, content-filter, or unknown stop reasons are rejected as protocol contradictions.
+- Tool parameters are validated before execution against the JSON Schema actually issued for that turn, supporting local `$ref`, combinators, conditional schemas, and common object/array/string/number constraints; this checks the call contract only and carries no permission-confirmation or extra security policy.
+- The transcript returns only the assistant, tool, and in-flight steering messages added by this run — never old history or the run's initial user message.
+- GUI and terminal tools stay serial. Neither Android foreground state nor conversational shells have generally safe-to-parallelize semantics.
+- A single run has no fixed turn count or total deadline; it ends when the model stops naturally, the user cancels, or an unrecoverable error terminates it.
+- Cancel is a termination signal; pause is a checkpoint block; steering is next-turn input. Steering that arrives while paused only queues — it neither unpauses nor interrupts the current request.
+- The cancel fast path on the main thread performs only the atomic terminal transition and resource shutdown: the shared browser verifies ownership by runId; the terminal immediately closes admission of new processes and, in the background, terminates synchronous commands, sessions, and async jobs by dedicated process group before finishing thread and stream reclamation. On Android, if `setsid` or the PID/PGID ownership handshake is unavailable, termination fails closed; only non-Android test environments may fall back to a parent-tree snapshot. Termination also verifies a random ownership token so a stale, reused PGID can never kill unrelated processes.
+- The final steering check atomically closes the intake; once the loop has returned, no unconsumed follow-up instruction is misreported as received. Follow-up instructions never lift a pause.
+- New-run replacement, user cancellation, and normal completion all compete for a single terminal state through the `AgentRuntimeSession` `RUNNING → COMMITTING → TERMINAL` state machine; the commit winner owns the outbox, archiving, and final delivery exclusively, while clients wait for the final result or a Binder disconnect rather than cancelling the task by wait duration.
+- Entry requests can only narrow tool capabilities, never self-authorize. The runtime trims the configuration when a run starts, re-reads the user toggles before every browser, terminal, and device-tool execution, and strips `reasoning`/`thinking` override fields from custom request bodies when thinking is off.
+- Device tools are split into direct, sensitive-read, and sensitive-operation tools, all currently on by default. The runtime re-reads the user toggles before every execution; once the toggle allows it and the parameters satisfy the tool schema, execution proceeds — the runtime no longer matches the user's original wording and maintains no key-package, system-app, or Settings-key blocklist.
+- Sending messages in chat apps has no dedicated tool, parameter protocol, or extra policy layer; it works entirely through generic GUI tools observing and operating the app UI.
+- Notifications, SMS verification codes, Wi-Fi credentials, and logs are ephemeral sensitive tool data. The current model turn may use the raw values, but the persisted transcript redacts the corresponding tool parameters and results together so they never reach the conversation database or subsequent IPC.
 
-## Provider 协议
+## Provider protocols
 
-Provider 默认基础提示词将 Eta 定义为运行在 Android 设备上的 AI 助手，可以回答问题、与用户交流，也可以通过工具了解设备情况并执行操作；回答使用用户的语言，简洁、直接、自然。默认正文以 `BuiltinProviders.DEFAULT_SYSTEM_PROMPT` 为准；Provider 提示词为空时使用该默认值，已有非空配置保持原值。
+The default base prompt defines su as an AI assistant running on an Android device: it answers questions, converses with the user, and can inspect the device and perform actions through tools; answers use the user's language and stay concise, direct, and natural. The default body text is `BuiltinProviders.DEFAULT_SYSTEM_PROMPT`; an empty provider prompt falls back to that default, while an existing non-empty configuration keeps its value.
 
-Runtime 独立于 Provider 自定义提示词注入 Eta 身份，以“当前配置的模型”标注 `ModelConfig.model` 的实际值，随本次运行配置更新，不使用模型显示名或历史消息推断当前模型，也不据此推断部署版本、知识截止日期或能力。通用交流规则要求日常问答直接回答、仅在缺少关键参数时澄清、按用户需求调整详略，并如实交代工具操作结果；个性化分析区分事实与推测，不根据零散记录断言性格、动机或心理状态。工具、记忆与 Skills 等系统规则仍按运行时条件追加。
+The runtime injects the su identity independently of provider-customized prompts, labelling the actual `ModelConfig.model` value for this run as the "currently configured model" and updating it with the run's configuration. It never infers the current model from the display name or history messages, nor infers deployment version, knowledge cutoff, or capabilities from it. The general conversation rules require direct answers to everyday questions, clarification only when key parameters are missing, detail matched to the user's needs, and honest reporting of tool outcomes; personalized analysis separates fact from speculation and never asserts personality, motives, or mental states from scattered records. System rules for tools, memory, and skills are still appended based on runtime conditions.
 
-OpenAI-compatible Provider 可在配置页选择 `Chat Completions` 或 `Responses API`。新安装和重置后的内置 OpenAI 默认使用 Responses；数据库中已有 Provider 不会被默认值覆盖。自定义 Provider 和其他内置 Provider 默认仍使用 Chat Completions。
+An OpenAI-compatible provider can select `Chat Completions` or `Responses API` on its configuration page. Fresh installs and resets default the built-in OpenAI entry to Responses; providers already in the database are never overwritten by the default. Custom providers and other built-in providers still default to Chat Completions.
 
-Chat Completions 在协议边界把当前上下文中的全部 `system` 内容按原顺序合并为首条唯一系统消息，兼容要求系统消息只能位于开头的模型 Chat Template。Responses 则把完整的 `system`/`developer` 上下文投影到 `instructions`，并将持久历史重建为带 `type: "message"` 的 input Items。
+At the protocol boundary, Chat Completions merges all `system` content from the current context, in order, into a single leading system message, accommodating model chat templates that require the system message first. Responses instead projects the full `system`/`developer` context into `instructions` and rebuilds persisted history as input items with `type: "message"`.
 
-Responses 请求固定使用 `stream:true`、`store:false`，不发送 `previous_response_id`。Runtime 在同一次 run 的工具回合之间精确回放 Provider 返回的完整 output Items；因此 encrypted reasoning、服务端工具状态等 opaque 数据只存在于内存，不进入 IPC transcript、Room、日志或运行归档。持久会话只保留规范化回答、可见推理内容和 Eta 工具记录，后续 run 由这些稳定数据重新构建上下文。
+Responses requests always use `stream:true` and `store:false` and never send `previous_response_id`. Within one run, the runtime replays the complete output items returned by the provider verbatim across tool turns; opaque data such as encrypted reasoning and server-side tool state therefore lives only in memory and never enters the IPC transcript, Room, logs, or run archives. Persisted conversations keep only normalized answers, visible reasoning content, and su tool records, and later runs rebuild context from that stable data.
 
-兼容接口若在 `response.completed` 中省略 `output` 或返回空数组，Runtime 只使用同一 SSE 流中已经收到的标准文本、推理摘要和函数调用增量完成当前轮次；非空终态始终是权威结果，且本地恢复结果不会冒充 Provider 的 opaque output Items。
+When a compatible API omits `output` in `response.completed` or returns an empty array, the runtime completes the current turn using only the standard text, reasoning summaries, and function-call deltas already received on the same SSE stream; a non-empty terminal state always wins, and a locally recovered result never impersonates the provider's opaque output items.
 
-推理界面展示的是 Provider 返回的 reasoning summary；它不是原始思维链，也不会由 Eta 伪造。兼容 Provider 若按 Responses 协议返回 `reasoning_text`，Runtime 会把它作为可见推理内容展示。Responses 只对精确命中官方目录且未被远端显式标记为 `reasoning:false` 的模型补齐推理能力，不会因 Endpoint 类型而假定所有模型支持推理。
+The reasoning UI shows the reasoning summary returned by the provider; it is not the raw chain of thought and is never fabricated by su. When a compatible provider returns `reasoning_text` under the Responses protocol, the runtime surfaces it as visible reasoning content. Responses backfills reasoning capability only for models that exactly match the official catalog and have not been remotely flagged `reasoning:false`; it never assumes every model supports reasoning from the endpoint type alone.
 
-Chat Completions、Responses 与 Anthropic Messages 在 Provider 边界统一投影为带 `round + block index` 身份的正文、思考和工具块。Responses 额外使用 `item_id/output_index/content_index` 区分同一轮中的多个 output item；Chat Completions 在 delta 类型切换时创建新块；Anthropic 直接保留 `content_block.index`。正文、思考或工具类型一旦切换，上一段可见块立即定稿，后续同类型内容也不会跨过工具卡片回填到旧块。终态只在 Provider 的权威内容与已流式内容不一致时携带一次替换，不用整轮聚合正文覆盖最后一个块。
+Chat Completions, Responses, and Anthropic Messages are projected at the provider boundary into a uniform body/thinking/tool-block stream keyed by `round + block index`. Responses additionally uses `item_id/output_index/content_index` to separate multiple output items in one turn; Chat Completions opens a new block when the delta type changes; Anthropic preserves `content_block.index` directly. Once the body/thinking/tool type switches, the previous visible block is finalized immediately, and later same-type content never backfills across a tool card into an older block. The terminal state carries a replacement only when the provider's authoritative content disagrees with already-streamed content, instead of overwriting the last block with the whole turn's aggregated text.
 
-服务端网页搜索是 Responses Provider 的独立开关，默认关闭。开启后请求只增加 `web_search` 托管工具；搜索开始和结束作为独立运行事件投影到 UI，不进入 Eta 本地工具执行器。最终回答中的 `url_citation` 会去重并转换为可点击 Markdown 引用；偏移无效时降级为回答末尾的来源列表。当前不接入 file search、code interpreter、Provider 托管 MCP 或其他托管工具。
+Server-side web search is an independent Responses-provider toggle, off by default. When on, the request only gains the hosted `web_search` tool; search start and finish are projected to the UI as standalone run events and never enter the su local-tool executor. `url_citation` entries in the final answer are deduplicated and converted to clickable Markdown references, degrading to a source list at the end of the answer when offsets are invalid. File search, code interpreter, provider-hosted MCP, and other hosted tools are currently not integrated.
 
-### 模型等待与重试
+### Model waits and retries
 
-模型流使用独立的 HTTP 配置：连接等待 15 秒、写入等待 30 秒、读取等待 5 分钟；读取限制针对等待新数据，不是整个任务的总时限。MCP、模型列表与下载继续沿用各自配置。模型 HTTP 客户端关闭底层连接自动重试，模型回合的有限重试统一由 Loop 编排。
+Model streaming uses dedicated HTTP settings: 15 s connect, 30 s write, 5 min read; the read limit guards idle waits for new data, not the whole task. MCP, model listing, and downloads keep their own settings. The model HTTP client disables low-level connection retries; the loop orchestrates the run's bounded retries.
 
-连接中断、超时、提前 EOF、暂时限流和部分服务端错误最多重试 3 次，依次等待 2、4、8 秒；每个成功的模型回合重新获得独立预算。认证、额度、计费、证书、协议格式等非暂时性失败不自动重试。重试等待可取消，并遵守暂停检查点。流式正文中的 steering 会打断当前模型请求；工具批次中的 steering 仍等本批工具完成后再注入。
+Interrupted connections, timeouts, premature EOF, transient rate limits, and some server errors retry up to 3 times with 2, 4, and 8 s waits; each successful model turn earns a fresh budget. Non-transient failures — authentication, quota, billing, certificates, protocol shape — never retry automatically. Retry waits are cancellable and honor pause checkpoints. Steering arriving mid-stream interrupts the current model request; steering during a tool batch still waits for the batch to finish before injection.
 
-失败尝试不提交 assistant history，不执行其中的本地工具调用；前面完成的工具结果、当前回合的工具 schema 和截图在重试期间保持不变。重试使用新的展示轮次，失败的半截输出留在运行轨迹并标注重试，后续输出不会拼接到旧块；最终推理摘要不包含被替换的失败尝试。重试事件通过既有 IPC、checkpoint 和归档编码保存，恢复回放不会重新执行工具。若 Provider 已报告托管工具开始执行，本次失败不自动重试，避免重复触发服务端操作。
+Failed attempts commit no assistant history and execute no local tool calls from that attempt; completed tool results, the current turn's tool schemas, and screenshots stay unchanged across the retry. Retries use a fresh display turn; the failed partial output stays in the run trace marked as retried, later output is never spliced onto the old block, and the final reasoning summary excludes superseded failed attempts. Retry events persist through the existing IPC, checkpoint, and archive encodings, and recovery replay never re-executes tools. If the provider already reported a hosted tool as started, the failed attempt does not retry automatically, avoiding duplicate server-side operations.
 
-## MCP 工具
+## MCP tools
 
-Eta 直接作为 MCP 客户端连接远程 Streamable HTTP 服务器，不把协议能力绑定到某个模型 Provider。当前优先使用 `2026-07-28` 无状态协议，并兼容需要 `initialize` 与 session 的 `2025-11-25` 服务；只接入 `tools/list` 和 `tools/call`，暂不支持 Resources、Prompts、Tasks、stdio、OAuth、交互式补充输入或 Provider 托管 MCP。
+su acts directly as an MCP client connected to remote Streamable HTTP servers, without tying protocol capability to any model provider. It currently prefers the stateless `2026-07-28` protocol while remaining compatible with `2025-11-25` services that require `initialize` and sessions; only `tools/list` and `tools/call` are integrated — resources, prompts, tasks, stdio, OAuth, interactive follow-up input, and provider-hosted MCP are not supported yet.
 
-工具默认关闭，服务器也可整体停用。添加服务器时先发现并缓存工具目录，用户再逐项启用；未标记只读的工具需要额外确认。现代服务的目录按 `ttlMs` 到期并在下次 run 前刷新，legacy 目录由用户手动刷新。每次 run 开始时一并冻结启用目录与 Bearer Token，并生成带服务器命名空间的模型工具名，因此后续设置变化不会改变正在执行的 schema 或账户。Eta 不因 `$ref`、组合关键字、条件关键字等复杂 Schema 禁用工具，而是原样投影给模型并在调用前按同一份 Schema 校验；现代 Streamable HTTP 的 `x-mcp-header` 参数会同步映射为请求头。
+Tools are off by default, and a server can be disabled as a whole. When a server is added, its tool catalog is discovered and cached first, and the user enables entries one by one; tools not marked read-only need an extra confirmation. Modern service catalogs expire by `ttlMs` and refresh before the next run; legacy catalogs refresh manually. Each run start freezes the enabled catalog together with the bearer token and generates server-namespaced model tool names, so later settings changes cannot alter the schema or account of a running execution. su projects complex schemas to the model as-is — including `$ref`, combinators, and conditional keywords — rather than disabling tools for them, and validates calls against the same schema beforehand; `x-mcp-header` parameters on modern Streamable HTTP are mapped to request headers in sync.
 
-MCP 地址由用户直接配置，HTTP、HTTPS、局域网与本机地址使用同一条连接链路，并沿用共享 OkHttp 客户端的默认重定向和超时行为；HTTP 会明文传输 Token、工具参数和结果。Bearer Token 通过 Android Keystore 加密后保存在本机。MCP 原始参数与结果只在当前回合使用，持久 transcript、运行 checkpoint 和归档只保留脱敏记录；文本、结构化结果、图片、分页次数和单次 run 工具数仍有独立预算，不支持或超出预算的结果会携带明确标记。取消 run 会立即封闭新调用并关闭在途 HTTP 请求，legacy session 的释放只做异步 best-effort，不阻塞取消线程。
+MCP addresses are configured directly by the user; HTTP, HTTPS, LAN, and loopback addresses share one connection path and inherit the shared OkHttp client's default redirect and timeout behavior; HTTP sends tokens, tool parameters, and results in cleartext. Bearer tokens are encrypted with the Android Keystore and stored on-device. Raw MCP parameters and results live only for the current turn; persisted transcripts, run checkpoints, and archives keep only redacted records. Text, structured results, images, page counts, and per-run tool-call budgets apply independently, and unsupported or over-budget results carry an explicit marker. Cancelling a run immediately closes new calls and in-flight HTTP requests; legacy session release is asynchronous best-effort and never blocks the cancelling thread.
 
-## 长期记忆
+## Long-term memory
 
-长期记忆保存在 App 私有目录的单一 `MEMORY.md` 中。文件使用 UTF-8，安全上限为 1 MiB；仓库在进程内锁中应用变更，并通过 `AtomicFile` 覆盖完整文件。模型写入携带当前内容的 SHA-256 revision，revision 不一致时返回 `MEMORY_CONFLICT`，不会覆盖并发更新。
+Long-term memory lives in a single `MEMORY.md` in the app's private directory. The file is UTF-8 with a 1 MiB safety cap; the store applies changes under an in-process lock and overwrites the whole file through `AtomicFile`. Model writes carry the SHA-256 revision of the content they saw; a revision mismatch returns `MEMORY_CONFLICT` instead of clobbering a concurrent update.
 
-每次 run 只把 `# 核心记忆` 的预算内内容、一级/二级标题索引和 revision 放入系统背景。核心预算为 `min(32000, max(4000, contextWindow / 16))` 个字符；模型窗口未知时按 128K 计算。没有 `# 核心记忆` 标题时不自动注入正文。其余内容由 `memory_get` 按行分页或按文本检索，单次最多返回 32000 字符。
+Each run injects into the system background only the in-budget content under the literal `# Core Memory` heading, the level-1/level-2 heading index, and the revision. The core budget is `min(32000, max(4000, contextWindow / 16))` characters, assuming a 128K window when the model window is unknown. Without a `# Core Memory` heading, no body text is injected automatically. Everything else is read via `memory_get` by line page or text search, at most 32000 characters per call.
 
-`memory_write` 支持行区间替换、独立章节追加与清空；单次模型生成内容最多 3500 字符，设置页的用户手动编辑不受此单次工具限制。关闭记忆不会删除文件，后续 run 不再注入或暴露工具；已开始的 run 在每次执行记忆工具前也会重新检查开关。
+`memory_write` supports line-range replacement, standalone section appends, and clearing; one model-generated write carries at most 3500 characters, while manual user edits on the settings page are exempt from that per-tool limit. Turning memory off deletes nothing; later runs simply stop injecting it or exposing its tools, and an already-started run re-checks the toggle before every memory-tool execution.
 
-记忆内容只作为可编辑背景，不具有指令优先级。记忆工具原始参数与结果可供当前 Agent Loop 使用，但对应工具调用在持久 transcript 中整体脱敏；运行事件只保存操作类型、行数、字节数和错误码，不保存正文或查询词。
+Memory content is editable background only and carries no instruction priority. Raw memory-tool parameters and results are available to the current agent loop, but the corresponding tool calls are fully redacted in the persisted transcript; run events keep only the operation type, line/byte counts, and error codes — never body text or query terms.
 
-## 本地工具能力合同
+## Local tool capability contract
 
-`AgentToolRequirements` 为每个本地工具声明 `NONE / PARTIAL / REQUIRED` Root 要求与无障碍、普通系统授权、ROM 条件；工具未登记元数据时不能进入模型目录。`AgentToolCapabilities` 每轮捕获设备条件，同一份投影后的 Schema 同时用于 Provider 声明与参数校验。元数据属于 Eta 内部，不扩展 Provider 协议。UI 聚合卡关联真实工具 ID，“全部能力”只改变展示。
+`AgentToolRequirements` declares each local tool's `NONE / PARTIAL / REQUIRED` root requirement plus accessibility, normal system-grant, and ROM conditions; a tool with no registered metadata can never enter the model catalog. `AgentToolCapabilities` snapshots device conditions per turn, and the same projected schema backs both provider declarations and parameter validation. Metadata is su-internal and never extends the provider protocol. UI capability cards link to real tool IDs, and "all capabilities" only changes presentation.
 
-没有 Root 时，专属工具彻底移除；混合终端仅公开 `identity=user`，设备默认路径与模型提示同步调整。执行器再次核查当前 Root 与参数，旧调用返回 `ROOT_REQUIRED`。普通前台 Intent 不要求无障碍；截图、节点、手势、输入和条件等待需要真实服务连接，已开启系统保护时保留有限修复链路。当前通知来自已连接的通知监听服务，断连返回明确错误，不以历史记录替代。用户选择保存在原有本地 Agent 配置与 RemotePreferences 协调链路中，能力变化不改写保存的开关。
+Without root, exclusive tools are removed entirely; the hybrid terminal only advertises `identity=user`, and the default device path and model hints adjust in sync. The executor re-checks current root and parameters, and stale calls return `ROOT_REQUIRED`. Ordinary foreground intents need no accessibility; screenshots, nodes, gestures, input, and conditional waits need a live service connection, with a limited repair path kept where system protection is on. Current notifications come from the connected notification-listener service — a disconnect returns an explicit error rather than substituting history. User selections persist through the existing local-agent configuration and RemotePreferences coordination path; capability changes never rewrite saved toggles.
 
-Root 探测在 IO 线程执行：存在 `su` 时首次自动请求一次，最多等待 30 秒，仅 UID 0 视为可用；拒绝和超时不会反复弹出请求，用户可在“系统增强”手动重试。LSPosed 连接独立判断，不代替 Root 授权。
+Root probing runs on an IO thread: when `su` exists, it requests once on first sight, waits at most 30 s, and treats only UID 0 as usable; denial and timeout never re-prompt, and the user can retry manually from the system-enhancement settings. The LSPosed connection is judged independently and never substitutes for root authorization.
 
-## 终端环境
+## Terminal environments
 
-`terminal` 的 `environment` 明确区分设备控制与通用 Linux 工具，默认值为 `android`：
+The `terminal` `environment` cleanly separates device control from general Linux tooling and defaults to `android`:
 
-- `android` 继续使用系统 Shell。`user` 身份不升级权限；`root` 身份在 `su` 内探测 Magisk、KernelSU、APatch 或系统 BusyBox，并优先进入 standalone `ash`，因此 BusyBox applet 不要求预先加入 PATH。旧 `run_command`、文件读写和目录操作保持这一环境，避免改变既有 Android 路径与命令语义。
-- `linux` 解析用户选择的发行版和后端。chroot 保持原有 rootfs、独立 mount namespace、`/data/local/tmp/eta` 工作区与特权挂载。新建 PRoot 环境和普通工作区使用 App UID 独占的 `filesDir/terminal-user` 目录，避开旧 Root 目录的属主限制；已有普通环境继续使用原位置，路径统一由 `TerminalPrivateStorage` 解析，`/workspace` 映射该私有工作区。仅映射有权访问的共享目录，拒绝“所有文件访问”后仍可导入导出。Linux 内的模拟 root 不意味着 Android Root，两个后端都不构成隔离安全沙箱。
-- 已建立会话和任务保存后端与实际 rootfs/工作区，不因 Root 变化自动切换。持久任务记录的后端与宿主工作区字段为可选，兼容旧记录。获得 Root 不迁移 PRoot，失去 Root 不删除 chroot 或改变文件属主。
-- 普通 Android Shell、文件读写与图片读取使用 App UID；Root 用户保留原有特权路径。无法直接访问的选择器文件经有界复制导入工作区；目录选择不能冒充可实时访问的路径。
+- `android` keeps using the system shell. The `user` identity never escalates; the `root` identity probes for Magisk, KernelSU, APatch, or the system BusyBox inside `su` and prefers a standalone `ash`, so BusyBox applets need no PATH pre-registration. The legacy `run_command`, file read/write, and directory operations keep this environment, preserving existing Android path and command semantics.
+- `linux` resolves the user's chosen distribution and backend. chroot keeps the existing rootfs, dedicated mount namespace, `/data/local/tmp/eta` workspace, and privileged mounts. New PRoot environments and plain workspaces use a `filesDir/terminal-user` directory owned exclusively by the app UID, avoiding the ownership restrictions of the old root directory; existing plain environments stay where they are, with all paths resolved uniformly by `TerminalPrivateStorage` and `/workspace` mapped to that private workspace. Only shared directories the app is allowed to access are mapped; imports and exports still work after "all-files access" is denied. Simulated root inside Linux is not Android root, and neither backend is an isolation security sandbox.
+- Established sessions and tasks remember their backend and actual rootfs/workspace and never switch automatically when root comes or goes. The backend and host-workspace fields on persisted task records are optional for backward compatibility with old records. Gaining root never migrates PRoot; losing root never deletes chroot or changes file ownership.
+- Plain Android shells, file read/write, and image reads use the app UID; the root user keeps the pre-existing privileged paths. Selector files that cannot be accessed directly are imported into the workspace through a bounded copy; directory selection can never impersonate a live-accessible path.
 
-用户在 Alpine 与 Debian 中选择一个当前 Linux 发行版，模型与终端统一通过 `environment=linux` 使用该选择。基础环境安装与基础工具安装是两个独立步骤：安装器先下载固定版本、大小和 SHA-256 的 rootfs，在临时目录解压，运行检查成功后才写入基础完成标记；PRoot 的流式解包校验归档路径和链接，支持取消与失败清理；用户随后安装只含通用命令的基础工具集。Python profile 只安装 uv，随后由 uv 把最新正式版 Python 安装到 `/opt/eta/python` 并把全局命令链接到 `/usr/local/bin`。Node.js profile 在 Debian 安装上游最新正式版 ARM64/x64 制品，在 Alpine 安装稳定分支提供的 `nodejs-current`；SSH 使用所选发行版的最新稳定包。App 侧只读取安装器完成标记，不再重复检查 rootfs 内的符号链接、二进制或执行权限。中国大陆网络下，Alpine 使用阿里云镜像，Debian 主仓库使用清华 TUNA、安全更新使用 Debian 官方源，各自只保留官方主仓库作为失败出口；APT 还启用重试并关闭 HTTP pipelining。
+The user picks one current Linux distribution between Alpine and Debian, and models and terminals share it through `environment=linux`. Base-environment installation and base-tool installation are two separate steps: the installer downloads a rootfs pinned by version, size, and SHA-256, unpacks it in a temporary directory, and only writes the base-complete marker after checks pass; PRoot's streaming unpack validates archive paths and links and supports cancellation and failure cleanup; the user then installs a base toolset containing only generic commands. The Python profile installs only uv, after which uv installs the latest stable Python under `/opt/eta/python` and links the global commands into `/usr/local/bin`. The Node.js profile installs the latest stable upstream ARM64/x64 build on Debian and the `nodejs-current` package from the stable branch on Alpine; SSH uses the latest stable package from the selected distribution. The app side reads only the installer completion markers and no longer re-checks symlinks, binaries, or execute bits inside the rootfs. On networks in mainland China, Alpine uses the Alibaba Cloud mirror, Debian's main repository uses the Tsinghua TUNA mirror with security updates from the official Debian source, each keeping only the official main repository as a failure fallback; APT additionally enables retries and disables HTTP pipelining.
 
-APK 分析在 Alpine 与 Debian 中都作为可选档案显示。JADX、Apktool、smali 与 baksmali 使用当前最新正式版的固定官方 Release URL、大小和 SHA-256，下载完整校验后才进入 App 可写的 cache staging；不能把下载或解包暂存目录放进由 Root 创建的 Linux 管理目录。GitHub 制品先尝试一个 HTTPS 下载入口，再回到官方地址，但仍只接受与官方清单 SHA-256 完全一致的字节。JADX 只解出 CLI 脚本、运行库与许可证，成功验证全部命令后再原子切换当前版本。档案在 Alpine 安装 `openjdk25-jdk`，在 Debian 安装 `openjdk-25-jdk-headless`，但不安装全局 Gradle、Android SDK 或 NDK。由于 Google 的 Linux SDK、AAPT2 与 NDK 主机工具只提供 x86_64 构建，手机 ARM64 chroot 无法原生组成受官方支持的完整 Android 编译链；`apktool build` 因而稳定拒绝，解码、代码查看和独立 Smali 汇编/反汇编不受影响。
+APK analysis shows as an optional profile on both Alpine and Debian. JADX, Apktool, smali, and baksmali use pinned official release URLs, sizes, and SHA-256 hashes for the current latest stable versions, entering the app-writable cache staging only after full verification; download or unpack staging directories must never sit inside a root-created Linux management directory. GitHub artifacts try one HTTPS download entry point first, then fall back to the official address, but only bytes fully matching the official manifest SHA-256 are accepted. JADX extracts only the CLI scripts, runtime libraries, and licenses, and the current version switches atomically only after every command verifies. The profile installs `openjdk25-jdk` on Alpine and `openjdk-25-jdk-headless` on Debian, but no global Gradle, Android SDK, or NDK. Because Google's Linux SDK, AAPT2, and NDK host tools only ship x86_64 builds, a phone ARM64 chroot cannot natively form an officially supported complete Android build chain; `apktool build` therefore reliably refuses, while decoding, code viewing, and standalone smali assembly/disassembly are unaffected.
 
-## 后台执行生命周期
+## Background execution lifecycle
 
-`AgentExecutionService` 使用 `specialUse` 前台类型，为当前 Agent 运行、普通终端和 PRoot 后台进程持有任务引用。用户退出页面只断开 UI；最后一个任务结束时服务释放，通知中的停止操作回收它实际持有的任务。普通后台任务保持宿主 tracer 与输出读取，不能像 Root daemon 那样脱离 App 生命周期。Root daemon 保持原有独立生命周期，普通任务清理不会批量停止 Root daemon。Root 用户的原有 Runtime 绑定链路在新增前台服务启动受限时仍可继续，不因新增服务阻断厂商助手入口。
+`AgentExecutionService` uses the `specialUse` foreground type and holds task references for the current agent run, plain terminals, and PRoot background processes. Leaving the page only detaches the UI; the service is released when the last task ends, and the stop action in the notification reclaims exactly the tasks it holds. Plain background tasks keep their host tracer and output readers and cannot outlive the app lifecycle the way a root daemon can. The root daemon keeps its pre-existing independent lifecycle — cleaning up plain tasks never bulk-stops root daemons. The root user's pre-existing runtime binding path keeps working even when the new foreground service is restricted from starting.
 
-Kimi 使用 `kimi web --no-open`，按发行版及后端复用活跃实例。启动失败或取消只清理本次新建的进程；复用实例保留。服务使用 `START_NOT_STICKY`，系统强停或重启后不自动重放命令。通知授权被拒绝不会直接阻止合法前台启动，但系统后台启动限制与厂商进程回收策略仍然生效。
+The service uses `START_NOT_STICKY`: it never replays commands automatically after the system force-stops or restarts it. Denied notification permission does not directly block a legitimate foreground start, but system background-start restrictions and device-manufacturer process-reclamation policies still apply.
 
-## 上下文与续接
+## Context and continuation
 
-App 在发起请求前已经把当前用户消息写入会话 history，因此 Runtime 返回的 transcript 必须保持“增量”语义。已完成 run 的补充请求由 `AgentContinuationBuilder` 使用以下顺序重建上下文：
+The app writes the current user message into the conversation history before issuing the request, so the transcript returned by the runtime must keep its "incremental" semantics. Follow-up requests to a finished run rebuild context through `AgentContinuationBuilder` in this order:
 
 ```text
-旧 history
-→ 原始用户消息
-→ 完整增量 transcript
-→ 新补充消息
+old history
+→ original user message
+→ complete incremental transcript
+→ new follow-up message
 ```
 
-图片只在需要它的当前模型回合中传递；持久 transcript 会删除 data URL，并写入稳定的省略说明，避免截图 base64 同时膨胀 Binder、Room 和后续上下文。外部入口归档可以另外保存有界的小预览用于还原用户消息 UI，但预览不会重新进入模型历史。启动请求在发送前按实际 `Parcel` 大小校验，超过 768 KiB 时会明确拒绝并提示减少图片数量或分辨率。运行归档 transcript、会话上下文检查点与单次结果 IPC transcript 上限均为 100 万字符。启动请求的 history 与 MSG_RESULT 的 transcript 都通过只读文件描述符传输，不再占用 Binder 事务缓冲区；outbox 批量 drain 仍使用更紧的单项预算，确保最坏 8 条待交付结果仍处于 Binder 事务预算内。任何容量压缩都会在保留的 history 前插入明确的 Eta system notice，不会把删头后的 transcript 冒充成完整上下文。会话元数据、逐条展示消息和有界上下文检查点分别存储；会话列表查询不读取上下文正文，启动时也不会因单个长期会话阻塞全部会话恢复。
+Images travel only with the current model turn that needs them; the persisted transcript drops data URLs and writes a stable omission note so screenshot base64 cannot bloat Binder, Room, and follow-up contexts at once. External-entry archives may additionally keep a bounded thumbnail to restore the user-message UI, but thumbnails never re-enter model history. Launch requests are validated against the actual `Parcel` size before sending and are explicitly rejected above 768 KiB with a prompt to reduce image count or resolution. Run-archive transcripts, conversation-context checkpoints, and single-result IPC transcripts are each capped at 1,000,000 characters. Launch-request history and `MSG_RESULT` transcripts travel via read-only file descriptors instead of the Binder transaction buffer; outbox batch drains keep a tighter per-item budget so even 8 queued results in the worst case stay within the Binder transaction budget. Any capacity compaction inserts an explicit su system notice ahead of the retained history rather than passing trimmed transcripts off as complete context. Conversation metadata, per-message display rows, and bounded context checkpoints are stored separately; the conversation-list query never reads context bodies, and startup never blocks full conversation recovery on a single long conversation.
 
-浮层在已完成结果后发起的 continuation 会在 handoff 中只携带本次新增的 prompt supplement，不累计复制旧补充。App 回到前台时 drain outbox，把该用户消息和增量 transcript 一起写回 history。
+Overlays starting a continuation from a finished result carry only the newly added prompt supplement in the handoff, never accumulating copies of old supplements. When the app returns to the foreground it drains the outbox, writing the user message and the incremental transcript back into history together.
 
-上下文自动压缩和跨 run、跨 Provider 的 opaque reasoning 状态尚未实现；Responses output Items 只在当前 run 内回放，不能作为持久会话状态。
+Context auto-compaction and cross-run, cross-provider opaque reasoning state are not implemented yet; Responses output items replay only within the current run and cannot serve as persisted conversation state.
 
-## Skills 安装边界
+## Skill installation boundaries
 
-Skill 安装工具始终向模型提供，不再根据顶层用户输入的固定关键词决定是否暴露或执行。网页、仓库 README 和已安装 Skill 仍只是数据，不能改变工具参数或执行边界。
+Skill installation tools are always offered to the model and are no longer exposed or executed based on fixed keywords in the top-level user input. Web pages, repository READMEs, and installed skills remain data only and cannot change tool parameters or execution boundaries.
 
-- AI 安装只访问公开 GitHub HTTPS 地址；curated 默认来自 `openai/skills` 的 `skills/.curated`。安装路径必须来自当前 run 对同一仓库与 ref 的检查结果，最多 20 个。
-- 本地 ZIP 由 Skills 页面通过系统文件选择器读取，不申请共享存储权限，也不把归档复制到公开目录；每个 ZIP 只允许包含一个 Skill。
-- GitHub 下载与本地 ZIP 共用受限解包和校验流程：拒绝路径穿越、绝对路径、重复条目、嵌套 Skill、非法 frontmatter，以及超过条目数、单文件、归档或总解压预算的输入。
-- 安装先在 App 私有临时目录完整验证，再提交到正式 Skills 目录。文件系统与 Room 变更由持久事务日志协调，进程异常退出后会在下次变更前恢复；批量安装任一步失败都会回滚。同名用户 Skill 默认保持不变；GitHub 单冲突替换绑定仓库、提交、路径和 Skill ID，可在同一 run 精确重试；内置 Skill 永远不能被导入包覆盖。
-- 安装只保存文件、登记索引并默认启用，不执行 `scripts/`，也不改变终端/文件工具开关。本轮 Skill 索引在模型调用前已经冻结，因此新 Skill 从下一轮对话开始可用。
+- AI installation only visits public GitHub HTTPS addresses; the curated default comes from `skills/.curated` in `openai/skills`. Installed paths must come from the current run's own inspection of that repository and ref, at most 20 entries.
+- Local ZIPs are read on the Skills page through the system file picker, without requesting shared-storage permission or copying archives into a public directory; each ZIP may contain exactly one skill.
+- GitHub downloads and local ZIPs share a restricted unpack-and-verify pipeline: path traversal, absolute paths, duplicate entries, nested skills, illegal frontmatter, and inputs exceeding the entry-count, single-file, archive, or total-decompression budgets are all rejected.
+- Installation fully validates in an app-private temporary directory before committing to the real skills directory. Filesystem and Room changes are coordinated by a durable transaction log that recovers on the next change after an abnormal process exit; any failed step of a batch install rolls back. Same-name user skills stay untouched by default; a single-conflict GitHub replacement binds repository, commit, path, and skill ID and can be retried precisely within the same run; built-in skills can never be overwritten by an import bundle.
+- Installation only saves files, registers the index, and enables by default — it never executes `scripts/` and never flips terminal/file-tool toggles. The current turn's skill index is already frozen before the model call, so a newly installed skill becomes available starting with the next conversation turn.
 
-已安装 Skill 的附属文本资源通过独立的有界读取工具访问，读取时再次做相对路径、canonical root、UTF-8 与大小检查；脚本和二进制 asset 不会借此被执行或当作无限文本送入上下文。
+An installed skill's companion text resources are read through a dedicated bounded read tool that re-checks relative paths, canonical roots, UTF-8, and sizes; script and binary assets can neither be executed through it nor smuggled into context as unbounded text.
 
-待确认结果和外部入口归档会把 transcript 一并写入 Room。数据库 6 → 7 使用显式非破坏迁移为旧记录补 transcript，7 → 8 为会话增加已应用 run 标记，10 → 11 将会话上下文迁入独立的有界检查点并清理旧的大字段。恢复幂等性不再靠比较 history 尾部猜测；保存任务严格按调用顺序串行，只有包含对应标记的快照落盘后才 ACK outbox。旧 6.x 结果仍可用已有 assistant 内容合成兼容 history。
+Pending-confirmation results and external-entry archives persist the transcript to Room together with the run. Database 6 → 7 backfills transcripts for old records with an explicit non-destructive migration, 7 → 8 adds an applied-run marker to conversations, and 10 → 11 moves conversation contexts into standalone bounded checkpoints while cleaning up the old large columns. Recovery idempotence no longer guesses by comparing history tails; save tasks serialize strictly in call order, and the outbox is ACKed only after the snapshot carrying the matching marker lands on disk. Old 6.x results can still synthesize compatible history from their existing assistant content.
 
-主界面的 `AgentAppState` 由 Activity 级 ViewModel 持有，配置变更只重建 Compose UI，不替换正在等待 Runtime 的客户端。用户消息先提交到 Room，再启动可能产生设备副作用的 run。Runtime 为 App 会话维护追加式在途 checkpoint：文本增量有界合并，结构化边界先落盘再发布；块结束通常只保存边界和字符数，仅在终态修正流式内容时保存替换正文。工具调用的原始参数增量和原始结果不进入该日志，UI 已展示的参数摘要、脱敏终端命令与结果摘要会随工具状态保存。终态先封存 checkpoint 再提交 outbox，只有会话成功落盘并 ACK 结果后才同时删除 outbox 与 checkpoint；outbox 的时间或容量裁剪也会成对删除对应的终态 checkpoint。
+The main screen's `AgentAppState` is held by an activity-scoped ViewModel: configuration changes only rebuild the Compose UI without replacing the client waiting on the runtime. User messages commit to Room before launching a run that may cause on-device side effects. The runtime maintains an append-only in-flight checkpoint for the app conversation: text deltas merge within bounds, structural boundaries land on disk before they are published; block ends normally save only boundaries and character counts, saving replacement body text only when the terminal state corrects streamed content. Raw tool-call parameter deltas and raw results never enter this log, while UI-visible parameter summaries, redacted terminal commands, and result summaries persist with the tool state. The terminal state seals the checkpoint before committing the outbox, and outbox and checkpoint are deleted together only after the conversation lands in Room and the result is ACKed; time- or capacity-based outbox trimming deletes the matching terminal checkpoint as a pair.
 
-App 恢复时以 `checkpoint + outbox + active session` 统一对账，不再用进程是否变化推断 run 状态。有 outbox 时先恢复工具轨迹，再用终态结果定稿；Runtime 仍 active 时，新 UI 会先整体恢复内存中的安全事件，再订阅实时事件与最终结果；只有既无终态又不 active 的 run 才标记为中断。恢复不会自动重放任何工具，也不会把半截助手回复加入后续模型 history。
+On recovery, the app reconciles with `checkpoint + outbox + active session` uniformly instead of inferring run state from process changes. With an outbox present, tool traces recover first and the terminal result finalizes; while the runtime is still active, the new UI first restores the in-memory safe events as a whole, then subscribes to live events and the final result; only a run with neither terminal state nor activity is marked interrupted. Recovery never replays tools automatically and never appends a truncated assistant reply into later model history.
 
-重新订阅沿用已有的 attach 响应作为历史回放结束边界：Runtime 在同一会话锁内依次发送安全历史、成功响应，再加入实时订阅，实时事件与终态不能越过此边界。App 客户端在响应前缓冲历史并一次性交付 UI，UI 在一个状态快照中重建该 run 的消息投影；只有边界后的新增内容进入实时更新。旧服务若先发送终态，客户端先交付已缓冲历史再交付结果。恢复前清理可重建的旧投影，保留原始用户请求和没有对应回放事件的补充内容，避免重复追加或丢失用户输入。任务终态独立于文字显现状态，最终结果会收口尚未结束的文字标记；缺少结果的工具记录显示未知状态，不伪造成功。
+Re-subscription reuses the existing attach response as the history-replay end boundary: within one conversation lock, the runtime sends safe history, then the success response, then joins the live subscription — live events and terminal states cannot cross this boundary. The app client buffers history before the response and delivers it to the UI in one shot, and the UI rebuilds the run's message projection in a single state snapshot; only content newer than the boundary enters live updates. If the old service sent the terminal state first, the client delivers the buffered history before the result. Pre-recovery projections that can be rebuilt are discarded, keeping the original user request and supplement content with no matching replay event, so user input is neither duplicated nor lost. Task terminal states are independent of text-rendering states; the final result closes any unclosed text markers, and tool records without results show an unknown state rather than a fabricated success.
 
-## 验证
+## Verification
 
-核心回归测试位于：
+Core regression tests:
 
 - `AgentModelClientLoopTest`
 - `AgentConversationCodecTest`
@@ -179,7 +179,7 @@ App 恢复时以 `checkpoint + outbox + active session` 统一对账，不再用
 - `AgentMemoryContextBuilderTest`
 - `EtaDatabaseMigrationTest`
 
-最终验证仍运行项目统一命令：
+Final verification still runs the project's unified command:
 
 ```bash
 ./gradlew :app:assembleDebug :app:testDebugUnitTest :app:lintDebug

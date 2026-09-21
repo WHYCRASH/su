@@ -35,7 +35,7 @@ internal object OpenAiChatCompletionsProvider : AgentProviderClient {
     ): ProviderResponse {
         val config = request.config
         require(config.openAiEndpointMode == OpenAiEndpointMode.CHAT_COMPLETIONS) {
-            "Responses API 已预留配置位，但当前运行时仅支持 Chat Completions"
+            "Responses API has a reserved config slot, but the current runtime only supports Chat Completions"
         }
         val url = ProviderUrls.openAiChatCompletionsUrl(config.baseUrl)
         val headers = okhttp3.Headers.Builder()
@@ -175,7 +175,7 @@ internal object OpenAiChatCompletionsProvider : AgentProviderClient {
                     finishReason = reason
                 }
                 if (reason == "error") {
-                    error("模型接口 SSE 以 error 结束")
+                    error("Model SSE stream ended with error")
                 }
                 val delta = choice.optJSONObject("delta")
                 val snapshot = choice.optJSONObject("message")
@@ -271,13 +271,13 @@ internal object OpenAiChatCompletionsProvider : AgentProviderClient {
             return interruptedAssistantMessage(content.toString(), reasoningContent.toString())
         }
 
-        if (!sawStreamData) throw AgentModelFailure.incompleteStream("模型接口未返回 SSE data chunk")
+        if (!sawStreamData) throw AgentModelFailure.incompleteStream("Model endpoint returned no SSE data chunk")
         if (finishReason.isNullOrBlank() && toolCalls.isNotEmpty() && !sawDone) {
-            throw AgentModelFailure.incompleteStream("工具调用缺少完整结束标记，未执行")
+            throw AgentModelFailure.incompleteStream("Tool call is missing its completion marker and was not executed")
         }
         val recoveredReason = recoveredFinishReason(finishReason, content, reasoningContent, toolCalls)
         if (recoveredReason == null) {
-            throw AgentModelFailure.incompleteStream("模型接口 SSE 流未正常结束")
+            throw AgentModelFailure.incompleteStream("Model SSE stream did not terminate normally")
         }
         finishReason = recoveredReason
 
@@ -383,11 +383,11 @@ internal object OpenAiChatCompletionsProvider : AgentProviderClient {
             errorType?.let { "type=$it" },
         ).joinToString(", ")
         val message = streamError.optString("message")
-            .ifBlank { "未提供错误信息" }
+            .ifBlank { "No error message provided" }
             .compactError()
         throw AgentModelFailure.stream(
             streamError,
-            "模型接口 SSE 返回错误${context.takeIf { it.isNotBlank() }?.let { " ($it)" }.orEmpty()}：$message",
+            "Model SSE returned an error${context.takeIf { it.isNotBlank() }?.let { " ($it)" }.orEmpty()}: $message",
         )
     }
 

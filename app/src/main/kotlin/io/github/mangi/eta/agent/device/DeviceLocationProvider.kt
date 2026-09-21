@@ -7,7 +7,7 @@ import android.content.pm.PackageManager
 import android.location.LocationManager
 import android.os.SystemClock
 
-/** 按需读取系统已有的最近位置，不持续监听，也不主动唤醒 GPS。 */
+/** Read the system's existing last-known location on demand; never track continuously or wake GPS proactively. */
 internal object DeviceLocationProvider {
     enum class AccessState {
         DENIED,

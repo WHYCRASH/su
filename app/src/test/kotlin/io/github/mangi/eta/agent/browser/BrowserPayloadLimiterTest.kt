@@ -9,7 +9,7 @@ import org.junit.Test
 class BrowserPayloadLimiterTest {
     @Test
     fun `limits multibyte text by utf8 bytes without splitting surrogate pairs`() {
-        val source = "网页🙂".repeat(4_000)
+        val source = "Webpage🙂".repeat(4_000)
         val payload = BrowserPayloadLimiter.serialize(
             JSONObject()
                 .put("ok", true)
@@ -37,7 +37,7 @@ class BrowserPayloadLimiterTest {
                 put(
                     JSONObject()
                         .put("selector", "#item-$index")
-                        .put("text", "很长的元素说明".repeat(40))
+                        .put("text", "Very long element description".repeat(40))
                 )
             }
         }

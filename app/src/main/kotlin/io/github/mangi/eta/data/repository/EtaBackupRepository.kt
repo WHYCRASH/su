@@ -48,7 +48,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
-/** 代鱼用户数据备份。schema 1 只有对话、提供商和记忆；schema 2 补上助手、技能、MCP、设置、附件和可选 Linux 环境。 */
+/** su user-data backup. Schema 1 holds only conversations, providers, and memory; schema 2 adds assistants, skills, MCP, settings, attachments, and the optional Linux environment. */
 @Serializable
 internal data class EtaBackupDocument(
     val format: String = FORMAT,
@@ -164,7 +164,7 @@ internal object EtaBackupRepository {
                     val writer = BackupZipWriter(zip)
                     zip.setLevel(if (options.includeLinuxEnvironment) 1 else 6)
                     val manifest = json.encodeToString(document)
-                    require(manifest.toByteArray().size <= BackupArchiveSafety.MANIFEST_LIMIT) { "备份清单超过大小限制" }
+                    require(manifest.toByteArray().size <= BackupArchiveSafety.MANIFEST_LIMIT) { "Backup manifest exceeds the size limit" }
                     writer.text(EtaBackupDocument.MANIFEST_NAME, manifest)
                     writer.directory("attachments/chat-images/", File(appContext.cacheDir, AgentChatImageCache.CACHE_DIRECTORY))
                     writer.directory(
@@ -205,7 +205,7 @@ internal object EtaBackupRepository {
                     writer.text(EtaConversationExport.MANIFEST_NAME, json.encodeToString(document))
                     document.attachments.forEach { attachment ->
                         val file = prepared.files.getValue(attachment.entry)
-                        require(file.length() == attachment.size) { "附件在导出时发生变化" }
+                        require(file.length() == attachment.size) { "Attachment changed during export" }
                         writer.file(attachment.entry, file, attachment.sha256)
                     }
                     zip.finish()
@@ -233,11 +233,11 @@ internal object EtaBackupRepository {
                             BackupArchiveSafety.copyLimited(input, it, BackupArchiveSafety.TOTAL_LIMIT, operation)
                         }
                         val header = archive.inputStream().use { it.readNBytes(2) }
-                        require(header.isNotEmpty()) { "备份文件为空" }
+                        require(header.isNotEmpty()) { "Backup file is empty" }
                         val files = if (header.contentEquals(byteArrayOf(0x50, 0x4b))) {
                             BackupArchiveSafety.stageZip(archive, File(operation, "staged"))
                         } else {
-                            require(archive.length() <= BackupArchiveSafety.MANIFEST_LIMIT) { "备份清单过大" }
+                            require(archive.length() <= BackupArchiveSafety.MANIFEST_LIMIT) { "Backup manifest is too large" }
                             mapOf(manifestName(archive.readText()) to archive)
                         }
                         val document = files[EtaBackupDocument.MANIFEST_NAME]?.let {
@@ -249,7 +249,7 @@ internal object EtaBackupRepository {
                         if (conversation != null) {
                             val plan = ConversationArchiveImport.prepare(appContext, conversation, files)
                             val newId = plan.document.conversation.id
-                            check(EtaDatabase.get(appContext).conversationDao().conversationEntity(newId) == null) { "新会话 ID 冲突，未开始导入" }
+                            check(EtaDatabase.get(appContext).conversationDao().conversationEntity(newId) == null) { "New conversation ID collides; import not started" }
                             withContext(NonCancellable) {
                                 durableText(File(operation, "new-conversation-id"), newId)
                                 val journal = BackupRestoreJournal(operation)
@@ -271,7 +271,7 @@ internal object EtaBackupRepository {
                                         mayRetire = true
                                     } catch (rollbackFailure: Throwable) {
                                         failure.addSuppressed(rollbackFailure)
-                                        throw EtaBackupException("会话导入失败且回滚未完成，日志已保留，请重启应用完成恢复。", failure)
+                                        throw EtaBackupException("Conversation import failed and rollback did not complete; the log was kept. Restart the app to finish recovery.", failure)
                                     }
                                     throw failure
                                 }
@@ -292,34 +292,34 @@ internal object EtaBackupRepository {
                                     File(TerminalPrivateStorage.workspace(appContext.filesDir), "imports"), name.removePrefix("attachments/imports/"))
                                 name.startsWith("linux/workspace/") -> {
                                     val relative = name.removePrefix("linux/workspace/")
-                                    require(relative.substringBefore('/') !in setOf("imports", "mounts")) { "工作区归档包含受保护挂载" }
+                                    require(relative.substringBefore('/') !in setOf("imports", "mounts")) { "Workspace archive contains a protected mount" }
                                     BackupArchiveSafety.target(TerminalPrivateStorage.workspace(appContext.filesDir), relative)
                                 }
                                 BackupArchiveSafety.LINUX_ENVIRONMENT_TAR.matches(name) -> {
                                     val parts = name.removePrefix("linux/environments/").removeSuffix(".tar").split('/')
-                                    require(parts.size == 2) { "Linux 环境归档路径无效" }
+                                    require(parts.size == 2) { "Invalid Linux environment archive path" }
                                     linuxTars += Triple(parts[0], parts[1], source)
                                     null
                                 }
-                                else -> throw EtaBackupException("备份存在未知条目：$name")
+                                else -> throw EtaBackupException("Backup contains an unknown entry: $name")
                             }
                             if (target != null) {
-                                require(!planned.containsKey(target)) { "多个归档条目指向同一文件" }
+                                require(!planned.containsKey(target)) { "Multiple archive entries target the same file" }
                                 planned[target] = source
                             }
                         }
                         val destinations = planned.keys.map { it.toPath() }.toSet()
                         require(destinations.none { path ->
                             generateSequence(path.parent) { it.parent }.any { it in destinations }
-                        }) { "归档文件与目录路径冲突" }
+                        }) { "Archive file and directory paths conflict" }
                         val daemons = io.github.mangi.eta.agent.terminal.DetachedTaskSupervisor.defaultRecordsFile(appContext)
                         if (daemons.exists()) {
                             val records = daemons.inputStream().use { BackupArchiveSafety.readText(it, 1024 * 1024) }
-                            require(org.json.JSONArray(records).length() == 0) { "请先停止并移除后台守护任务，再导入备份" }
+                            require(org.json.JSONArray(records).length() == 0) { "Stop and remove background daemon tasks before importing the backup" }
                         }
                         val old = EtaDatabase.get(appContext).withTransaction { snapshot(appContext, EtaBackupExportOptions()) }
                         val oldJson = json.encodeToString(old)
-                        require(oldJson.toByteArray().size <= BackupArchiveSafety.MANIFEST_LIMIT) { "回滚快照过大，未开始恢复" }
+                        require(oldJson.toByteArray().size <= BackupArchiveSafety.MANIFEST_LIMIT) { "Rollback snapshot too large; restore not started" }
                         durableText(File(operation, "previous.json"), oldJson)
                         val journal = BackupRestoreJournal(operation)
                         journal.begin(planned.keys.toList())
@@ -343,7 +343,7 @@ internal object EtaBackupRepository {
                                     restoreMetadata(appContext, old, reconcile = false)
                                 } catch (rollbackFailure: Throwable) {
                                     failure.addSuppressed(rollbackFailure)
-                                    throw EtaBackupException("恢复失败且回滚尚未完成，恢复日志已保留。请重启应用完成恢复。", failure)
+                                    throw EtaBackupException("Restore failed and rollback has not finished; the restore log was kept. Restart the app to finish recovery.", failure)
                                 }
                                 journal.commit()
                                 mayRetire = true
@@ -378,7 +378,7 @@ internal object EtaBackupRepository {
             val idFile = File(operation, "new-conversation-id")
             if (idFile.exists() || File(idFile.path + ".bak").exists()) {
                 val id = android.util.AtomicFile(idFile).openRead().use { BackupArchiveSafety.readText(it, 128) }
-                require(Regex("conv-[0-9a-f-]{36}").matches(id)) { "会话恢复日志 ID 无效" }
+                require(Regex("conv-[0-9a-f-]{36}").matches(id)) { "Invalid conversation recovery log ID" }
                 // This ID was freshly allocated for this import only.
                 EtaDatabase.get(context).conversationDao().deleteImportedConversation(id)
                 BackupRestoreJournal(operation).rollback()
@@ -398,7 +398,7 @@ internal object EtaBackupRepository {
         // Preview is bounded and streamed; import always repeats full CRC/central-directory validation.
         val body = java.io.PushbackInputStream(input, 2)
         val header = body.readNBytes(2)
-        require(header.isNotEmpty()) { "备份文件为空" }
+        require(header.isNotEmpty()) { "Backup file is empty" }
         body.unread(header)
         if (header.contentEquals(byteArrayOf(0x50, 0x4b))) {
             var summary: EtaBackupSummary? = null
@@ -407,14 +407,14 @@ internal object EtaBackupRepository {
             ZipInputStream(body).use { zip ->
                 while (true) {
                     val entry = zip.nextEntry ?: break
-                    require(names.size < BackupArchiveSafety.ENTRY_LIMIT) { "备份条目过多" }
+                    require(names.size < BackupArchiveSafety.ENTRY_LIMIT) { "Too many backup entries" }
                     val name = BackupArchiveSafety.relativePath(entry.name)
-                    require(names.add(name)) { "备份存在重复条目" }
+                    require(names.add(name)) { "Backup contains duplicate entries" }
                     if (name == EtaBackupDocument.MANIFEST_NAME || name == EtaConversationExport.MANIFEST_NAME) {
-                        require(summary == null) { "备份包含多个清单" }
+                        require(summary == null) { "Backup contains multiple manifests" }
                         val raw = BackupArchiveSafety.readText(zip)
                         total += raw.toByteArray().size
-                        require(total <= BackupArchiveSafety.TOTAL_LIMIT) { "备份总量超过限制" }
+                        require(total <= BackupArchiveSafety.TOTAL_LIMIT) { "Backup total exceeds the limit" }
                         summary = if (name == EtaBackupDocument.MANIFEST_NAME) {
                             decodeDocument(raw).also(::validate).toBackupSummary()
                         } else decodeConversation(raw).toConversationSummary()
@@ -423,7 +423,7 @@ internal object EtaBackupRepository {
                     }
                 }
             }
-            requireNotNull(summary) { "备份文件缺少清单" }
+            requireNotNull(summary) { "Backup file is missing its manifest" }
         } else {
             val raw = BackupArchiveSafety.readText(body)
             if (manifestName(raw) == EtaConversationExport.MANIFEST_NAME) decodeConversation(raw).toConversationSummary()
@@ -484,7 +484,7 @@ internal object EtaBackupRepository {
         BackupDatabaseBudget.validate(database.openHelper.readableDatabase, conversationId)
         val dao = database.conversationDao()
         val conversation = dao.conversationEntity(conversationId)
-            ?: throw EtaBackupException("会话不存在")
+            ?: throw EtaBackupException("Conversation does not exist")
         val messages = dao.messagesForConversation(conversationId)
         val checkpoint = dao.contextCheckpoint(conversationId)
         return EtaConversationExport(
@@ -555,7 +555,7 @@ internal object EtaBackupRepository {
 
     private fun decodeDocument(raw: String): EtaBackupDocument =
         runCatching { json.decodeFromString<EtaBackupDocument>(raw) }.getOrElse { failure ->
-            throw EtaBackupException("备份文件格式无效", failure)
+            throw EtaBackupException("Invalid backup file format", failure)
         }.let { document ->
             if (document.schemaVersion >= 3) document else document.copy(
                 providers = document.providers.map { provider -> provider.copy(
@@ -566,71 +566,71 @@ internal object EtaBackupRepository {
 
     private fun decodeConversation(raw: String): EtaConversationExport {
         val exported = runCatching { json.decodeFromString<EtaConversationExport>(raw) }.getOrElse { failure ->
-            throw EtaBackupException("会话备份文件格式无效", failure)
+            throw EtaBackupException("Invalid conversation backup file format", failure)
         }
         if (exported.format != EtaConversationExport.FORMAT) {
-            throw EtaBackupException("这不是 Eta 会话备份")
+            throw EtaBackupException("This is not a su conversation backup")
         }
-        require(exported.schemaVersion in 1..EtaConversationExport.SCHEMA_VERSION) { "不支持的会话备份版本" }
-        require(exported.messages.all { it.conversationId == exported.conversation.id }) { "会话消息引用无效" }
-        require(exported.messages.map { it.id }.distinct().size == exported.messages.size) { "会话消息 ID 重复" }
-        require(exported.contextCheckpoint == null || exported.contextCheckpoint.conversationId == exported.conversation.id) { "会话检查点引用无效" }
+        require(exported.schemaVersion in 1..EtaConversationExport.SCHEMA_VERSION) { "Unsupported conversation backup version" }
+        require(exported.messages.all { it.conversationId == exported.conversation.id }) { "Invalid conversation message reference" }
+        require(exported.messages.map { it.id }.distinct().size == exported.messages.size) { "Duplicate conversation message IDs" }
+        require(exported.contextCheckpoint == null || exported.contextCheckpoint.conversationId == exported.conversation.id) { "Invalid conversation checkpoint reference" }
         require(exported.conversation.id.length <= 200 &&
-            exported.conversation.id.matches(Regex("[A-Za-z0-9_.-]+")) && exported.conversation.id !in setOf(".", "..")) { "会话 ID 无效" }
+            exported.conversation.id.matches(Regex("[A-Za-z0-9_.-]+")) && exported.conversation.id !in setOf(".", "..")) { "Invalid conversation ID" }
         if (exported.conversation.id.isBlank()) {
-            throw EtaBackupException("会话备份缺少会话 ID")
+            throw EtaBackupException("Conversation backup is missing the conversation ID")
         }
         return exported
     }
 
     private fun validate(document: EtaBackupDocument) {
         if (document.format != EtaBackupDocument.FORMAT) {
-            throw EtaBackupException("这不是 Eta 备份文件")
+            throw EtaBackupException("This is not a su backup file")
         }
         if (document.schemaVersion !in EtaBackupDocument.MIN_SUPPORTED_SCHEMA..EtaBackupDocument.SCHEMA_VERSION) {
-            throw EtaBackupException("不支持的 Eta 备份版本：${document.schemaVersion}")
+            throw EtaBackupException("Unsupported su backup version: ${document.schemaVersion}")
         }
         listOf(document.skillFiles, document.assistantAvatars).forEach { files ->
-            require(files.size <= 10_000) { "备份嵌入文件过多" }
+            require(files.size <= 10_000) { "Too many files embedded in the backup" }
             var decodedBytes = 0L
             files.forEach { (name, encoded) ->
                 BackupArchiveSafety.relativePath(name)
-                require(encoded.length <= 8 * 1024 * 1024) { "备份嵌入文件过大" }
+                require(encoded.length <= 8 * 1024 * 1024) { "Embedded backup file too large" }
                 decodedBytes += Base64.decode(encoded, Base64.NO_WRAP).size
-                require(decodedBytes <= BackupArchiveSafety.MANIFEST_LIMIT) { "备份嵌入文件总量过大" }
+                require(decodedBytes <= BackupArchiveSafety.MANIFEST_LIMIT) { "Total embedded backup files too large" }
             }
         }
-        require(document.assistantAvatars.keys.none { '/' in it }) { "头像文件名无效" }
-        require(document.assistantMemories.values.all { it.toByteArray().size <= 1024 * 1024 }) { "助手记忆超过限制" }
-        require(document.contextCheckpoints.all { checkpoint -> document.conversations.any { it.id == checkpoint.conversationId } }) { "检查点缺少所属会话" }
+        require(document.assistantAvatars.keys.none { '/' in it }) { "Invalid avatar file name" }
+        require(document.assistantMemories.values.all { it.toByteArray().size <= 1024 * 1024 }) { "Assistant memory exceeds the limit" }
+        require(document.contextCheckpoints.all { checkpoint -> document.conversations.any { it.id == checkpoint.conversationId } }) { "Checkpoint has no owning conversation" }
         val modelIds = document.providers.flatMap { it.models }.map { it.id }
-        require(modelIds.size == modelIds.toSet().size && modelIds.none(String::isBlank)) { "模型 ID 无效或重复" }
-        require(document.providers.all { provider -> provider.models.all { it.providerId == provider.provider.id } }) { "模型提供商引用无效" }
-        require(document.messages.map { it.id }.distinct().size == document.messages.size) { "消息 ID 重复" }
+        require(modelIds.size == modelIds.toSet().size && modelIds.none(String::isBlank)) { "Invalid or duplicate model IDs" }
+        require(document.providers.all { provider -> provider.models.all { it.providerId == provider.provider.id } }) { "Invalid model provider reference" }
+        require(document.messages.map { it.id }.distinct().size == document.messages.size) { "Duplicate message IDs" }
         val providerIds = document.providers.map { it.provider.id }
         if (providerIds.size != providerIds.toSet().size || providerIds.any(String::isBlank)) {
-            throw EtaBackupException("备份中的模型提供商存在重复或无效 ID")
+            throw EtaBackupException("Backup has duplicate or invalid model provider IDs")
         }
         val conversationIds = document.conversations.map { it.id }
         if (conversationIds.size != conversationIds.toSet().size || conversationIds.any(String::isBlank)) {
-            throw EtaBackupException("备份中的会话存在重复或无效 ID")
+            throw EtaBackupException("Backup has duplicate or invalid conversation IDs")
         }
         if (document.messages.any { it.conversationId !in conversationIds }) {
-            throw EtaBackupException("备份中的消息缺少所属会话")
+            throw EtaBackupException("Backup messages have no owning conversation")
         }
         if (document.memoryMd.toByteArray().size > 1024 * 1024) {
-            throw EtaBackupException("MEMORY.md 超过 1 MiB 限制")
+            throw EtaBackupException("MEMORY.md exceeds the 1 MiB limit")
         }
         document.assistants?.profiles?.let { profiles ->
             val ids = profiles.map { io.github.mangi.eta.data.model.AssistantStorage.id(it.id) }
             if (ids.size != ids.toSet().size || ids.any(String::isBlank)) {
-                throw EtaBackupException("备份中的助手存在重复或无效 ID")
+                throw EtaBackupException("Backup has duplicate or invalid assistant IDs")
             }
         }
         document.assistantMemories.keys.forEach { io.github.mangi.eta.data.model.AssistantStorage.id(it) }
         val mcpIds = document.mcpServers.map { it.id }
         if (mcpIds.size != mcpIds.toSet().size || mcpIds.any(String::isBlank)) {
-            throw EtaBackupException("备份中的 MCP 服务器存在重复或无效 ID")
+            throw EtaBackupException("Backup has duplicate or invalid MCP server IDs")
         }
     }
 
@@ -675,7 +675,7 @@ private fun exportLinuxEnvironments(context: Context, writer: BackupZipWriter) {
             }
         }
         if (packed <= 0L) {
-            throw EtaBackupException("无法打包 Linux 环境：${distribution.wireName}")
+            throw EtaBackupException("Cannot pack the Linux environment: ${distribution.wireName}")
         }
     }
 }
@@ -687,9 +687,9 @@ private fun restoreLinuxTar(
     distributionName: String,
 ) {
     val backend = LinuxExecutionBackend.entries.firstOrNull { it.wireName == backendName }
-        ?: throw EtaBackupException("备份中的 Linux 后端无效：$backendName")
+        ?: throw EtaBackupException("Invalid Linux backend in backup: $backendName")
     val distribution = LinuxDistribution.entries.firstOrNull { it.wireName == distributionName }
-        ?: throw EtaBackupException("备份中的 Linux 发行版无效：$distributionName")
+        ?: throw EtaBackupException("Invalid Linux distribution in backup: $distributionName")
     val destination = LinuxEnvironmentPaths.environmentDir(context, distribution, backend)
     destination.parentFile?.mkdirs()
     if (canWrite(destination.parentFile ?: destination) && (backend == LinuxExecutionBackend.PROOT || canWalk(destination))) {
@@ -701,16 +701,16 @@ private fun restoreLinuxTar(
         return
     }
     if (!RootAccess.isGranted) {
-        throw EtaBackupException("导入完整 Linux 环境需要 Root")
+        throw EtaBackupException("Importing a full Linux environment requires root")
     }
     val tarFile = File(context.cacheDir, "eta-linux-restore-${distribution.wireName}-${System.nanoTime()}.tar")
     try {
         tarFile.outputStream().buffered().use { input.copyTo(it) }
         if (tarFile.length() <= 0L) {
-            throw EtaBackupException("备份中的 Linux 环境是空的")
+            throw EtaBackupException("Linux environment in backup is empty")
         }
         if (!extractTarFileAsRoot(tarFile, destination)) {
-            throw EtaBackupException("无法把 Linux 环境安装到 ${destination.absolutePath}")
+            throw EtaBackupException("Cannot install the Linux environment to ${destination.absolutePath}")
         }
     } finally {
         tarFile.delete()
@@ -749,7 +749,7 @@ private fun extractTarStream(input: java.io.InputStream, destination: File) {
         val relative = normalizeTarPath(entry.name) ?: continue
         val target = File(root, relative).canonicalFile
         if (!target.path.startsWith(root.path + File.separator) && target != root) {
-            throw EtaBackupException("Linux 归档路径越界")
+            throw EtaBackupException("Linux archive path escapes its root")
         }
         when {
             entry.isDirectory -> target.mkdirs()
@@ -773,7 +773,7 @@ private fun extractTarStream(input: java.io.InputStream, destination: File) {
 
 private fun streamBusyBoxTar(source: File, output: java.io.OutputStream) {
     if (!RootAccess.isGranted) {
-        throw EtaBackupException("打包完整 Linux 环境需要 Root")
+        throw EtaBackupException("Packing a full Linux environment requires root")
     }
     val script = AndroidBusyBox.discoveryScript() +
         "; [ -n \"${'$'}eta_busybox\" ] || exit 127; " +
@@ -795,7 +795,7 @@ private fun streamBusyBoxTar(source: File, output: java.io.OutputStream) {
                 "Backup linux tar failed: source=${source.absolutePath} exit=$code stderr=${stderr.toString().take(500)}",
             )
             throw EtaBackupException(
-                "无法打包 Linux 环境（退出码 $code）${stderr.toString().trim().take(180).let { if (it.isBlank()) "" else "：$it" }}",
+                "Cannot pack the Linux environment (exit code $code)${stderr.toString().trim().take(180).let { if (it.isBlank()) "" else ": $it" }}",
             )
         }
     } finally {
@@ -818,7 +818,7 @@ private fun normalizeTarPath(raw: String): String? {
     val relative = raw.trim().trimStart('/').replace('\\', '/')
     if (relative.isBlank() || relative == ".") return null
     val segments = relative.split('/').filter { it.isNotEmpty() && it != "." }
-    if (segments.any { it == ".." }) throw EtaBackupException("Linux 归档路径越界")
+    if (segments.any { it == ".." }) throw EtaBackupException("Linux archive path escapes its root")
     return segments.joinToString("/")
 }
 

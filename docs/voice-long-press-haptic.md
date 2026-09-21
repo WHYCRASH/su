@@ -1,5 +1,10 @@
-# 录音按钮长按触感
+# Long-press haptics on the record button
 
-录音入口使用 Compose `combinedClickable`。系统组件默认会在长按阈值触发一次触感，业务回调此前又调用 `TouchHaptics.longPress`，因此部分设备会出现两段震动。
+The recording entry uses Compose `combinedClickable`. The system component fires one
+haptic at the long-press threshold by default, while the feature callback had already
+called `TouchHaptics.longPress` before that, so some devices vibrated twice.
 
-录音按钮及识别指示器现在关闭 `combinedClickable` 的内建触感，只在业务长按回调入口调用一次 `TouchHaptics.longPress`。普通点击仍保留一次 `TouchHaptics.click`，打开录音模式的行为不变。
+The record button and the recognition indicator now disable `combinedClickable`'s
+built-in haptics and call `TouchHaptics.longPress` exactly once at the feature
+long-press callback entry. Regular taps still produce one `TouchHaptics.click`, and
+opening recording mode behaves as before.

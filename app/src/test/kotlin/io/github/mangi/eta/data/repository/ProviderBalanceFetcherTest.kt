@@ -175,7 +175,7 @@ class ProviderBalanceFetcherTest {
     fun canQueryBalanceAcceptsNewApiWithoutStoredPaths() {
         val provider = OpenAiCompatibleProviderSetting(
             id = "fish",
-            name = "魚",
+            name = "Fish",
             baseUrl = "https://example.com/v1",
             balanceOption = BalanceOption(
                 enabled = true,

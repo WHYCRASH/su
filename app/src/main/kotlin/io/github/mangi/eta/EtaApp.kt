@@ -28,12 +28,12 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
 /**
- * 模块 UI 进程的 Application。
+ * Application for the module UI process.
  *
- * 在进程启动时注册 [XposedServiceHelper] 监听器，框架会通过 XposedProvider 推送 binder，
- * 随后 UI 即可拿到 [XposedService] 写入 RemotePreferences，跨进程同步到各 hook 进程。
+ * Registers the [XposedServiceHelper] listener at process start; the framework pushes the binder through XposedProvider,
+ * after which the UI can use [XposedService] to write RemotePreferences, syncing across processes to each hook process.
  *
- * UI 侧通过 [XposedService] 写入 RemotePreferences。
+ * The UI side writes RemotePreferences through [XposedService].
  */
 class EtaApp : Application(), XposedServiceHelper.OnServiceListener {
 
@@ -102,8 +102,8 @@ class EtaApp : Application(), XposedServiceHelper.OnServiceListener {
     }
 
     override fun onServiceDied(service: XposedService) {
-        // 只有当前持有的 service 死亡时才清空并派发 null；
-        // 多 framework 场景下死掉的可能是已被替换的旧实例，无需影响 UI。
+        // Only clear and dispatch null when the currently held service dies;
+        // in multi-framework setups the dead instance may be an already-replaced old one that should not affect the UI.
         if (serviceInstance === service) {
             serviceInstance = null
             dispatch(null)

@@ -279,7 +279,7 @@ internal fun AgentContextUsageButton(
         if (selectedTaskId != null && child == null) selectedTaskId = null
     }
     val displayedUsage = child?.let { AgentContextUsageUi(it.contextTokens, it.contextWindow) } ?: usage
-    val selectedLabel = child?.contextLabel() ?: telemetry.mainModelName.ifBlank { "主代理" }
+    val selectedLabel = child?.contextLabel() ?: telemetry.mainModelName.ifBlank { "Primary agent" }
     val progress = displayedUsage.progress
     val progressColor = when {
         progress == null -> MiuixTheme.colorScheme.onSurfaceVariantActions
@@ -310,7 +310,7 @@ internal fun AgentContextUsageButton(
                 selectorState.dismiss()
                 menuState.onAnchorClick()
             },
-            longClickLabel = "选择上下文统计对象",
+            longClickLabel = "Select context usage target",
             onLongClick = {
                 keepIme()
                 menuState.dismiss()
@@ -358,9 +358,9 @@ internal fun AgentContextUsageButton(
             alignEnd = true, preferAbove = true, focusable = false,
             minWidth = 220.dp, maxWidth = 260.dp, maxHeight = popupMaxHeight,
         ) {
-            Text("上下文统计", style = MiuixTheme.textStyles.footnote1,
+            Text("Context usage", style = MiuixTheme.textStyles.footnote1,
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp))
-            ContextTargetRow("${telemetry.mainModelName.ifBlank { "主代理" }}（主代理）", child == null) {
+            ContextTargetRow("${telemetry.mainModelName.ifBlank { "Primary agent" }} (primary agent)", child == null) {
                 selectedTaskId = null; selectorState.dismiss()
             }
             telemetry.children.forEach { target ->
@@ -415,6 +415,6 @@ private fun ContextTargetRow(label: String, selected: Boolean, onClick: () -> Un
         .padding(horizontal = 10.dp, vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(label, style = MiuixTheme.textStyles.body2, maxLines = 2,
             overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-        if (selected) Icon(Icons.Rounded.Check, contentDescription = "当前统计对象", modifier = Modifier.size(18.dp))
+        if (selected) Icon(Icons.Rounded.Check, contentDescription = "Current usage target", modifier = Modifier.size(18.dp))
     }
 }

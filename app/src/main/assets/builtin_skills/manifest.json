@@ -23,7 +23,7 @@
     {
       "id": "skill-installer",
       "name": "skill-installer",
-      "description": "从 curated 目录或公共 GitHub 仓库发现并安装 Skills。仅在用户明确请求列出可安装项、安装、更新，或调用 $skill-installer 时使用。",
+      "description": "Discover and install Skills from the curated catalog or public GitHub repositories. Use only when the user explicitly asks to list installable items, install, update, or invokes $skill-installer.",
       "assetPath": "builtin_skills/skill-installer",
       "hasScripts": false,
       "hasReferences": false,

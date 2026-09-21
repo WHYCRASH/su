@@ -1,15 +1,13 @@
 package io.github.mangi.eta.agent.tool
 
 import io.github.mangi.eta.agent.device.BoundedRootCommandExecutor
-import io.github.mangi.eta.agent.media.MAX_AGENT_IMAGE_BYTES
 import io.github.mangi.eta.agent.model.AgentModelClient
 import org.json.JSONArray
 import org.json.JSONObject
-import java.util.Locale
 
 /**
- * 个人数据读取只绑定已验证的系统或厂商 Provider，绝不向模型开放 URI、表名或 SQL。
- * Root 用于调用受签名权限保护的 Provider；查询条件始终由固定列和受控关键词组成。
+ * Personal data reads only bind verified system providers, never exposing URIs, table names or SQL to the model.
+ * Root is used to call providers guarded by signature permissions; query conditions always use fixed columns and controlled keywords.
  */
 internal class AgentPersonalDataTools(
     private val root: BoundedRootCommandExecutor,
@@ -25,11 +23,6 @@ internal class AgentPersonalDataTools(
             "search_call_history" -> searchCallHistory(args)
             "search_messages" -> searchMessages(args)
             "search_downloads" -> searchDownloads(args)
-            "search_coloros_notes" -> searchColorOsNotes(args)
-            "search_coloros_recordings" -> searchColorOsRecordings(args)
-            "search_recording_summaries" -> searchRecordingSummaries(args)
-            "search_qq_chat_images" -> searchQqChatImages(args)
-            "search_wechat_chat_images" -> searchWechatChatImages(args)
             else -> null
         }
 
@@ -121,94 +114,6 @@ internal class AgentPersonalDataTools(
         args = args,
     )
 
-    private fun searchColorOsNotes(args: JSONObject): AgentModelClient.ToolResult = query(
-        tool = "search_coloros_notes",
-        uri = "content://com.nearme.note/rich_notes",
-        projection = listOf("local_id", "raw_title", "raw_text", "update_time", "create_time", "folder_id", "deleted", "recycle_time"),
-        sort = "update_time DESC",
-        searchableColumns = listOf("raw_title", "raw_text"),
-        fixedWhere = "deleted=0 AND recycle_time=0",
-        args = args,
-    )
-
-    private fun searchColorOsRecordings(args: JSONObject): AgentModelClient.ToolResult = query(
-        tool = "search_coloros_recordings",
-        uri = "content://com.coloros.soundrecorder.provider/records",
-        projection = listOf("_id", "display_name", "_data", "duration", "date_modified", "record_type", "relative_path"),
-        sort = "date_modified DESC",
-        searchableColumns = listOf("display_name", "_data", "relative_path"),
-        fixedWhere = "deleted=0 AND is_recycle=0",
-        args = args,
-    )
-
-    private fun searchRecordingSummaries(args: JSONObject): AgentModelClient.ToolResult = query(
-        tool = "search_recording_summaries",
-        uri = "content://com.coloros.soundrecorder.provider/summary",
-        projection = listOf("_id", "record_uuid", "record_type", "note_content", "note_state", "media_id", "media_path", "note_id"),
-        sort = "_id DESC",
-        searchableColumns = listOf("note_content", "media_path"),
-        fixedWhere = null,
-        args = args,
-    )
-
-    private fun searchQqChatImages(args: JSONObject): AgentModelClient.ToolResult = searchPrivateChatImages(
-        tool = "search_qq_chat_images",
-        directory = QQ_CHAT_IMAGES_DIRECTORY,
-        pathFilter = "\\( -path '*/chatimg/*' -o -path '*/chatraw/*' -o -path '*/chatthumb/*' \\)",
-        unavailableCode = "QQ_CHAT_IMAGES_UNAVAILABLE",
-        unavailableMessage = "QQ 聊天图片缓存暂时不可访问",
-        args = args,
-        kind = ::qqImageKind,
-    )
-
-    private fun searchWechatChatImages(args: JSONObject): AgentModelClient.ToolResult = searchPrivateChatImages(
-        tool = "search_wechat_chat_images",
-        directory = WECHAT_CHAT_IMAGES_DIRECTORY,
-        pathFilter = "-path '*/image/*'",
-        unavailableCode = "WECHAT_CHAT_IMAGES_UNAVAILABLE",
-        unavailableMessage = "微信聊天图片缓存暂时不可访问",
-        args = args,
-        kind = { "image" },
-    )
-
-    private fun searchPrivateChatImages(
-        tool: String,
-        directory: String,
-        pathFilter: String,
-        unavailableCode: String,
-        unavailableMessage: String,
-        args: JSONObject,
-        kind: (String) -> String,
-    ): AgentModelClient.ToolResult {
-        val result = root.execute(
-            "test -d $directory && " +
-                "find $directory -type f $pathFilter -size -${CHAT_IMAGE_MAX_FILE_BYTES}c " +
-                "-printf '%T@|%s|%p\\n' 2>/dev/null | sort -rn | head -n $CHAT_IMAGE_CANDIDATE_LIMIT",
-            timeoutMillis = QUERY_TIMEOUT_MS,
-            maxOutputBytes = MAX_OUTPUT_BYTES,
-        )
-        if (!result.ok) return sensitive(error(unavailableCode, unavailableMessage))
-
-        val keyword = args.optString("query").trim().lowercase(Locale.ROOT)
-        val limit = args.optInt("limit", DEFAULT_LIMIT).coerceIn(1, MAX_LIMIT)
-        val candidates = result.stdout.lineSequence()
-            .mapNotNull { privateChatImageRow(it, directory, kind) }
-            .toList()
-        val items = candidates.asSequence()
-            .filter { keyword.isBlank() || it.optString("path").lowercase(Locale.ROOT).contains(keyword) }
-            .take(limit)
-            .toList()
-        return sensitive(
-            JSONObject()
-                .put("ok", true)
-                .put("tool", tool)
-                .put("items", JSONArray(items))
-                .put("count", items.size)
-                .put("truncated", result.truncated || candidates.size == CHAT_IMAGE_CANDIDATE_LIMIT || items.size == limit)
-                .toString(),
-        )
-    }
-
     private fun query(
         tool: String,
         uri: String,
@@ -232,7 +137,7 @@ internal class AgentPersonalDataTools(
         }
         val result = root.execute(command, timeoutMillis = QUERY_TIMEOUT_MS, maxOutputBytes = MAX_OUTPUT_BYTES)
         if (!result.ok || PersonalDataContentParser.hasProviderFailure(result.stdout, result.stderr)) {
-            return sensitive(error(rootErrorCode(result), "个人数据源暂时不可访问"))
+            return sensitive(error(rootErrorCode(result), "Personal data source is temporarily unavailable"))
         }
         val items = PersonalDataContentParser.parseRows(result.stdout, projection)
             .take(limit)
@@ -262,31 +167,6 @@ internal class AgentPersonalDataTools(
         else -> "($first) AND ($second)"
     }
 
-    private fun privateChatImageRow(
-        line: String,
-        directory: String,
-        kind: (String) -> String,
-    ): JSONObject? {
-        val fields = line.split('|', limit = 3)
-        if (fields.size != 3) return null
-        val modifiedAt = fields[0].toDoubleOrNull()?.toLong() ?: return null
-        val size = fields[1].toLongOrNull() ?: return null
-        val path = fields[2]
-        if (!path.startsWith("$directory/")) return null
-        return JSONObject()
-            .put("path", path)
-            .put("name", path.substringAfterLast('/'))
-            .put("kind", kind(path))
-            .put("modified_at_epoch_seconds", modifiedAt)
-            .put("size_bytes", size)
-    }
-
-    private fun qqImageKind(path: String): String = when {
-        "/chatraw/" in path -> "original"
-        "/chatimg/" in path -> "image"
-        "/chatthumb/" in path -> "thumbnail"
-        else -> "other"
-    }
 
     private fun rootErrorCode(result: BoundedRootCommandExecutor.Result): String = when {
         result.errorCode.isNotBlank() -> result.errorCode
@@ -306,10 +186,6 @@ internal class AgentPersonalDataTools(
         const val MAX_LIMIT = 30
         const val QUERY_TIMEOUT_MS = 15_000L
         const val MAX_OUTPUT_BYTES = 512 * 1024
-        const val QQ_CHAT_IMAGES_DIRECTORY = "/storage/emulated/0/Android/data/com.tencent.mobileqq/Tencent/MobileQQ/chatpic"
-        const val WECHAT_CHAT_IMAGES_DIRECTORY = "/storage/emulated/0/Android/data/com.tencent.mm/MicroMsg"
-        const val CHAT_IMAGE_CANDIDATE_LIMIT = 120
-        const val CHAT_IMAGE_MAX_FILE_BYTES = MAX_AGENT_IMAGE_BYTES.toLong()
     }
 
 }

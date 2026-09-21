@@ -45,12 +45,12 @@ internal object HotwordSelfHealHooks {
                 hooks.skipped(
                     id = "system.hotword-screen-off",
                     description = "PhoneWindowManager.screenTurnedOff",
-                    detail = "未找到 PhoneWindowManager，跳过 screenTurnedOff Hook"
+                    detail = "PhoneWindowManager not found, skipping screenTurnedOff hook"
                 )
                 hooks.skipped(
                     id = "system.hotword-screen-on",
                     description = "PhoneWindowManager.screenTurnedOn",
-                    detail = "未找到 PhoneWindowManager，跳过 screenTurnedOn Hook"
+                    detail = "PhoneWindowManager not found, skipping screenTurnedOn hook"
                 )
                 return@install
             }
@@ -69,7 +69,7 @@ internal object HotwordSelfHealHooks {
                 ) { chain ->
                     val displayId = chain.getArg(0) as? Int ?: -1
                     val result = chain.proceed()
-                    // 开关关闭则不恢复热词检测。
+                    // Do not resume hotword detection while the toggle is off.
                     if (displayId == 0 && Prefs.isEnabled(Prefs.Keys.HOTWORD_SELF_HEAL)) {
                         scheduleHotwordResume(chain.getThisObject(), logger)
                     }
@@ -79,7 +79,7 @@ internal object HotwordSelfHealHooks {
                 hooks.missing(
                     id = "system.hotword-screen-off",
                     description = "PhoneWindowManager.screenTurnedOff",
-                    detail = "未找到 PhoneWindowManager.screenTurnedOff(int, boolean)"
+                    detail = "PhoneWindowManager.screenTurnedOff(int, boolean) not found"
                 )
             }
 
@@ -105,7 +105,7 @@ internal object HotwordSelfHealHooks {
                 hooks.missing(
                     id = "system.hotword-screen-on",
                     description = "PhoneWindowManager.screenTurnedOn",
-                    detail = "未找到 PhoneWindowManager.screenTurnedOn(int)"
+                    detail = "PhoneWindowManager.screenTurnedOn(int) not found"
                 )
             }
         }
@@ -133,7 +133,7 @@ internal object HotwordSelfHealHooks {
             if (resumeGeneration.get() != generation) {
                 return@Runnable
             }
-            // 即时关闭：开关在延迟任务排队期间可能已被用户关闭。
+            // Switched off mid-flight: the toggle may have been turned off while the delayed task was queued.
             if (!Prefs.isEnabled(Prefs.Keys.HOTWORD_SELF_HEAL)) {
                 cancelPendingResume(resetCooldown = true)
                 return@Runnable
@@ -150,7 +150,7 @@ internal object HotwordSelfHealHooks {
             )
             if (resumed) {
                 cancelPendingResume(resetCooldown = false)
-                logger.debug { "ScreenOffHotwordSelfHeal: 已恢复 Google 软件热词检测" }
+                logger.debug { "ScreenOffHotwordSelfHeal: resumed Google software hotword detection" }
                 return@Runnable
             }
 

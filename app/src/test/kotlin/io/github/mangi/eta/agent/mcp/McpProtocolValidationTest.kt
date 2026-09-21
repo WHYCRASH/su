@@ -450,19 +450,19 @@ data: "id":1,"result":{"resultType":"complete","ttlMs":1000,"tools":[]}}
                 lastProtocolVersion = McpProtocolMode.LATEST,
             )
             val tool = McpToolDefinition(
-                name = "执行任务",
+                name = "Run task",
                 inputSchemaJson = """{"type":"object","properties":{"region":{"type":"string","x-mcp-header":"Region"},"page":{"type":"integer","x-mcp-header":"Page"}}}""",
             )
 
             McpHttpClient(configured, bearerToken = null).use { client ->
                 client.callTool(
                     tool,
-                    JSONObject().put("region", "华东").put("page", 42),
+                    JSONObject().put("region", "East China").put("page", 42),
                 )
             }
 
-            assertEquals(encodeMcpHeaderValue("执行任务"), nameHeader.get())
-            assertEquals(encodeMcpHeaderValue("华东"), regionHeader.get())
+            assertEquals(encodeMcpHeaderValue("Run task"), nameHeader.get())
+            assertEquals(encodeMcpHeaderValue("East China"), regionHeader.get())
             assertEquals("42", pageHeader.get())
         } finally {
             server.stop(0)

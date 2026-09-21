@@ -12,7 +12,6 @@ class AgentSensitiveTranscriptTest {
     fun memoryToolArgumentsAndResultsAreAlwaysSensitive() {
         assertTrue(AgentSensitiveToolPolicy.isSensitive("memory_get"))
         assertTrue(AgentSensitiveToolPolicy.isSensitive("memory_write"))
-        assertTrue(AgentSensitiveToolPolicy.isSensitive("search_coloros_memories"))
         assertTrue(AgentSensitiveToolPolicy.isSensitive("search_notification_history"))
         assertTrue(AgentSensitiveToolPolicy.isSensitive("recent_app_activity"))
         assertTrue(AgentSensitiveToolPolicy.isSensitive("get_health_summary"))
@@ -40,7 +39,7 @@ class AgentSensitiveTranscriptTest {
                                         .put("name", "set_setting")
                                         .put(
                                             "arguments",
-                                            """{"namespace":"global","key":"demo","value":"敏感值"}""",
+                                            """{"namespace":"global","key":"demo","value":"sensitive-value"}""",
                                         ),
                                 ),
                         ),
@@ -59,10 +58,10 @@ class AgentSensitiveTranscriptTest {
             sensitiveToolCallIds = setOf(callId),
         ).joinToString { it.content + it.toolCallsJson }
 
-        assertFalse(encoded.contains("敏感值"))
+        assertFalse(encoded.contains("sensitive-value"))
         assertFalse(encoded.contains("secret-value"))
         assertTrue(encoded.contains("redacted"))
-        assertTrue(encoded.contains("未写入持久会话"))
+        assertTrue(encoded.contains("not written to the persistent session"))
     }
 
     @Test
@@ -84,7 +83,7 @@ class AgentSensitiveTranscriptTest {
         val encoded = redacted.joinToString { it.content + it.toolCallsJson }
         assertFalse(encoded.contains("/secret.jpg"))
         assertFalse(redacted[2].content.contains("visible-pixels"))
-        assertTrue(redacted[2].content.contains("未写入持久会话"))
+        assertTrue(redacted[2].content.contains("not written to the persistent session"))
     }
 
 }

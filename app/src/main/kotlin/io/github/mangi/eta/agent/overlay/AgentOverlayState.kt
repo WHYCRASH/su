@@ -3,11 +3,11 @@ package io.github.mangi.eta.agent.overlay
 import androidx.compose.runtime.Immutable
 import io.github.mangi.eta.agent.runtime.AgentEvent
 
-/** Agent 浮窗所处的阶段。 */
+/** The phase the Agent overlay is in. */
 internal enum class AgentOverlayPhase { RUNNING, PAUSED, FINISHED, FAILED }
 
 /**
- * Agent 浮窗的渲染状态。由 [AgentEvent] 流累积而来，[AgentOverlayBubble] 直接消费。
+ * Render state of the Agent overlay. Accumulated from the [AgentEvent] stream and consumed directly by [AgentOverlayBubble].
  */
 @Immutable
 internal data class AgentOverlayState(
@@ -22,10 +22,10 @@ internal data class AgentOverlayState(
 }
 
 /**
- * 将一个 [AgentEvent] 折叠进当前渲染状态。
+ * Fold one [AgentEvent] into the current render state.
  *
- * 文案逻辑只保留面向用户的一句话状态，
- * 工具名经 [toToolLabel] 中文化。详细 trace 流作为后续任务，此处不展开。
+ * Copy logic keeps only a single user-facing status line,
+ * with tool names localized through [toToolLabel]. The detailed trace stream is a follow-up task and not expanded here.
  */
 internal fun AgentOverlayState.applyEvent(event: AgentEvent): AgentOverlayState = when (event) {
     is AgentEvent.RunStarted -> copy(

@@ -3,7 +3,7 @@ package io.github.mangi.eta.agent.runtime
 import io.github.mangi.eta.agent.model.AgentModelClient
 import java.util.UUID
 
-/** 补充指令接续原用户逻辑轮次；执行 run 可以更换，turnId 不变。 */
+/** A supplement continues the original user-logic turn; the run may change while the turnId stays. */
 internal object AgentContinuationBuilder {
     fun build(
         request: AgentRuntimeWire.RunRequest,

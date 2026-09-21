@@ -15,7 +15,7 @@ internal class AgentRunMessageProjector(
     private val nowElapsedRealtime: () -> Long = { SystemClock.elapsedRealtime() },
 ) {
     private val thinkingStartedAt = mutableMapOf<String, Long>()
-    /** 终态之后不再接受思考/正文增量，避免回答已经结束后又展开一轮推理。 */
+    /** No thinking/body deltas are accepted after the terminal state, so a finished answer never spawns another round of reasoning. */
     private val sealedRunIds = mutableSetOf<String>()
 
     fun isSealed(runId: String): Boolean = runId in sealedRunIds
@@ -24,7 +24,7 @@ internal class AgentRunMessageProjector(
         if (runId.isNotBlank()) sealedRunIds += runId
     }
 
-    /** 回放从该 run 的空轨迹重建；仅重排有回放事件的补充输入，旧 handoff 独有的输入必须保留。 */
+    /** Replay rebuilds from this run's empty trace; only reorder supplement inputs that have replay events, and keep legacy handoff-only inputs. */
     fun resetForReplay(
         runId: String,
         messages: List<AgentChatMessageUi>,
@@ -210,7 +210,7 @@ internal class AgentRunMessageProjector(
             }
         }
 
-    /** 终态不依赖各块结束事件全部到齐；缺少工具结果时只能标为未知，不能推断执行成功。 */
+    /** The terminal state never waits for every block-end event; a missing tool result can only be marked unknown, never inferred as success. */
     fun finalizeRun(runId: String, messages: List<AgentChatMessageUi>): List<AgentChatMessageUi> {
         seal(runId)
         return finalizeText(runId, finalizeThinking(runId, messages)).map { message ->
@@ -278,8 +278,8 @@ internal class AgentRunMessageProjector(
         round: Int,
         messages: List<AgentChatMessageUi>,
     ): List<AgentChatMessageUi> {
-        // 定稿时裁掉尾部空白：模型输出常以换行收尾，Markdown 渲染会把每个尾部
-        // 换行节点变成一段固定间距，在正文与后续工具卡片之间形成莫名的空行。
+        // Trim trailing whitespace when finalizing: model output often ends with newlines, and Markdown rendering turns each trailing
+        // newline node into fixed spacing that leaves a stray blank line between the body and the following tool card.
         return messages.map { message ->
             if (message is AgentMessageUi && isAssistantMessageForRound(message.id, runId, round)) {
                 message.copy(
@@ -320,8 +320,8 @@ internal class AgentRunMessageProjector(
         event: AgentEvent.ToolStarted,
         messages: List<AgentChatMessageUi>,
     ): List<AgentChatMessageUi> {
-        // 工具执行发生在对应 assistant 工具块完整返回之后；此时直接追加即可保留
-        // 工具前说明、工具活动与下一轮结果的真实时间顺序。
+        // Tool execution happens after the matching assistant tool block is fully returned; appending directly here preserves
+        // the true chronological order of pre-tool narration, tool activity, and the next round of results.
         val message = ToolActivityMessageUi(
             id = toolActivityMessageId(runId, event.round, event.toolCallId),
             toolName = event.name,
@@ -339,7 +339,7 @@ internal class AgentRunMessageProjector(
         messages: List<AgentChatMessageUi>,
     ): List<AgentChatMessageUi> {
         val targetId = toolActivityMessageId(runId, event.round, event.toolCallId)
-        // success 字段优先；旧版本 Runtime/归档事件缺省时回退到摘要文本判断
+        // The success field wins; fall back to summary-text heuristics when older runtime/archived events omit it
         val status = when (event.success) {
             true -> ToolActivityStatusUi.Success
             false -> ToolActivityStatusUi.Failed
@@ -434,8 +434,8 @@ internal class AgentRunMessageProjector(
 
 
     /**
-     * 回答已经出来后，部分接口会把完整 reasoning 再推一遍。
-     * 这时不要再展开一轮看起来像“又在思考”的卡片。
+     * After the answer is out, some APIs push the full reasoning again.
+     * Don't expand another card that looks like it is "thinking again" in that case.
      */
     private fun shouldIgnoreLateThinking(
         runId: String,
@@ -556,7 +556,7 @@ internal class AgentRunMessageProjector(
         "$runId-tool-$round-${toolCallId.ifBlank { "unknown" }}"
 
     companion object {
-        /** 终态只能补全最后一次重试之后的回答，不能覆盖已标记失败的半截输出。 */
+        /** The terminal state may only complete the answer after the last retry, never overwrite partial output already marked failed. */
         fun resultTargetIndex(
             runId: String,
             messages: List<AgentChatMessageUi>,

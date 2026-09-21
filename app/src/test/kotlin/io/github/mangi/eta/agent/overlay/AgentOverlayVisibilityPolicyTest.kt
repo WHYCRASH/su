@@ -70,7 +70,7 @@ class AgentOverlayVisibilityPolicyTest {
                 round = 1,
                 toolCallId = "call_browser",
                 name = "browser_use",
-                argsPreview = "提取正文 · example.com"
+                argsPreview = "Extract article text · example.com"
             ),
             AgentEvent.ToolFinished(
                 round = 1,
@@ -190,7 +190,7 @@ class AgentOverlayVisibilityPolicyTest {
             round = 1,
             toolCallId = "call_alarm",
             name = "set_alarm",
-            argsPreview = "参数已接收",
+            argsPreview = "Parameters received",
         )
 
         assertTrue(AgentOverlayVisibilityPolicy.shouldDismissEntrySurfaceFor(event))
@@ -210,7 +210,7 @@ class AgentOverlayVisibilityPolicyTest {
             round = 1,
             toolCallId = "call_launch",
             name = "launch_app",
-            argsPreview = "参数已接收",
+            argsPreview = "Parameters received",
         )
 
         assertFalse(

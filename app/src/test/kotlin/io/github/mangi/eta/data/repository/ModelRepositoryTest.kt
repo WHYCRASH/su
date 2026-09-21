@@ -39,7 +39,7 @@ class ModelRepositoryTest {
     @Test
     fun saveModelCommitsValidatedManualDraftOnlyOnce() = runBlocking {
         addEmptyProvider()
-        val draft = Model(id = "", modelId = "  custom-model  ", displayName = "  自定义模型  ")
+        val draft = Model(id = "", modelId = "  custom-model  ", displayName = "  Custom model  ")
 
         assertTrue(ModelRepository.modelsByProvider(PROVIDER_ID).isEmpty())
         val saved = ModelRepository.saveModel(PROVIDER_ID, draft)
@@ -47,7 +47,7 @@ class ModelRepositoryTest {
         val restored = ModelRepository.modelsByProvider(PROVIDER_ID).single()
         assertEquals(saved.id, restored.id)
         assertEquals("custom-model", restored.modelId)
-        assertEquals("自定义模型", restored.displayName)
+        assertEquals("Custom model", restored.displayName)
         assertEquals(ModelSource.MANUAL, restored.source)
     }
 
@@ -62,13 +62,13 @@ class ModelRepositoryTest {
         val blankFailure = runCatching {
             ModelRepository.saveModel(
                 PROVIDER_ID,
-                Model(id = "", modelId = " ", displayName = "空模型"),
+                Model(id = "", modelId = " ", displayName = "Empty model"),
             )
         }
         val duplicateFailure = runCatching {
             ModelRepository.saveModel(
                 PROVIDER_ID,
-                Model(id = "", modelId = "MODEL-A", displayName = "重复模型"),
+                Model(id = "", modelId = "MODEL-A", displayName = "Duplicate model"),
             )
         }
 

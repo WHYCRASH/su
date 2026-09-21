@@ -14,7 +14,7 @@ class SkillCompatibilityCheckerTest {
             compatibility = "requires android-a11y-cli / android-open",
         )
         assertFalse(result.available)
-        assertEquals("依赖 MiniS 专属 Android CLI，Eta 无法运行", result.reason)
+        assertEquals("Requires the MiniS-only Android CLI, which su cannot run", result.reason)
     }
 
     @Test

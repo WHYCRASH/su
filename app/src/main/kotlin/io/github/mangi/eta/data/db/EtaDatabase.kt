@@ -259,9 +259,10 @@ internal abstract class EtaDatabase : RoomDatabase() {
             database.execSQL(
                 "UPDATE provider_models SET source = 'catalog' WHERE is_built_in = 1"
             )
-            // 旧版“添加自定义模型”会在打开编辑框时提前落下一条空记录。
+            // Old versions of "add custom model" used to drop an empty row as soon as the edit box opened.
             database.execSQL("DELETE FROM provider_models WHERE TRIM(model_id) = ''")
-            // 只清理由旧版“新建对话”产生、且用户从未真正使用或命名过的占位记录。
+            // Only clear placeholder rows created by the old "new conversation" flow that the user never actually used or named.
+            // The title literal below matches legacy on-disk rows (written by the Chinese UI); do not translate it.
             database.execSQL(
                 "DELETE FROM conversations " +
                     "WHERE title = '新对话' " +
@@ -307,7 +308,7 @@ internal abstract class EtaDatabase : RoomDatabase() {
                     "WHEN length(CAST(history_json AS BLOB)) <= 131072 THEN history_json " +
                     "ELSE '[]' END FROM conversations"
             )
-            // 会话列表不再使用旧字段；及时清空可保证旧版留下的超大行不会继续占用数据库。
+            // The conversation list no longer uses the old column; clearing it promptly keeps oversized rows left by old versions from occupying the database.
             database.execSQL("UPDATE conversations SET history_json = '[]'")
         }
 

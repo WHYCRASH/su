@@ -17,7 +17,7 @@ import io.github.mangi.eta.core.safeLogType
 import io.github.mangi.eta.ui.MainActivity
 import java.util.concurrent.atomic.AtomicLong
 
-/** 只在用户任务存活期间持有前台执行生命周期；进程被系统停止后不重放任务。 */
+/** Only hold the foreground execution lifecycle while the user task is alive; do not replay tasks after the process is stopped by the system. */
 internal class AgentExecutionService : Service() {
     private val stopQueue = ExecutionStopQueue { failure ->
         AndroidAgentLogger.warn("Execution task stop failed: type=${failure.safeLogType()}")
@@ -64,7 +64,7 @@ internal class AgentExecutionService : Service() {
 
     override fun onDestroy() {
         if (instance === this) instance = null
-        // 销毁时同样收回本服务拥有的任务。回收在独立有界工作线程上完成，不阻塞 Main。
+        // On destroy, likewise reclaim tasks owned by this service. Reclamation is performed on a separate bounded worker thread and does not block Main.
         stopQueue.close(leases.drainOwner(owner))
         super.onDestroy()
     }
@@ -119,13 +119,13 @@ internal class AgentExecutionService : Service() {
             private set
 
         @Synchronized fun beginBackupMaintenance() {
-            check(!backupMaintenance && leases.count() == 0) { "请先停止 Agent 任务并关闭终端会话，再备份或恢复" }
+            check(!backupMaintenance && leases.count() == 0) { "Please stop the Agent task and close the terminal session before backing up or restoring." }
             backupMaintenance = true
         }
 
         @Synchronized fun endBackupMaintenance() { backupMaintenance = false }
 
-        /** 必须从有效的用户入口取得引用，再创建会话或子进程；失败时调用方不启动任务。 */
+        /** A reference must be obtained from a valid user entry point before creating a session or child process; on failure, the caller does not start the task. */
         @Synchronized fun acquire(
             context: Context,
             id: String,

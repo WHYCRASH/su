@@ -11,7 +11,7 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
 /**
- * App 侧只表达保护开关与恢复请求；Secure Settings 始终由 system_server 后端维护。
+ * The app side only expresses the protection toggle and restore requests; Secure Settings is always maintained by the system_server backend.
  */
 internal object AccessibilityProtectionClient {
     private const val PREFERENCES_NAME = "accessibility_protection"
@@ -112,7 +112,7 @@ internal object AccessibilityProtectionClient {
         }
 
         try {
-            // Android 14 起广播默认不共享发送者身份；保护后端必须取得真实 UID 才接受请求。
+            // Starting with Android 14, broadcasts do not share the sender's identity by default; the protection backend must obtain the real UID before accepting requests.
             val options = BroadcastOptions.makeBasic()
                 .setShareIdentityEnabled(true)
                 .toBundle()

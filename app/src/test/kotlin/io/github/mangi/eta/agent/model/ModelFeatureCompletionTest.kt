@@ -24,9 +24,9 @@ class ModelFeatureCompletionTest {
             assertEquals(0, request.tools.length())
             assertFalse(request.config.hostedWebSearchEnabled)
             assertEquals(2048, request.config.summaryOutputLimit)
-            response("猫")
+            response("Cat")
         })
-        assertEquals("猫", result)
+        assertEquals("Cat", result)
     }
 
     @Test fun auxiliaryRequestKeepsExplicitConversationOwner() {

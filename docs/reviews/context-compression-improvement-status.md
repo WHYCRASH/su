@@ -1,68 +1,67 @@
-# 上下文压缩改进：源码状态与验收清单
+# Context compression improvements: source status and acceptance checklist
 
-状态：工作区改动，未提交、未推送、未编译。此文件不是发布说明，也不表示测试通过。
+Status: working-tree changes, uncommitted, unpushed, uncompiled. This file is not release notes, nor does it claim any test passes.
 
-## 参考范围
+## Reference scope
 
-对照固定的 `deepseek-ai/deepseek-harness` 提交 `0d1f50007f9bca3f52b06e1c3074fa14d5fb0720`，不是声称已经核实其后续版本：
+Compared against the pinned `deepseek-ai/deepseek-harness` commit `0d1f50007f9bca3f52b06e1c3074fa14d5fb0720`, with no claim to have reviewed its later versions:
 
 - `packages/compaction/README.md`
 - `docs/subsystems/compaction.md`
-- 对照重点：请求前压力检查、工具配对边界、工具结果修剪、实际缩减后才重试、低优先级摘要检查点、开始/结束与失败记录、选中范围提交校验。
-- 本实现为适配 Eta 的 Kotlin 实现，并非移植整套 TS Harness。运行中手动压缩遵循 Eta 的工具批次边界，不复制上游的空闲会话维护接口。
+- Comparison focus: pre-request pressure checks, tool-pairing boundaries, tool-result pruning, retry only after real shrinkage, low-priority summary checkpoints, start/end and failure records, selected-range commit validation.
+- This implementation is a Kotlin adaptation written for su, not a port of the full TS harness. In-flight manual compression follows su's tool-batch boundaries and does not copy the upstream idle-conversation maintenance API.
 
-## 已落到源码
+## What has landed in source
 
-1. **策略和交互**
-   - 统一持续执行，按窗口 16% 保留 token 尾部，确认超限或历史短于预算时保留最新完整单元；不再配置整轮保护策略。
-   - 自动和运行中手动压缩共用边界、摘要与验收路径。关闭自动压缩后仍允许手动请求。
-   - 自动、手动各自保存压缩 Endpoint，只应用于摘要模型副本；运行中手动选择通过 Client/Wire/Service/Session/Controller 传到安全边界，不改变会话模型。
-   - 无法减少上下文时仍暂停并保留原文，用户可以重试压缩或停止任务。
+1. **Strategy and interaction**
+   - Unified continuous execution, keeping a token tail at 16% of the window; on confirmed over-limit or history shorter than the budget, the newest whole unit is kept; whole-round protection strategies are no longer configurable.
+   - Auto and in-flight manual compression share boundary, summary, and acceptance paths. Manual requests are still allowed with auto compression off.
+   - Auto and manual each save a compression endpoint applied only to the summary-model copy; in-flight manual selection travels Client/Wire/Service/Session/Controller to the safety boundary without changing the conversation model.
+   - When context cannot be reduced, execution still pauses with the original text preserved; the user can retry compression or stop the task.
 
-2. **轮次与原文保护**
-   - 序列化 DTO 增加可选 turnId，Runtime 使用 runId，兼容旧历史；补充指令和工具观察继承同一轮标识。
-   - 本地轮次元数据不发送给提供方。保留区直接使用原始请求 JSON，不通过持久化 DTO 重建，因此不会顺便移除提供方专有字段。
-   - 去掉通用模型客户端的静默按条裁剪。
-   - 带轮次标识的正文、结构化文本、工具调用参数不再经过旧的 64K/32K 截短；总持久化容量超限明确失败而非自动丢弃记录。
-   - 持久化仍遵守已有隐私规则：不持久化工具结果会脱敏，临时工具图片不作为会话资产保存。不能宣称这些内容跨重启无损恢复。
-   - 大段运行中压缩历史通过 FD 传输；描述符随结果 ACK 或服务销毁回收。
+2. **Rounds and original-text protection**
+   - Serialization DTOs gain an optional turnId; Runtime uses runId, compatible with old history; supplementary instructions and tool observations inherit the same round identity.
+   - Local round metadata is never sent to providers. The protected region uses the raw request JSON directly, never rebuilt from persistence DTOs, so provider-specific fields are never incidentally dropped.
+   - Silent per-item trimming in the generic model client removed.
+   - Body text, structured text, and tool-call arguments carrying round identity no longer pass through the old 64K/32K truncation; total persistence-capacity overflow fails explicitly instead of silently dropping records.
+   - Persistence still honors existing privacy rules: tool results marked non-persistable are redacted, ephemeral tool images are not saved as conversation assets. No claim that such content survives restarts losslessly.
+   - Large in-flight compressed history travels over FD; descriptors are reclaimed with the result ACK or service teardown.
 
-3. **摘要管线与提示词**
-   - 专门的一次提供方调用，不进入 AgentLoop，不调用传入的工具执行器。
-   - 按输入 token 估算和完整工具单元分块，分配总摘要预算，多块再合并；单个完整单元超出摘要窗口时拒绝，而不是截断参数。
-   - 同模型/协议/地址条件匹配时复用系统消息、选定历史、工具声明和会话标识；这是保留缓存前缀的尝试，不保证服务商缓存命中。
-   - 跨模型使用文本投影，包含工具名称、参数、结果关联和结构化文本，不把内联媒体当成已理解的视觉内容。
-   - 固定八节检查点：目标、约束、已验证证据、文件标识、错误/未决问题、当前状态、待办、下一步。节名作为结构验收字段，正文跟随对话语言。
-   - 提示词明确区分实际完成、尝试、计划、假设；保留必要路径/命令/错误；合并旧检查点，不盲目叠加过期事实。
-   - 空摘要、截断、异常终止、工具调用、结构错误、无实际缩减、预算超限均拒绝替换。取消传播；同一失败范围不在一次压力检查中重复请求。
-   - 新摘要 role=user，主提示词明确它和回读内容都是历史资料，不提升为系统指令；恢复时不重复已执行的副作用操作。
+3. **Summary pipeline and prompts**
+   - A dedicated single provider call that never enters AgentLoop and never calls the incoming tool executor.
+   - Chunks by estimated input tokens and whole tool units, allocates the total summary budget, merges multi-chunk results; a single whole unit exceeding the summary window is refused rather than having its arguments truncated.
+   - Reuses system messages, selected history, tool declarations, and conversation identity when the same model/protocol/endpoint conditions match; this is an attempt to preserve cache prefixes, not a guarantee of provider cache hits.
+   - Cross-model use goes through a text projection with tool names, arguments, result links, and structured text — inline media is never treated as already-understood visual content.
+   - Fixed eight-section checkpoints: goal, constraints, verified evidence, file identity, errors/open issues, current status, to-dos, next steps. Section names serve as structure-acceptance fields; body text follows the conversation language.
+   - Prompts explicitly distinguish actually-done, attempted, planned, and assumed; keep necessary paths/commands/errors; merge old checkpoints instead of blindly stacking stale facts.
+   - Empty summaries, truncation, abnormal termination, tool calls, structural errors, no real shrinkage, and budget overflow are all refused as replacements. Cancellation propagates; the same failing scope is never re-requested within one pressure check.
+   - New summaries use role=user, and the main prompt states explicitly that they and the read-back content are historical material, not elevated to system instructions; already-executed side effects are never replayed on restore.
 
-4. **预算与溢出**
-   - 每次新模型请求前检查系统消息、历史、工具声明、已有账单占用增量和输出预留；并预留本机持久化容量。
-   - 工具结果修剪保留头尾，切分按 Unicode code point，保存原文后才替换，敏感工具结果不进入此持久化路径。
-   - 对明确的 HTTP 上下文超限做有限恢复；只有内容真正减少才重试。不会把所有 400 当作超限，也不将可能已执行托管工具的流中错误自动重放。
-   - 本地 token 算法仍是估算，不是每个提供商的精确 tokenizer，也未完整计价提供方专有请求封装。
+4. **Budgets and overflow**
+   - Before every new model request, check system messages, history, tool declarations, accrued billing increments, and output reserve; also reserve local persistence capacity.
+   - Tool-result pruning keeps head and tail, splits by Unicode code point, saves the original before replacing; sensitive tool results never enter this persistence path.
+   - Limited recovery on explicit HTTP context-over-limit; retry only when content genuinely shrank. Not every 400 is treated as over-limit, and mid-stream errors on possibly already-executed managed tools are never auto-replayed.
+   - The local token algorithm is still an estimate — not each provider's exact tokenizer, and provider-specific request-envelope pricing is not fully accounted.
 
-5. **本机原文回读**
-   - `AgentCompactionArchive` 按稳定会话标识的 SHA-256 隔离目录，UUID 检查点，AtomicFile/fsync，原文 SHA-256 校验。
-   - `read_compacted_history` 只接受检查点与非负字符偏移，不接受任意文件路径；每页最多 4000 UTF-16 字符，页尾避免截断代理对。
-   - 摘要脚注由代码生成，继续携带已存在的旧检查点索引，不信任模型编造的 ID。
-   - 保存 started/ready/committed/failed 状态；UI 侧 ready 仅表示候选可用，不冒充数据库提交完成。
-   - 单记录 16 MiB、每会话 256 MiB 与条目数上限；空间不足拒绝改写。会话删除成功持久化后清理原文并写删除标记，阻止旧 run 重新读取/保存。
+5. **On-device original-text read-back**
+   - `AgentCompactionArchive` isolates directories by the stable conversation identity's SHA-256, with UUID checkpoints, AtomicFile/fsync, and original SHA-256 verification.
+   - `read_compacted_history` accepts only checkpoint plus non-negative character offset, never arbitrary file paths; at most 4000 UTF-16 characters per page, and page ends avoid splitting surrogate pairs.
+   - Summary footnotes are code-generated and continue to carry pre-existing old checkpoint indexes; model-invented IDs are never trusted.
+   - started/ready/committed/failed states are saved; UI-side ready only means a candidate is available, never masquerades as database-commit completion.
+   - 16 MiB per record, 256 MiB per conversation, plus entry-count caps; writes are refused when space is short. Successful conversation deletion cleans the original text after persistence and writes a deletion marker so stale runs cannot re-read/save it.
 
-## 尚未完成或不能宣称等同上游的部分
+## Parts unfinished or not claimable as upstream-equivalent
 
-- **没有完成编译或运行任何测试**，75 个 Kotlin 文件的词法括号检查不验证类型、API、Compose、线程或 SQL 行为。
-- 新增四个测试文件，共 **26 个测试方法，均未执行**；覆盖边界、工具配对、暂停、单次授权、摘要验收/取消、原文回读/校验/删除、持久化和 FD 协议。另调整旧 Loop 测试，避免继续以静默截断作为正确行为。
-- **原文存档尚未纳入单会话导出/全量备份及导入时的检查点重映射**。界面明确仅当前安装可回读；导入到另一会话的旧 ID 不应突破会话隔离。
-- **图像超限卸载和受限恢复媒体**未移植；当前仍依赖已有媒体能力过滤与工具图片生命周期，不将图片偷换为占位文本以强行续行。
-- 摘要调用输出上限已接到三类请求体；各网关对 `max_tokens` / 推理模式的兼容性必须用集成测试确认。
-- 摘要独立费用/usage 统计、精确路由封装计价、完整事务事件溯源及崩溃后恢复 UI 还没有做到上游同级。状态文件不是完整事件日志，不能据此承诺进程被杀后恢复全部瞬时工具状态。
-- 删除/存档并发、多个订阅者的 FD 生命周期、数据库写失败与候选替换的跨层一致性需要故障注入测试；现有实现不应被描述为已验证的跨进程事务。
+- **No compilation and no tests run**; lexical bracket checks over 75 Kotlin files verify no types, APIs, Compose, threading, or SQL behavior.
+- Four new test files with **26 test methods, none executed**; covering boundaries, tool pairing, pausing, single-shot authorization, summary acceptance/cancellation, original read-back/verification/deletion, persistence, and the FD protocol. Old Loop tests were also adjusted to stop treating silent truncation as correct behavior.
+- **Original archives are not yet covered by single-conversation export/full backup or checkpoint remapping on import**. The UI states explicitly that read-back works only on the current install; old IDs imported into another conversation must not break conversation isolation.
+- **Image over-limit offloading and restricted recovery media** were not ported; the current code still relies on existing media-capability filtering and tool-image lifecycle, and never swaps images for placeholder text to force continuation.
+- Summary standalone cost/usage accounting, exact routing-envelope pricing, full transactional event sourcing, and post-crash recovery UI are not yet at upstream level. The state file is not a complete event log and cannot promise full instantaneous tool-state recovery after a process kill.
+- Delete/archive concurrency, multi-subscriber FD lifetime, and cross-layer consistency of DB write failures with candidate replacement need fault-injection tests; the current implementation must not be described as a verified cross-process transaction.
 
-## 下一步验收
+## Next acceptance steps
 
-1. 用户授权后按约定走 GitHub Actions，先编译并执行相关测试，不在本地绕开编译约定。
-2. 修复实际编译/测试失败；增加失败注入、同模型/跨模型、长工具结果和多媒体实机回归。
-3. 补齐原文备份/导入和图片超限路径，再考虑声明“完整集成”；不以“代码已写”代替完成验收。
-4. 不改版本号。只有产物实际生成、下载和交付后才更新工作区发布说明。
+1. After user authorization, go through GitHub Actions per convention: build first and run the relevant tests; no local compilation-convention bypasses.
+2. Fix actual compile/test failures; add fault-injection, same-model/cross-model, long-tool-result, and multimedia on-device regression.
+3. Close the original backup/import and image-over-limit gaps before claiming "full integration"; never substitute "code written" for completed acceptance.
+4. No version-number change. Workspace release notes are updated only after artifacts are actually produced, downloaded, and delivered.

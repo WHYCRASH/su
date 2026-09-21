@@ -35,14 +35,14 @@ import top.yukonga.miuix.kmp.window.WindowDialog
 internal data class SessionDialogRow(
     val id: String,
     val environment: TerminalEnvironment,
-    /** 块式终端传 cwd；控制台传空串。 */
+    /** Block terminal passes cwd; console passes an empty string. */
     val subtitle: String,
     val active: Boolean,
     val running: Boolean,
     val alive: Boolean,
 )
 
-/** 终端会话列表面板；块式终端与控制台共用。点按行切换会话，行内提供重启与关闭。 */
+/** Terminal session list panel; shared by the block terminal and console. Tap a row to switch sessions, with restart and close actions within the row. */
 @Composable
 internal fun SessionListDialog(
     rows: List<SessionDialogRow>,

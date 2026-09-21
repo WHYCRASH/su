@@ -1,77 +1,77 @@
-# 联合修复复审（源码）
+# Joint fixes re-audit (source)
 
-审查对象是当前未提交工作区，基线仍为 `994ad3a`。只读核对实现与原审查项，未编译、未跑测试、未改业务代码。下面的“确认”指源码路径存在，不表示实机已复现。
+The audit target is the current uncommitted working tree; the baseline is still `994ad3a`. Read-only check of implementation against the original audit items; nothing compiled, no tests run, no production code modified. "Confirmed" below means the source path exists — not that anything reproduced on a real device.
 
-## 结论
+## Conclusion
 
-原审查里的主泄漏路径大部分已经按 fail-closed 改掉：任务不再在运行中改绑到全局助手，Skills 不再共用一个可写 `.visible`，会话模型不再按相同 `modelId` 跨提供商回退。
+Most of the primary leak paths from the original audit are now closed fail-closed: tasks no longer rebind to the global assistant mid-run, Skills no longer share one writable `.visible`, and conversation models no longer fall back across providers on equal `modelId`.
 
-还不能宣称“助手/Skills 完全隔离”或这批改动可以发版。热路径引入了新的正确性风险（空索引误撤权、锁顺序），有几处身份仍回落到 `active()`，测试与生产行为也不完全一致。
+"Assistants/Skills fully isolated" still cannot be claimed, nor can this batch be called releasable. The hot path introduces new correctness risks (empty-index deauthorization, lock ordering), a few identities still fall back to `active()`, and test and production behavior do not fully agree.
 
-## 已真正闭合的主路径
+## Primary paths genuinely closed
 
-1. Runtime 用 `request.assistantId` / `config.assistantId` 取助手；缺失身份不回落 `active()`。记忆读写、安装归属、权限检查走固定 ID。
-2. 记忆 UI / 助手编辑保存带 `assistantId + revision`；过期草稿不能无条件 `replaceAll`。删除写 tombstone，旧 Store 句柄不能重建记忆。
-3. 助手 ID 改为严格校验，不再有损替换。备份在应用前校验 profile / memory key。
-4. Agent run 使用独立 `.runs/<uuid>/skills` 快照；私有 data 在 `.assistant/<id>/.data/<skill>`；Linux 按技能挂载 data，而不是整个 data 根。
-5. `skills_read` / resource 去掉全局 `findInstalledSkill` 回退。停用会从该助手的 run 快照里删代码并打断该执行器的终端 / 自建 daemon。
-6. 模型选择传递 `providerId + modelId`；projector 不再跨提供商找同 ID；绑定失效时 `selectedModel == null`，发送被拦截。附件准备记录会话 / 草稿 / generation / 助手，变化则取消发送。
+1. Runtime takes the assistant from `request.assistantId` / `config.assistantId`; missing identity never falls back to `active()`. Memory reads/writes, install ownership, and permission checks use the pinned ID.
+2. Memory UI / assistant-edit saves carry `assistantId + revision`; stale drafts can no longer `replaceAll` unconditionally. Deletion writes a tombstone; stale Store handles cannot recreate memories.
+3. Assistant IDs are strictly validated, no more lossy substitution. Backups validate profile / memory keys before applying.
+4. Agent runs use isolated `.runs/<uuid>/skills` snapshots; private data lives at `.assistant/<id>/.data/<skill>`; Linux mounts data per skill instead of the whole data root.
+5. `skills_read` / resource drop the global `findInstalledSkill` fallback. Disabling removes the code from that assistant's run snapshot and interrupts that executor's terminal / self-built daemons.
+6. Model selection passes `providerId + modelId`; the projector no longer looks up the same ID across providers; on invalid bindings `selectedModel == null` and sends are blocked. Attachment prep records conversation / draft / generation / assistant and cancels the send on change.
 
-## 高：热路径可能把暂时读失败当成全面撤权
+## High: the hot path may mistake a transient read failure for full deauthorization
 
-`AgentLocalTools.liveSkillEntries()` 在生产路径（`runSkillsRoot != null`）每次都会：
+`AgentLocalTools.liveSkillEntries()` on the production path (`runSkillsRoot != null`) performs on every call:
 
-- `AssistantRepository.currentProfile`（跨进程文件锁 + 整份 index 反序列化）
-- `listSkillsForManagement(forceRefresh = true)`（持有 SkillMutationLock，清缓存并重新 seed 内置技能）
+- `AssistantRepository.currentProfile` (cross-process file lock + full index deserialization)
+- `listSkillsForManagement(forceRefresh = true)` (holds SkillMutationLock, clears the cache, and reseeds built-in skills)
 
-然后用 `entries.size != runSkillEntries.size` 决定 `interruptAll`、`stopOwnedDaemons`、`pruneRunSkills`。
+and then uses `entries.size != runSkillEntries.size` to decide `interruptAll`, `stopOwnedDaemons`, `pruneRunSkills`.
 
-`installed` 在 `skillIndexService == null` 或列表为空时是 `emptySet()`。索引抖动、seed 失败、锁超时或异常被上层吞掉后变成空列表，会被当成“本轮技能全部卸载”，关掉终端和 daemon，并删掉快照代码。这比原来的 400ms 缓存回退更危险。应只允许“明确仍启用且快照文件还在”的子集继续用；读失败应保持原快照并报错，不能等价于空授权。
+`installed` is `emptySet()` when `skillIndexService == null` or the list is empty. Index jitter, seed failure, lock timeout, or an exception swallowed upstream turning into an empty list would be read as "this round's skills all uninstalled", shutting down terminals and daemons and deleting snapshot code. That is more dangerous than the old 400ms cache fallback. Only the subset "explicitly still enabled with snapshot files still present" should keep running; read failure should keep the previous snapshot and report an error — never equal empty authorization.
 
-`liveSkillCache` 还在字段里，但新实现已经不用它。
+`liveSkillCache` is still a field, but the new implementation no longer uses it.
 
-## 高：SkillMutationLock 与助手索引锁顺序相反
+## High: SkillMutationLock vs assistant-index lock order reversed
 
-安装成功回调是：已持有 `SkillMutationLock` → `AssistantRepository.enableSkills` → `withIndexLock`。
+The install-success callback runs: already holding `SkillMutationLock` → `AssistantRepository.enableSkills` → `withIndexLock`.
 
-`liveSkillEntries` / 每轮 `skillContextProvider` 是：`withIndexLock`（`currentProfile`）→ `listSkillsForManagement` → `SkillMutationLock`。
+`liveSkillEntries` / per-round `skillContextProvider` run: `withIndexLock` (`currentProfile`) → `listSkillsForManagement` → `SkillMutationLock`.
 
-两个 Agent run 并发（一个在 install，一个在 list/read 或下一轮拼提示词），或 UI `select/update` 与安装重叠，存在死锁窗口。UI 自己的 `update` 是助手锁再技能锁，和安装路径相反。这不是原审查里的功能项，是这次修复引入的。
+Two concurrent Agent runs (one installing, one listing/reading or assembling the next round's prompt), or UI `select/update` overlapping an install, open a deadlock window. The UI's own `update` is assistant-lock-then-skill-lock — the reverse of the install path. This is not an item from the original audit; this fix round introduced it.
 
-## 高：压缩与部分配置构造仍用当前助手
+## High: compression and some config construction still use the current assistant
 
-`RuntimeConfigRepository.configForProviderAndModel` 仍 `buildRuntimeConfig(provider, model)`，默认 `AssistantRepository.active()`。后台压缩、手动压缩 fallback、绑定配置读取会带上**此刻全局助手**的 `systemPrompt` / `assistantId`，而不是发起该会话任务的助手。聊天主发送路径已经显式传入 `runAssistant`，所以这是压缩 / 配置侧残留，不是发送主路径回退。
+`RuntimeConfigRepository.configForProviderAndModel` still calls `buildRuntimeConfig(provider, model)` defaulting to `AssistantRepository.active()`. Background compression, manual-compression fallback, and binding-config reads then carry **this moment's global assistant** `systemPrompt` / `assistantId` instead of the assistant that started the conversation task. The main chat send path already passes `runAssistant` explicitly, so this is compression/config-side residue, not a send-main-path fallback.
 
-## 中高：记忆页在切助手后仍停在旧草稿
+## Medium-high: the memory page stays on the stale draft after switching assistants
 
-`selectAssistant` 只 `select + sync + refreshRequestOverhead`，不增加 `memoryEditGeneration`，也不 `refreshMemory()`。保存会被“草稿属于另一助手”挡住，这点是对的；但开关仍可能改到**草稿所属旧助手**，界面也继续显示旧内容。用户切到 B 后看到的是 A 的记忆，容易误操作。
+`selectAssistant` only does `select + sync + refreshRequestOverhead` — it neither bumps `memoryEditGeneration` nor calls `refreshMemory()`. Saves are correctly blocked as "draft belongs to another assistant"; but toggles may still land on the **draft's old assistant**, and the UI keeps showing stale content. After switching to B the user sees A's memories — an easy misclick.
 
-## 中：测试和生产对“本轮变更”的可见性不一致
+## Medium: test and production disagree on "this round's changes" visibility
 
-无 `runSkillsRoot` 的测试会从 `currentSkillEntries` 里滤掉 `mutatedSkillIds`，所以安装/覆盖后 `skills_read` 得到 `NEXT_TURN_REQUIRED`。生产有 `runSkillsRoot` 时不过滤，同 ID 更新仍可读**本轮旧快照**。这更接近“本 run 批准版本保持不变”，但现有 `AgentLocalSkillInstallIntegrationTest` 按旧语义断言，未跑测试前不能假设它们会过。
+Tests without `runSkillsRoot` filter `mutatedSkillIds` out of `currentSkillEntries`, so post-install/overwrite `skills_read` yields `NEXT_TURN_REQUIRED`. Production with `runSkillsRoot` never filters, so a same-ID update still reads **this round's old snapshot**. That is closer to "this run's approved version stays fixed", but the existing `AgentLocalSkillInstallIntegrationTest` asserts the old semantics — assume nothing passes before tests run.
 
-## 中：其它残留与回归点
+## Medium: other residue and regression points
 
-- `SkillRuntime.visibleSkillsDirectory()` 仍用 `AssistantRepository.active()`。用户终端 / 默认 daemon 挂载的是当前助手，不是某个 run。文档写过，但和 Agent 快照不是同一套根。
-- `AssistantRepository.create()` 不发布技能视图。新建助手后、第一次 `select/update` 前，用户终端可能挂到空目录；Agent run 不受影响，因为它走 `createRunSkills`。
-- 删除助手仍不取消所属 run。下一次工具 / 下一轮 `currentProfile == null` 会失败；已经发出的模型请求和已启动的进程不会被这次删除撤回。
-- `observeRuntimeSelection` 在 providers 内容变化时增加 `modelBindingGeneration`，附件准备会被取消。偏保守，但余额/模型列表刷新可能导致“没切会话却发送失败”。
-- `AgentMemoryStore.replaceAll(content)` 无 revision 仍在，仓库默认 `revision = null` 时走这条。UI 已不用；导入/复制仍用。不要从别的调用点重新接回 UI。
-- 旧索引若含 `.` / `..` 等以前合法、现在非法的 ID，`readIndex`/`validateProfiles` 会让 `init` 直接失败。这是严格校验的代价，需要迁移或更明确的启动错误，而不是静默改写 ID。
-- 会话历史仍无助手归属字段。同一会话切助手不会清历史。这点与原审查一致，尚未做。
-- `enabledFlow()` 仍是全局 `SettingsDataStore.memoryEnabledFlow()`，和按助手的 `memoryEnabled` 不是同一来源。
+- `SkillRuntime.visibleSkillsDirectory()` still uses `AssistantRepository.active()`. User terminals / default daemon mounts follow the current assistant, not any particular run. Documented, but a different root set from the Agent snapshot.
+- `AssistantRepository.create()` publishes no skill view. Between creating an assistant and its first `select/update`, user terminals may mount an empty directory; Agent runs are unaffected since they go through `createRunSkills`.
+- Deleting an assistant still cancels no owned runs. The next tool call / next round fails on `currentProfile == null`; already-issued model requests and started processes are not recalled by the delete.
+- `observeRuntimeSelection` bumps `modelBindingGeneration` when providers content changes, cancelling attachment prep. Conservative, but a balance/model-list refresh can cause "send failed without switching conversations".
+- `AgentMemoryStore.replaceAll(content)` without revision still exists; the repository takes that path when defaulting `revision = null`. The UI no longer uses it; import/copy still do. Do not rewire other call sites back to the UI.
+- An old index containing previously legal, now illegal IDs such as `.` / `..` makes `readIndex`/`validateProfiles` fail `init` outright. That is the price of strict validation; it needs a migration or a clearer boot error rather than silent ID rewriting.
+- Conversation history still has no assistant-ownership field. Switching assistants on one conversation never clears history. Consistent with the original audit; not yet done.
+- `enabledFlow()` is still the global `SettingsDataStore.memoryEnabledFlow()`, not the same source as per-assistant `memoryEnabled`.
 
-## 测试覆盖（均未执行）
+## Test coverage (none executed)
 
-新增用例覆盖了：CAS 冲突、跨 Store 锁、删除 tombstone、ID 校验、双助手 data 分离、更新不改旧快照、停用保留 data、空快照不扩容、释放不跟随 data 指针、模型不跨提供商回退、IPC 身份缺省为空。
+New cases cover: CAS conflicts, cross-Store locks, delete tombstones, ID validation, two-assistant data separation, updates never touching old snapshots, disable-keeps-data, empty snapshots never widening, release never following data pointers, models never falling back across providers, IPC identity defaulting to empty.
 
-没有覆盖：并发 run 的锁顺序、索引为空时的撤权、压缩配置的助手身份、切助手后的记忆 UI、`forceRefresh` 热路径、真实 Linux/PRoot 挂载、删除助手与在途 run、附件准备被 providersFlow 取消。
+Not covered: concurrent-run lock ordering, empty-index deauthorization, compression-config assistant identity, post-switch memory UI, `forceRefresh` hot path, real Linux/PRoot mounts, deleting assistants with in-flight runs, attachment prep cancelled by providersFlow.
 
-词法括号检查和 `git diff --check` 不能代替这些。
+Lexical bracket checks and `git diff --check` substitute for none of this.
 
-## 复审后已处理（仍未编译）
+## Handled after re-audit (still uncompiled)
 
-1. 热路径撤权：`SkillRunAuthorization` 把“读失败”和“确认撤权”分开。索引/助手资料读失败时保持上一份快照；只有助手已删除，或停用/卸载查询成功，才缩小集合并关闭终端。不再 `forceRefresh`。新增 7 个决策测试。
-2. 锁顺序：`AssistantRepository.update/select/delete/create/import/saveAvatar` 先提交索引再发布技能目录，不再在助手索引锁内拿 `SkillMutationLock`。`currentProfile` 使用锁内已刷新的内存快照，避免重复读盘。
-3. 压缩配置：`buildRuntimeConfig` / `configForProviderAndModel` 不再默认 `active()`。自定义摘要模型只复用 fallback 上已固定的 `assistantId` 与 systemPrompt；绑定读取与后台压缩在没有会话助手时传 null，不借用当前助手。
-4. 切助手：`selectAssistant` 会 `refreshMemory()`。若旧助手有未保存草稿，提示未写入，编辑器改为新助手内容。
+1. Hot-path deauthorization: `SkillRunAuthorization` separates "read failure" from "confirmed deauthorization". Index/assistant-profile read failures keep the previous snapshot; the set shrinks and terminals close only when the assistant is deleted or a disable/uninstall query succeeds. No more `forceRefresh`. 7 new decision tests.
+2. Lock ordering: `AssistantRepository.update/select/delete/create/import/saveAvatar` commit the index first, then publish the skill directory — no longer taking `SkillMutationLock` inside the assistant-index lock. `currentProfile` uses the in-lock refreshed memory snapshot to avoid re-reading disk.
+3. Compression config: `buildRuntimeConfig` / `configForProviderAndModel` no longer default to `active()`. Custom summary models only reuse the `assistantId` and systemPrompt already pinned on the fallback; binding reads and background compression pass null with no conversation assistant instead of borrowing the current one.
+4. Assistant switching: `selectAssistant` now calls `refreshMemory()`. With an unsaved draft on the old assistant, it warns of unwritten content and swaps the editor to the new assistant's content.

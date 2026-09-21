@@ -11,26 +11,30 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 
+/**
+ * The app ships English only (`localeFilters = listOf("en")`); resource resolution must therefore
+ * fall back to the default strings for every locale instead of a locale-specific override.
+ */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [36])
 class LocaleResourcesTest {
     private val context: Context = RuntimeEnvironment.getApplication()
 
     @Test
-    fun supportedLocalesSelectExpectedResourcesAndOthersFallBackToEnglish() {
-        assertEquals("Settings", localizedString("en-US", R.string.route_settings))
-        assertEquals("设置", localizedString("zh-CN", R.string.route_settings))
-        assertEquals("设置", localizedString("zh-SG", R.string.route_settings))
-        assertEquals("設定", localizedString("zh-TW", R.string.route_settings))
-        assertEquals("設定", localizedString("zh-HK", R.string.route_settings))
-        assertEquals("昨日", localizedString("zh-TW", R.string.time_yesterday))
-        assertEquals("Settings", localizedString("fr-FR", R.string.route_settings))
-        assertEquals("Appearance & Theme", localizedString("en-US", R.string.appearance_title))
-        assertEquals("外观与主题", localizedString("zh-CN", R.string.appearance_title))
-        assertEquals("外觀與主題", localizedString("zh-TW", R.string.appearance_title))
-        assertEquals("Appearance & Theme", localizedString("fr-FR", R.string.appearance_title))
-        assertEquals("1 model", localizedQuantity("en-US", R.plurals.provider_models_count, 1))
-        assertEquals("2 models", localizedQuantity("en-US", R.plurals.provider_models_count, 2))
+    fun everyLocaleResolvesToTheDefaultEnglishResources() {
+        for (languageTag in listOf("en-US", "zh-CN", "zh-TW", "fr-FR")) {
+            assertEquals("Settings", localizedString(languageTag, R.string.route_settings))
+            assertEquals("Appearance & Theme", localizedString(languageTag, R.string.appearance_title))
+            assertEquals("Yesterday", localizedString(languageTag, R.string.time_yesterday))
+        }
+    }
+
+    @Test
+    fun pluralsUseTheEnglishQuantities() {
+        for (languageTag in listOf("en-US")) {
+            assertEquals("1 model", localizedQuantity(languageTag, R.plurals.provider_models_count, 1))
+            assertEquals("2 models", localizedQuantity(languageTag, R.plurals.provider_models_count, 2))
+        }
     }
 
     @Suppress("DEPRECATION")

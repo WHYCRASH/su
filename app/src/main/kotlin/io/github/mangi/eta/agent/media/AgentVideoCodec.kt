@@ -176,8 +176,8 @@ internal object AgentVideoCodec {
         mimeType: String,
         source: String,
     ): AgentModelClient.ModelImage {
-        require(bytes.isNotEmpty()) { "视频内容为空" }
-        require(bytes.size <= MAX_AGENT_VIDEO_BYTES) { "视频数据过大：${bytes.size}" }
+        require(bytes.isNotEmpty()) { "Video content is empty" }
+        require(bytes.size <= MAX_AGENT_VIDEO_BYTES) { "Video data is too large: ${bytes.size}" }
         val mime = mimeType.takeIf(::isVideoMime) ?: "video/mp4"
         return AgentModelClient.ModelImage(
             reference = "data:$mime;base64,${Base64.encodeToString(bytes, Base64.NO_WRAP)}",
@@ -267,7 +267,7 @@ internal object AgentVideoCodec {
         }
         try {
             val output = ByteArrayOutputStream()
-            check(scaled.compress(Bitmap.CompressFormat.JPEG, 80, output)) { "视频封面编码失败" }
+            check(scaled.compress(Bitmap.CompressFormat.JPEG, 80, output)) { "Failed to encode the video cover image" }
             val bytes = output.toByteArray()
             return AgentImageCodec.fromBytes(bytes, source, "image/jpeg")
         } finally {

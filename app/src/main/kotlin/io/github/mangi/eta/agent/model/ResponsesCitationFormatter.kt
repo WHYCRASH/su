@@ -24,10 +24,10 @@ internal object ResponsesCitationFormatter {
         }
         val invalid = unique.filterNot(valid.map { it.value }.toSet()::contains)
         if (invalid.isNotEmpty()) {
-            result.append("\n\n来源：")
+            result.append("\n\nSource:")
             invalid.forEachIndexed { index, citation ->
                 val number = unique.indexOf(citation) + 1
-                val label = citation.title.ifBlank { "来源 ${index + 1}" }
+                val label = citation.title.ifBlank { "Source ${index + 1}" }
                 result.append("\n- [$number] [$label](<${citation.url.escapeAngleUrl()}>)")
             }
         }

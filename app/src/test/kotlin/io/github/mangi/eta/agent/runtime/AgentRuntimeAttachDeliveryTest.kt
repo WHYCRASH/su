@@ -39,9 +39,9 @@ class AgentRuntimeAttachDeliveryTest {
         val responses = mutableListOf<Boolean>()
         val delivery = AgentRuntimeAttachDelivery(
             onReplay = replayBatches::add,
-            onEvent = { error("没有实时事件") },
+            onEvent = { error("No live events expected") },
             onAttachResponse = responses::add,
-            onResult = { error("没有终态") },
+            onResult = { error("No terminal state expected") },
         )
 
         delivery.attachResponse(true)
@@ -55,10 +55,10 @@ class AgentRuntimeAttachDeliveryTest {
     fun rejectedAttachDiscardsHistoryAndClosesDelivery() {
         val responses = mutableListOf<Boolean>()
         val delivery = AgentRuntimeAttachDelivery(
-            onReplay = { error("拒绝订阅不能发布历史") },
-            onEvent = { error("拒绝订阅不能发布实时事件") },
+            onReplay = { error("Rejected subscription must not publish history") },
+            onEvent = { error("Rejected subscription must not publish live events") },
             onAttachResponse = responses::add,
-            onResult = { error("拒绝订阅不能发布终态") },
+            onResult = { error("Rejected subscription must not publish terminal state") },
         )
         delivery.event(round(1))
 
@@ -80,8 +80,8 @@ class AgentRuntimeAttachDeliveryTest {
                 replayBatches += it
                 deliveries += "replay"
             },
-            onEvent = { error("所有事件均在终态之前回放") },
-            onAttachResponse = { error("终态后的确认不能再次开放订阅") },
+            onEvent = { error("All events are replayed before the terminal state") },
+            onAttachResponse = { error("Confirmation after the terminal state must not reopen the subscription") },
             onResult = { deliveries += "result" },
         )
         delivery.event(round(1))
@@ -119,7 +119,7 @@ class AgentRuntimeAttachDeliveryTest {
         val deliveries = mutableListOf<String>()
         val delivery = AgentRuntimeAttachDelivery(
             onEvent = { deliveries += "event" },
-            onAttachResponse = { error("结果到达前没有确认") },
+            onAttachResponse = { error("No confirmation before the result arrives") },
             onResult = { deliveries += "result" },
         )
         delivery.event(round(1))
@@ -135,6 +135,6 @@ class AgentRuntimeAttachDeliveryTest {
     private fun result() = AgentRuntimeWire.RunResult(
         runId = "run-attach",
         ok = true,
-        content = "完成",
+        content = "Done",
     )
 }

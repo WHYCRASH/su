@@ -54,7 +54,7 @@ internal sealed interface DebianInstallResult {
     data class Failed(val stage: DebianInstallStage, val code: String? = null, val message: String? = null) : DebianInstallResult
 }
 
-/** 下载固定版本的 Debian glibc rootfs；Android 内核、挂载和会话仍由 Eta 复用。 */
+/** Download a pinned version of the Debian glibc rootfs; the Android kernel, mounts, and session are still reused by Eta. */
 internal class DebianEnvironmentInstaller(
     private val context: Context,
     httpClient: OkHttpClient = VerifiedArtifactDownloader.defaultHttpClient(),
@@ -127,9 +127,9 @@ internal class DebianEnvironmentInstaller(
         } catch (failure: RootlessInstallFailure) {
             return@withContext DebianInstallResult.Failed(DebianInstallStage.EXTRACTING, failure.code, failure.message)
         } catch (_: java.io.IOException) {
-            return@withContext DebianInstallResult.Failed(DebianInstallStage.EXTRACTING, "INSTALL_IO_FAILED", "安装文件无法读写，请检查内部存储空间并重试")
+            return@withContext DebianInstallResult.Failed(DebianInstallStage.EXTRACTING, "INSTALL_IO_FAILED", "Unable to read or write installation files. Check internal storage space and try again.")
         } catch (_: IllegalArgumentException) {
-            return@withContext DebianInstallResult.Failed(DebianInstallStage.EXTRACTING, "INVALID_ARCHIVE", "环境归档无效或包含不安全路径，请重新下载后重试")
+            return@withContext DebianInstallResult.Failed(DebianInstallStage.EXTRACTING, "INVALID_ARCHIVE", "The environment archive is invalid or contains unsafe paths. Download it again and retry.")
         } finally {
             archive.delete()
         }
@@ -314,7 +314,7 @@ internal class DebianEnvironmentInstaller(
             "xz-utils", "zip", "zstd", "fd-find",
         )
 
-        /** 真机链路只保留一个国内镜像和官方源，避免慢镜像串行拖长安装。 */
+        /** For the real-device path, keep only one domestic mirror and the official source to avoid slow mirrors being tried serially and dragging out installation. */
         internal val APT_MIRRORS = listOf(
             DebianAptMirror(
                 id = "tuna",
@@ -328,7 +328,7 @@ internal class DebianEnvironmentInstaller(
             ),
         )
 
-        /** 逐个尝试镜像并把成功者写回 sources.list，后续 apt 操作复用它。 */
+        /** Try mirrors one by one and write the successful one back to sources.list; subsequent apt operations reuse it. */
         internal fun aptMirrorScript(): String = "#!/bin/sh\n${aptMirrorScriptBody()}"
 
         private fun aptMirrorScriptBody(): String = buildString {

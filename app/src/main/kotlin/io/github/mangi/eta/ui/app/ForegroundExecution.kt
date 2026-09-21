@@ -8,7 +8,7 @@ import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
-/** 可见入口先取得前台执行资格，再开始准备或安装；停止通知会取消同一任务。 */
+/** Visible entries acquire foreground-execution eligibility before preparing or installing; the stop notification cancels the same task. */
 internal fun CoroutineScope.launchForegroundExecution(
     context: Context,
     onUnavailable: () -> Unit,

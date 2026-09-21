@@ -60,8 +60,9 @@ internal fun AgentMemoryScreen(
                 .horizontalCutoutPadding()
                 .padding(top = paddingValues.calculateTopPadding()),
         ) {
-            // 状态区与编辑器滚动分离。weight fill=false：内容少时只占自身高度，避免中部空档；
-            // 空间不足（键盘弹出、横屏）时压缩为可滚动区域，编辑器保持完整可见
+            // The status area scrolls separately from the editor. weight fill=false: short content
+            // takes only its own height to avoid a middle gap; when space is tight (keyboard open,
+            // landscape) it shrinks into a scrollable region while the editor stays fully visible
             LazyColumn(
                 modifier = Modifier
                     .weight(1f, fill = false)

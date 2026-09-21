@@ -473,5 +473,5 @@ internal object AgentConversationStore {
     private const val TYPE_TOOL_SUMMARY = "tool_summary"
     private const val TYPE_CONTEXT_COMPACTED = "context_compacted"
     private const val MESSAGE_LOAD_PAGE_SIZE = 128
-    private const val LEGACY_UNNAMED_TITLE = "新对话"
+    private const val LEGACY_UNNAMED_TITLE = "New conversation"
 }

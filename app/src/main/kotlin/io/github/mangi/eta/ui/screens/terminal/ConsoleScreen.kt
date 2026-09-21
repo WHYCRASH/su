@@ -75,7 +75,7 @@ import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
-/** 终端入口：块式终端为本体；PTY 可用时状态栏提供控制台模式切换。 */
+/** Terminal entry: the block-style terminal is the body; the status bar offers a console-mode switch when PTY is available. */
 @Composable
 internal fun TerminalEntryScreen(
     terminalStore: UserTerminalStore,
@@ -109,8 +109,8 @@ internal fun TerminalEntryScreen(
 }
 
 /**
- * 控制台：PTY 全屏视图，面向 TUI 与交互式 CLI。
- * 网格渲染按行复用（Line.id + version）；软键盘经隐藏输入框捕获，特殊键由键条补齐。
+ * Console: full-screen PTY view for TUI and interactive CLIs.
+ * Grid rendering reuses rows (Line.id + version); the soft keyboard is captured via a hidden input field, and the key bar covers special keys.
  */
 @Composable
 internal fun ConsoleScreen(
@@ -443,7 +443,7 @@ private fun ConsoleLine(
     )
 }
 
-/** 网格行 → AnnotatedString：连续同样式单元格合并为一个 span；光标格反色。 */
+/** Grid row → AnnotatedString: consecutive same-style cells merge into one span; the cursor cell is inverted. */
 private fun lineToAnnotated(
     line: TerminalScreenBuffer.Line,
     cursorCol: Int?,
@@ -577,10 +577,10 @@ private fun measureCell(textMeasurer: TextMeasurer, style: TextStyle): Pair<Int,
     return result.size.width to result.size.height
 }
 
-/** 提取新插入的文本；非追加式变化（输入法重组）返回空，由调用方维持现状。 */
+/** Extract newly inserted text; non-append changes (IME recomposition) return empty and the caller keeps the status quo. */
 private fun diffInserted(old: String, new: String): String =
     if (new.length > old.length && new.startsWith(old)) new.substring(old.length) else ""
 
-/** 提取删除的字符数（仅末尾删除）。 */
+/** Count deleted characters (trailing deletes only). */
 private fun diffDeleted(old: String, new: String): Int =
     if (new.length < old.length && old.startsWith(new)) old.length - new.length else 0

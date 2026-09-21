@@ -1,48 +1,48 @@
-# 上下文压缩正确性修复（待 CI 验证）
+# Context compression correctness fixes (pending CI verification)
 
-工作区基线：`b3d839b7381f1a28ae4d45a298f90113aa33a9f4`。
-参考：此前已核对的 deepseek-ai/deepseek-harness `0d1f50007f9bca3f52b06e1c3074fa14d5fb0720`。
-本文件是本次修复记录，不是发布说明；未编译、未运行 Kotlin 单测、未交付 APK。
+Working-tree baseline: `b3d839b7381f1a28ae4d45a298f90113aa33a9f4`.
+Reference: the previously reviewed deepseek-ai/deepseek-harness `0d1f50007f9bca3f52b06e1c3074fa14d5fb0720`.
+This file is a fix record for this round, not release notes; nothing compiled, no Kotlin unit tests run, no APK delivered.
 
-## 修复范围
+## Fix scope
 
-- 摘要函数改为只读变换，不再隐式修剪整个历史。调用方先选出允许改变的前缀，再修剪、重取快照和选区。保留区不变的外层校验继续存在。
-- 运行中普通压力、手动请求和超限恢复共用选区函数；空闲 UI 使用同一函数。统一按主模型窗口 16% 的 token 估算保留尾部，回退到完整工具配对边界；确认超限或本地历史短于尾部预算时保留最新完整单元。策略选项和整轮保护分支已删除。
-- 请求前压力检查不再跳过第一轮。运行中修剪成功后重新估算，压力已经解除时不必再调用摘要模型。
-- 同模型请求的 DTO 与原始 JSON 从同一个修剪后快照构建；摘要入口验证两者对应，发现旧回放时在请求前失败。原始 JSON 上的提供方专有字段仍直接保留，不通过 DTO 重建回放。
-- 外层取消与摘要专用控制器绑定；UI `runInterruptible` 的线程中断也转发给网络资源。成功、异常和格式修复路径共用取消/超时处理，结束时解除绑定。取消优先于普通网络错误与摘要验收。
-- UI 不再吞掉取消并返回修剪结果。仅修剪与生成新摘要使用不同标记和提示；摘要异常显示归一化结束原因（例如 `OUTPUT_LIMIT`），仍拒绝截断输出。
-- UI 修剪的存档状态仅标 `ready`，不在候选结果尚未提交前声称 `committed`。没有新增跨数据库/存档的事务保证。
+- The summarize function is now a read-only transform and no longer implicitly trims the whole history. Callers first select the prefix that may change, then trim, re-snapshot, and re-select. The outer check that the protected region is unchanged remains.
+- In-flight normal pressure, manual requests, and over-limit recovery share one selection function; the idle UI uses the same function. The tail is uniformly kept at 16% of the main-model window's token estimate, falling back to whole tool-pairing boundaries; on confirmed over-limit or when local history is shorter than the tail budget, the newest whole unit is kept. The strategy options and whole-round protection branches are deleted.
+- The pre-request pressure check no longer skips the first round. After successful in-flight trimming the pressure is re-estimated; if it has cleared, the summary model is not called again.
+- Same-model request DTOs and raw JSON are built from the same trimmed snapshot; the summary entry point verifies they correspond and fails before the request on finding a stale replay. Provider-specific fields on the raw JSON are still preserved directly, not replayed through DTO reconstruction.
+- Outer cancellation is bound to the dedicated summary controller; the UI `runInterruptible` thread interrupt is also forwarded to network resources. Success, exception, and format-repair paths share cancellation/timeout handling and unbind at the end. Cancellation takes priority over ordinary network errors and summary acceptance.
+- The UI no longer swallows cancellation and returns a trim result. Trim-only and new-summary generation use different markers and prompts; summary exceptions display a normalized end reason (e.g. `OUTPUT_LIMIT`) while truncated output is still rejected.
+- UI-side trimming archives with status `ready` only and does not claim `committed` before the candidate result is committed. No new cross-database/archive transaction guarantees.
 
-## 回归用例
+## Regression cases
 
-新增 16 个用例，分布于：
+16 new cases, spread across:
 
-- `AgentCompactionPruningTest`：长保留尾部不变、摘要函数无修剪副作用、修剪后回放、旧回放拒绝、空选区不落档。
-- `AgentSummaryPipelineTest`：取消传到活动资源、结束后解绑、UI 线程中断、格式修复取消、输出截断原因。
-- `AgentCompressionStrategyTest`：空闲/活动单轮共用 token 保留区、超限不拆并行工具批次、第一请求前压力压缩、同一 run 的手动连续压缩。
-- `AgentContextCompactionUiTest`：修剪不伪装成新摘要、UI 历史滞后时识别 Runtime 修剪事件。
+- `AgentCompactionPruningTest`: long protected tail unchanged, summarize function has no trim side effects, post-trim replay, stale-replay rejection, empty selection archives nothing.
+- `AgentSummaryPipelineTest`: cancellation reaches live resources, unbind at end, UI thread interrupt, format-repair cancellation, truncation cause.
+- `AgentCompressionStrategyTest`: idle/active single-round shared token protected region, over-limit never splits parallel tool batches, first-request pressure compression, consecutive manual compressions in one run.
+- `AgentContextCompactionUiTest`: trimming never masquerades as a new summary, Runtime trim events recognized when UI history lags.
 
-调整一个旧 Loop 用例的压力输入：由 8-token 假窗口改为 100k 窗口及 95k 请求账单，继续验证工具批次完成后、下一次请求前压缩。
+One old Loop case's pressure input adjusted: from a fake 8-token window to a 100k window with 95k of request billing, still verifying compression before the next request after a tool batch completes.
 
-## 已做和未做的验证
+## Verification done and not done
 
-- 已做：`git diff --check`、变更资源 XML 的解析和重复资源名检查、新增测试计数及调用点审阅。
-- 未做：Kotlin/Android 编译、`testDebugUnitTest`、实机长会话/取消回归。测试存在不代表已经通过。
-- 未修改版本号、构建工作流或持久会话数据。提交前尚未触发 Actions；用户现已授权提交、推送并触发工作流，不改版本号。
-- 按用户授权走 GitHub Actions，并以单测和构建均成功作为交付条件；实际结果以对应运行记录为准。
+- Done: `git diff --check`, parsing and duplicate-resource-name checks on changed resource XML, new-test counts, and call-site review.
+- Not done: Kotlin/Android compilation, `testDebugUnitTest`, real-device long-conversation/cancellation regression. Tests existing does not mean tests passing.
+- Version number, build workflow, and persisted conversation data untouched. Actions had not been triggered before commit; the user has now authorized commit, push, and workflow runs with no version-number change.
+- Per user authorization, GitHub Actions is the path, with passing unit tests and builds as the delivery condition; actual results are whatever the corresponding run records show.
 
-## 仍保留的限制
+## Remaining limitations
 
-本次没有实现上游的完整事件日志事务、图片卸载、存档备份/导入及精确 tokenizer；也未放宽敏感工具结果的存档限制。16% 的窗口保留使用 Eta 现有 token 估算，并非服务商精确计价。历史日志中的非正常结束仅能证明摘要验收失败，不能据此保证增大输出上限就能解决；本次没有通过接收半截摘要掩盖该失败。
+This round does not implement upstream's full event-log transactions, image offloading, archive backup/import, or exact tokenizers; nor does it relax the archive restriction on sensitive tool results. The 16% window retention uses su's existing token estimate, not exact provider pricing. Abnormal endings in historical logs only prove summary acceptance failed; they do not guarantee that raising the output cap would fix it; this round does not mask that failure by accepting a half-received summary.
 
-## 实机 OUTPUT_LIMIT 后续修复
+## Follow-up real-device OUTPUT_LIMIT fix
 
-`cf1f970` 的 Actions 运行 `35152181469` 单测、Release 构建和上传均成功。随后实机日志显示 62 条历史、1 块摘要在 `OUTPUT_LIMIT` 结束；单测通过并不等于真实服务商完成了摘要。
+The Actions run `35152181469` for `cf1f970` passed unit tests and the Release build plus upload. Real-device logs then showed 62 history items with a 1-chunk summary ending in `OUTPUT_LIMIT`; passing unit tests does not mean a real provider completed the summary.
 
-- 将最终摘要目标长度与模型硬生成额度分离，常规窗口从 8192 生成额度起步；小窗口按窗口四分之一收紧，最低 1024，最终输入预算检查仍可拒绝过小窗口。
-- 仅收到明确 `OUTPUT_LIMIT` 且无工具调用时，丢弃半截结果，以最多两倍、最高 16384 的额度重试一次；重试额度同时受窗口、实际输入估算及安全余量限制。
-- 重试保持原输入、会话和思考档，不把半截内容注入历史；取消和原有 120 秒总请求期限覆盖重试，最终摘要长度验收不放宽。
-- 新增 7 个用例覆盖成功重试、次数上限、窗口余量、取消、工具调用与内容过滤不重试、最终摘要长度仍受限。
-- 新增请求预算/思考档和重试原因日志，不记录用户正文或凭据。
-- 本机单测尝试停在 Gradle 分发包下载并超时退出，没有执行测试；最终验证仍走 GitHub Actions。版本号不改。
+- The final summary target length is separated from the model's hard generation budget; normal windows start from an 8192 generation budget; small windows tighten to a quarter of the window, floor 1024, and the final input-budget check can still reject undersized windows.
+- Only on an explicit `OUTPUT_LIMIT` with no tool calls, the truncated result is discarded and retried once at up to double the budget, capped at 16384; the retry budget is also limited by window, actual input estimate, and safety margin.
+- Retries keep the original input, conversation, and thinking tier; truncated content is never injected into history; cancellation and the existing 120-second total request deadline cover the retry, and final summary-length acceptance is not relaxed.
+- 7 new cases cover successful retry, attempt cap, window margin, cancellation, and no-retry on tool calls and content filtering, with final summary length still bounded.
+- New request-budget/thinking-tier and retry-reason logging; no user body text or credentials logged.
+- The local unit-test attempt stalled on the Gradle distribution download and timed out without running tests; final verification still goes through GitHub Actions. Version number unchanged.

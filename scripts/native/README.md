@@ -1,7 +1,7 @@
-# 终端原生组件补丁
+# Terminal native component patches
 
-`proot-bionic-headers.patch` 补齐 Android NDK 编译所需的标准库声明，按 PRoot 的 GPL-2.0-or-later 许可证提供。
+`proot-bionic-headers.patch` fills in the standard library declarations the Android NDK build needs, provided under PRoot's GPL-2.0-or-later license.
 
-`shmem-app-temp.patch` 将共享内存键的临时文件放入调用方提供的 `PROOT_TMP_DIR`，校验路径长度，并在文件系统拒绝创建时返回错误，按 libandroid-shmem 的 BSD-3-Clause 许可证提供。
+`shmem-app-temp.patch` places the shared-memory key temp files under the caller-provided `PROOT_TMP_DIR`, validates the path length, and returns an error when the filesystem refuses creation, provided under libandroid-shmem's BSD-3-Clause license.
 
-补丁只应用到构建副本。固定下载源码与 SHA-256 保存在上一级构建脚本中；源码缓存与编译产物放在 `.analysis/`。构建脚本采用 GPL-3.0-or-later，不改变 Eta 应用及独立 PTY 程序的许可证。
+Patches apply only to the build copy. Pinned download sources and SHA-256 hashes live in the parent build script; source caches and build outputs go under `.analysis/`. The build script uses GPL-3.0-or-later and does not change the license of the su app or the standalone PTY program.

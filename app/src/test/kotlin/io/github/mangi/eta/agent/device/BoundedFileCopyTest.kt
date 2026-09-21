@@ -17,7 +17,7 @@ class BoundedFileCopyTest {
         val bounded = ByteArrayOutputStream()
         try {
             BoundedFileCopy.copy(ByteArrayInputStream(content), bounded, 8_193L)
-            throw AssertionError("超限文件必须被拒绝")
+            throw AssertionError("Oversized files must be rejected")
         } catch (_: BoundedFileCopy.TooLargeException) {
             assertTrue(bounded.size() <= 8_193)
         }

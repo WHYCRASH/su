@@ -1,0 +1,1 @@
+# Voice removal inventory (io.github.mangi.eta) - READ-ONLY, every claim file:line

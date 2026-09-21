@@ -3,9 +3,9 @@ package io.github.mangi.eta.agent.browser
 import org.json.JSONObject
 
 /**
- * Agent 浏览器注入页面的读取与交互脚本。
+ * Script injected into the page by the Agent browser for reading and interaction.
  *
- * DOM 遍历保留节点、时间、字段和输出上限，避免网页规模导致 Binder 或模型上下文溢出。
+ * DOM traversal preserves node, time, field, and output limits to keep page size from overflowing Binder or the model context.
  */
 internal object BrowserDomScripts {
     fun wrap(body: String): String =
@@ -298,7 +298,7 @@ internal object BrowserDomScripts {
             }
             if (tag === 'img') {
               var alt = cleanInline(node.getAttribute('alt'), 200);
-              if (alt) emit(state, '[图片：' + markdownEscape(alt) + ']');
+              if (alt) emit(state, '[Image: ' + markdownEscape(alt) + ']');
               return;
             }
             if (tag === 'ul' || tag === 'ol') {

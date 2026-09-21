@@ -101,7 +101,7 @@ internal object ProviderReasoning {
             return
         }
         require(effort != ReasoningEffort.MINIMAL) {
-            "Anthropic 不支持 Minimal thinking effort"
+            "Anthropic does not support Minimal thinking effort"
         }
         request.put(
             "thinking",
@@ -131,7 +131,7 @@ internal object ProviderReasoning {
             ReasoningCapabilityResolver.modelIdMatchesPrefix(model, "kimi-k2-6") || ReasoningCapabilityResolver.modelIdMatchesPrefix(model, "kimi-k2-5") ->
                 applyToggleOnlyProvider(
                     request = request,
-                    providerName = "百炼 Kimi",
+                    providerName = "Bailian Kimi",
                     effort = effort,
                     keepAll = ReasoningCapabilityResolver.modelIdMatchesPrefix(model, "kimi-k2-6"),
                 )
@@ -150,7 +150,7 @@ internal object ProviderReasoning {
             return
         }
         val requestedBudget = when (effort) {
-            ReasoningEffort.MINIMAL -> unsupportedEffort("百炼 Qwen", effort)
+            ReasoningEffort.MINIMAL -> unsupportedEffort("Bailian Qwen", effort)
             ReasoningEffort.LOW -> 4_096
             ReasoningEffort.MEDIUM -> 16_384
             ReasoningEffort.HIGH -> 32_768
@@ -312,17 +312,17 @@ internal object ProviderReasoning {
     }
 
     private fun unsupportedEffort(providerName: String, effort: ReasoningEffort): Nothing =
-        throw IllegalArgumentException("$providerName 不支持 ${effort.displayName} thinking effort")
+        throw IllegalArgumentException("$providerName does not support ${effort.displayName} thinking effort")
 
     private fun validatedEffort(config: AgentModelClient.ModelConfig): ReasoningEffort {
         val effort = config.effectiveReasoningEffort
         val capabilities = config.reasoningCapabilities ?: return effort
         require(!capabilities.mandatory || effort != ReasoningEffort.OFF) {
-            "当前模型强制启用推理，不能选择 Off"
+            "The current model forces reasoning on and Off cannot be selected"
         }
         val normalized = capabilities.normalize(effort)
         require(!capabilities.mandatory || normalized != ReasoningEffort.OFF) {
-            "当前模型强制启用推理，不能选择 Off"
+            "The current model forces reasoning on and Off cannot be selected"
         }
         return normalized
     }

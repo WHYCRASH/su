@@ -66,7 +66,7 @@ internal object AssistantRepository {
         if (isReady()) withIndexLock { profiles.value.firstOrNull { it.id == id } } else profile(id)
 
     private fun validateProfiles(profiles: List<AssistantProfile>) {
-        require(profiles.map { io.github.mangi.eta.data.model.AssistantStorage.id(it.id) }.toSet().size == profiles.size) { "助手 ID 重复" }
+        require(profiles.map { io.github.mangi.eta.data.model.AssistantStorage.id(it.id) }.toSet().size == profiles.size) { "Duplicate assistant ID" }
     }
 
     fun systemPrompt(): String {
@@ -87,7 +87,7 @@ internal object AssistantRepository {
 
     @Synchronized
     fun create(
-        name: String = "新助手",
+        name: String = "New assistant",
         prompt: String = "",
         avatarFileName: String? = null,
         memoryEnabled: Boolean = true,
@@ -98,7 +98,7 @@ internal object AssistantRepository {
             val id = UUID.randomUUID().toString()
             val created = AssistantProfile(
                 id = id,
-                name = name.trim().ifBlank { "新助手" },
+                name = name.trim().ifBlank { "New assistant" },
                 prompt = prompt,
                 avatarFileName = avatarFileName,
                 createdAt = System.currentTimeMillis(),
@@ -119,9 +119,9 @@ internal object AssistantRepository {
     @Synchronized
     fun duplicate(id: String): AssistantProfile {
         ensureReady()
-        val source = requireNotNull(currentProfile(id)) { "助手不存在" }
+        val source = requireNotNull(currentProfile(id)) { "Assistant does not exist" }
         val created = create(
-            name = source.name.trim().ifBlank { AssistantPrompt.DEFAULT_NAME } + " 副本",
+            name = source.name.trim().ifBlank { AssistantPrompt.DEFAULT_NAME } + " copy",
             prompt = source.prompt,
             memoryEnabled = source.memoryEnabled,
             enabledSkillIds = source.enabledSkillIds,
@@ -138,7 +138,7 @@ internal object AssistantRepository {
     @Synchronized
     fun enableSkills(skillIds: Collection<String>, assistantId: String = active().id) {
         if (!isReady() || skillIds.isEmpty()) return
-        val current = requireNotNull(currentProfile(assistantId)) { "助手不存在" }
+        val current = requireNotNull(currentProfile(assistantId)) { "Assistant does not exist" }
         val merged = (current.enabledSkillIds + skillIds).distinct()
         if (merged == current.enabledSkillIds) return
         update(current.copy(enabledSkillIds = merged))
@@ -148,7 +148,7 @@ internal object AssistantRepository {
     fun update(profile: AssistantProfile): AssistantProfile {
         val (updated, publishVisible) = withIndexLock {
             ensureReady()
-            require(profiles.value.any { it.id == profile.id }) { "助手不存在" }
+            require(profiles.value.any { it.id == profile.id }) { "Assistant does not exist" }
             val next = profile.copy(name = profile.name.trim().ifBlank { AssistantPrompt.DEFAULT_NAME })
             val snapshot = Snapshot(
                 activeId = activeId.value,
@@ -169,7 +169,7 @@ internal object AssistantRepository {
         val nextActive = withIndexLock {
             ensureReady()
             val remaining = profiles.value.filterNot { it.id == id }
-            require(remaining.isNotEmpty()) { "必须保留至少一个助手" }
+            require(remaining.isNotEmpty()) { "At least one assistant must be kept" }
             val next = if (activeId.value == id) remaining.first().id else activeId.value
             val avatar = avatarFile(profile(id)?.avatarFileName)
             val snapshot = Snapshot(next, remaining)
@@ -212,13 +212,13 @@ internal object AssistantRepository {
         if (!::applicationContext.isInitialized) return emptyMap()
         val dir = avatarsDirectory()
         if (!dir.isDirectory) return emptyMap()
-        require(!java.nio.file.Files.isSymbolicLink(dir.toPath())) { "头像目录不能是符号链接" }
+        require(!java.nio.file.Files.isSymbolicLink(dir.toPath())) { "Avatar directory must not be a symlink" }
         val budget = BackupBlobBudget(maxTotalBytes = 4L * 1024 * 1024, maxFiles = 1_000)
         val result = linkedMapOf<String, ByteArray>()
         java.nio.file.Files.newDirectoryStream(dir.toPath()).use { entries ->
             for (entry in entries) {
                 val file = entry.toFile()
-                require(file.isFile) { "头像目录包含非文件条目" }
+                require(file.isFile) { "Avatar directory contains a non-file entry" }
                 result[file.name] = budget.read(file)
             }
         }
@@ -228,9 +228,9 @@ internal object AssistantRepository {
     fun importAvatars(files: Map<String, ByteArray>) {
         if (!::applicationContext.isInitialized) return
         val dir = avatarsDirectory()
-        require(files.keys.all { it.isNotBlank() && File(it).name == it && !it.contains('\\') }) { "头像文件名无效" }
-        check(dir.mkdirs() || dir.isDirectory) { "无法创建头像目录" }
-        dir.listFiles().orEmpty().forEach { check(it.delete()) { "无法清理旧头像" } }
+        require(files.keys.all { it.isNotBlank() && File(it).name == it && !it.contains('\\') }) { "Invalid avatar file name" }
+        check(dir.mkdirs() || dir.isDirectory) { "Could not create the avatar directory" }
+        dir.listFiles().orEmpty().forEach { check(it.delete()) { "Could not clear old avatars" } }
         files.forEach { (name, bytes) ->
             val safe = File(name).name
             File(dir, safe).writeBytes(bytes)
@@ -241,7 +241,7 @@ internal object AssistantRepository {
     fun select(id: String) {
         val changed = withIndexLock {
             ensureReady()
-            require(profiles.value.any { it.id == id }) { "助手不存在" }
+            require(profiles.value.any { it.id == id }) { "Assistant does not exist" }
             if (activeId.value == id) return@withIndexLock false
             val snapshot = Snapshot(id, profiles.value)
             writeIndex(snapshot)
@@ -269,7 +269,7 @@ internal object AssistantRepository {
     @Synchronized
     fun saveAvatar(id: String, bitmap: Bitmap): AssistantProfile {
         ensureReady()
-        val current = requireNotNull(currentProfile(id)) { "助手不存在" }
+        val current = requireNotNull(currentProfile(id)) { "Assistant does not exist" }
         val fileName = "$id.png"
         val target = File(avatarsDirectory(), fileName)
         val scaled = scaleAvatar(bitmap)
@@ -283,7 +283,7 @@ internal object AssistantRepository {
     @Synchronized
     fun clearAvatar(id: String): AssistantProfile {
         ensureReady()
-        val current = requireNotNull(currentProfile(id)) { "助手不存在" }
+        val current = requireNotNull(currentProfile(id)) { "Assistant does not exist" }
         avatarFile(current.avatarFileName)?.delete()
         return update(current.copy(avatarFileName = null))
     }
@@ -304,6 +304,12 @@ internal object AssistantRepository {
         createdAt = createdAt,
     )
 
+    /**
+     * Names earlier versions shipped for the default profile. They are persisted user data, so the
+     * former Chinese default name is kept as an escaped literal (U+4EE3 U+9C7C) rather than as text.
+     */
+    private val LEGACY_DEFAULT_NAMES = setOf("Eta", "\u4ee3\u9c7c")
+
     private fun migrateDefaultPrompt(snapshot: Snapshot): Snapshot {
         val profiles = snapshot.profiles.map { profile ->
             if (profile.id != AssistantPrompt.DEFAULT_ID) return@map profile
@@ -311,7 +317,7 @@ internal object AssistantRepository {
             if (next.prompt == AssistantPrompt.DEFAULT_BODY) {
                 next = next.copy(prompt = "")
             }
-            if (next.name == "Eta") {
+            if (next.name in LEGACY_DEFAULT_NAMES) {
                 next = next.copy(name = AssistantPrompt.DEFAULT_NAME)
             }
             next
@@ -386,7 +392,7 @@ internal object AssistantRepository {
     }
 
     private fun ensureReady() {
-        check(::applicationContext.isInitialized) { "AssistantRepository 未初始化" }
+        check(::applicationContext.isInitialized) { "AssistantRepository is not initialized" }
         if (profiles.value.isEmpty()) {
             publish(readIndex() ?: seedDefault())
         }

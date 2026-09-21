@@ -3,7 +3,7 @@ package io.github.mangi.eta.ui.app
 import android.os.SystemClock
 
 /**
- * 根页面防误触退出：第一次按返回只记时，[timeoutMs] 内再按一次才允许退出。
+ * Accidental-exit guard for root pages: the first back press only records the time; a second press within [timeoutMs] exits.
  */
 internal class DoublePressExitGuard(
     private val timeoutMs: Long = DEFAULT_TIMEOUT_MS,

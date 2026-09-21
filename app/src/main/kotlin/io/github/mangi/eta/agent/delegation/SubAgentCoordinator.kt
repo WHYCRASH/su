@@ -131,7 +131,7 @@ internal class SubAgentCoordinator(
                 synchronized(task) {
                     check(task.state == "running") { "Task stopped during workspace finalization" }
                     if (task.state == "running") {
-                        task.result = answer.take(16000) + if (answer.length > 16000) "\n[结果已截断]" else ""
+                        task.result = answer.take(16000) + if (answer.length > 16000) "\n[Result truncated]" else ""
                         task.state = "completed"
                     }
                 }
@@ -148,8 +148,8 @@ internal class SubAgentCoordinator(
                             else -> ""
                         }
                         task.result = if (error is SubAgentContextLimitException)
-                            "子代理上下文不足，自动压缩不可用或未能释放足够空间。请拆分任务或调整模型窗口后重新委派；已有工作树改动保留。"
-                        else "子代理未完成，请主代理接手或重新委派。"
+                            "Subagent context is exhausted and auto-compression is unavailable or freed too little space. Split the task or adjust the model window, then delegate again; existing worktree changes are kept."
+                        else "Subagent did not finish; the main agent should take over or delegate again."
                         task.state = "failed"
                     }
                 }

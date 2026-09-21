@@ -13,7 +13,6 @@ import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.voice.tts.SpeechEngineResolver
 import io.github.mangi.eta.agent.voice.tts.ReadAloudVoiceHistory
 import io.github.mangi.eta.agent.voice.tts.SpeechPlayback
-import io.github.mangi.eta.agent.voice.tts.SpeechVoice
 import io.github.mangi.eta.agent.voice.tts.SpeechVoices
 import io.github.mangi.eta.config.Prefs
 import io.github.mangi.eta.data.model.SpeechSynthesisModels
@@ -26,11 +25,6 @@ import top.yukonga.miuix.kmp.preference.SwitchPreference
 
 @Composable
 internal fun TtsSettingsScreen(onBack: () -> Unit) {
-    var personalPage by remember { mutableStateOf(false) }
-    if (personalPage) {
-        PersonalVoicesScreen(onBack = { personalPage = false })
-        return
-    }
     val context = LocalContext.current
     val view = LocalView.current
     var cloud by remember { mutableStateOf(Prefs.getString(Prefs.Keys.AGENT_TTS_MODE) == "cloud") }
@@ -46,24 +40,11 @@ internal fun TtsSettingsScreen(onBack: () -> Unit) {
     val selectedProvider = remember(providers, providerId) { providers.firstOrNull { it.id == providerId } }
     val speechModelId = models.selectedModel?.modelId.orEmpty()
     val engine = remember(selectedProvider, speechModelId) { SpeechEngineResolver.resolve(selectedProvider, speechModelId) }
-    val mimoVoices by io.github.mangi.eta.agent.voice.mimo.MimoPersonalVoices.state.collectAsState()
-    LaunchedEffect(Unit) { runCatching { kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { io.github.mangi.eta.agent.voice.mimo.MimoPersonalVoices.load(context) } } }
-    val personalVoices by io.github.mangi.eta.agent.voice.doubao.PersonalVoices.state.collectAsState()
-    LaunchedEffect(Unit) { io.github.mangi.eta.agent.voice.doubao.PersonalVoices.load(context) }
-    val catalog = remember(engine, speechModelId, personalVoices, mimoVoices, selectedProvider) {
-        SpeechVoices.catalog(engine, speechModelId) + if (engine == io.github.mangi.eta.agent.voice.tts.SpeechEngine.DOUBAO && !io.github.mangi.eta.agent.voice.tts.DoubaoSpeech.usesCreate(speechModelId)) {
-            personalVoices.filter { it.tts && it.accepted && it.account == io.github.mangi.eta.agent.voice.doubao.PersonalVoices.account(selectedProvider?.apiKey.orEmpty()) }
-                .map { SpeechVoice(it.id, it.name, personal = true) }
-        } else if (engine == io.github.mangi.eta.agent.voice.tts.SpeechEngine.MIMO) {
-            mimoVoices.filter { it.providerId == selectedProvider?.id }.map { SpeechVoice(it.id, it.name, personal = true) }
-        } else emptyList()
-    }
+    val catalog = remember(engine, speechModelId) { SpeechVoices.catalog(engine, speechModelId) }
     LaunchedEffect(Unit) { ReadAloudVoiceHistory.rememberCurrent(context) }
     val playback by SpeechPlayback.state.collectAsState()
     val sample = stringResource(R.string.tts_sample)
     LaunchedEffect(cloud, providerId, selectedProvider?.id, engine, modelId, catalog, voice) {
-        // A missing/expired personal voice must not silently become a public voice.
-        if (voice.startsWith("etaClone") || voice.startsWith("S_") || voice.startsWith("mimo-local-")) return@LaunchedEffect
         if (!SpeechVoices.shouldReplaceStoredVoice(
                 cloud = cloud,
                 providerId = providerId,
@@ -74,18 +55,12 @@ internal fun TtsSettingsScreen(onBack: () -> Unit) {
         ) {
             return@LaunchedEffect
         }
-        val fallback = catalog.first().id
+        val fallback = catalog.firstOrNull()?.id ?: return@LaunchedEffect
         voice = fallback
         Prefs.putString(Prefs.Keys.AGENT_TTS_VOICE, fallback)
         ReadAloudVoiceHistory.remember(context, providerId, modelId, fallback)
     }
     MiuixScaffoldPage(title = stringResource(R.string.tts_title), onBack = onBack) {
-        item(key = "my_voices") {
-            Card(Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) {
-                ArrowPreference(title = "我的声音", summary = "导入、制作和试听个人声音",
-                    insideMargin = PaddingValues(16.dp), onClick = { TouchHaptics.click(view); personalPage = true })
-            }
-        }
         item(key = "tts_mode") {
             Card(Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) {
                 SwitchPreference(

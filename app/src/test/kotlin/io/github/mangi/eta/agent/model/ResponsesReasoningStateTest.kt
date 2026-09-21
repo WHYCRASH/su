@@ -13,13 +13,13 @@ class ResponsesReasoningStateTest {
         model = "deepseek-v4.1-flash", systemPrompt = "test",
         openAiEndpointMode = OpenAiEndpointMode.RESPONSES, reasoningEffort = ReasoningEffort.HIGH,
     )
-    private fun assistant() = JSONObject().put("role", "assistant").put("content", "先查一下").put(
+    private fun assistant() = JSONObject().put("role", "assistant").put("content", "let me look into this").put(
         "tool_calls", JSONArray().put(JSONObject().put("id", "call_1").put("type", "function").put(
             "function", JSONObject().put("name", "test").put("arguments", "{\"secret\":\"private-argument\"}"),
         )),
     )
     private fun reasoning() = JSONObject().put("type", "reasoning").put("id", "rs_1").put(
-        "content", JSONArray().put(JSONObject().put("type", "reasoning_text").put("text", "真实推理")),
+        "content", JSONArray().put(JSONObject().put("type", "reasoning_text").put("text", "genuine reasoning")),
     )
     private fun saved(message: JSONObject): JSONObject {
         val dto = AgentConversationCodec.durableMessage(message)
@@ -77,13 +77,13 @@ class ResponsesReasoningStateTest {
     }
 
     @Test fun oldToolHistoryBecomesEvidenceNotFakeThinkingOrExecutableCalls() {
-        val message = assistant().put("reasoning_content", "可能只是旧摘要")
+        val message = assistant().put("reasoning_content", "probably just an old summary")
         val result = input(JSONArray().put(message).put(
             JSONObject().put("role", "tool").put("tool_call_id", "call_1").put("content", "STOPPED_OUTCOME_UNKNOWN"),
         ))
         assertEquals(2, result.length())
         for (i in 0 until result.length()) assertEquals("message", result.getJSONObject(i).getString("type"))
-        assertTrue(result.getJSONObject(0).getString("content").contains("不要自动重放"))
+        assertTrue(result.getJSONObject(0).getString("content").contains("do not replay automatically"))
         assertTrue(result.getJSONObject(1).getString("content").contains("STOPPED_OUTCOME_UNKNOWN"))
         assertFalse(result.toString().contains("reasoning_text"))
         assertEquals("function_call", input(JSONArray().put(message), config.copy(model = "other"))
@@ -108,7 +108,7 @@ class ResponsesReasoningStateTest {
         ).single()
         val result = input(JSONArray().put(AgentConversationCodec.toJsonObject(redacted)))
         assertFalse(result.toString().contains("private-argument"))
-        assertTrue(result.toString().contains("真实推理"))
+        assertTrue(result.toString().contains("genuine reasoning"))
         assertTrue(result.getJSONObject(2).getString("arguments").contains("redacted"))
     }
 

@@ -219,7 +219,7 @@ class AgentCompressionBoundaryTest {
             compactionArchive = AgentCompactionArchive(temporary.root, "same-run"),
             compactHistory = { history, _ ->
                 summaries++
-                assertTrue(history[2].content.contains("[Eta tool output pruned;"))
+                assertTrue(history[2].content.contains(AgentContextCompactor.TOOL_PRUNED_PREFIX))
                 assertEquals(tail, history.last().content)
                 val cut = AgentCompressionBoundary.selectStart(history, 20_000)
                 assertEquals(3, cut)
@@ -292,7 +292,7 @@ class AgentCompressionBoundaryTest {
             onEvent = {
                 if (it is AgentEvent.ContextCompacted) {
                     assertFalse(it.reason, it.blocked)
-                    assertFalse(it.reason.contains("不允许持久化"))
+                    assertFalse(it.reason.contains("Persistence is not allowed"))
                 }
                 events += it
             },

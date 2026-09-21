@@ -19,7 +19,7 @@ internal data class VerifiedArtifact(
     val url: String,
     val sha256: String,
     val sizeBytes: Long,
-    /** 在官方地址前尝试的镜像；镜像只改变传输路径，完整大小和摘要校验仍以制品清单为准。 */
+    /** Mirrors to try before the official address; mirrors only change the transport path, while the full size and digest verification still follow the artifact manifest. */
     val preferredUrls: List<String> = emptyList(),
     val fallbackUrls: List<String> = emptyList(),
 )

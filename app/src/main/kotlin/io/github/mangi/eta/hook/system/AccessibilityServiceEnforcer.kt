@@ -22,10 +22,10 @@ import io.github.mangi.eta.core.safeLogType
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * 在 system_server 存活期间按用户选择保持 Eta 无障碍服务可用。
+ * Keeps the su accessibility service available per user choice while system_server is alive.
  *
- * 保护默认关闭；开启后只维护 owner 用户中的 Eta 组件与总开关，始终保留其他服务。
- * 所有工作复用 Android 的 BackgroundThread，不创建额外线程，也不做周期轮询。
+ * Protection is off by default; when enabled it only maintains the su component and the master switch for the owner user, always leaving other services alone.
+ * All work reuses Android's BackgroundThread; no extra threads and no periodic polling.
  */
 internal class AccessibilityServiceEnforcer(
     private val handler: Handler,
@@ -136,7 +136,7 @@ internal class AccessibilityServiceEnforcer(
                 )
                 controlSettingObserverRegistered = true
             } catch (failure: RuntimeException) {
-                logFailure("无法监听无障碍保护开关", failure)
+                logFailure("Cannot watch the accessibility protection switch", failure)
             }
         }
 
@@ -157,7 +157,7 @@ internal class AccessibilityServiceEnforcer(
                 )
                 controlReceiverRegistered = true
             } catch (failure: RuntimeException) {
-                logFailure("无法注册无障碍保护控制入口", failure)
+                logFailure("Cannot register the accessibility protection control entry", failure)
             }
         }
     }
@@ -180,7 +180,7 @@ internal class AccessibilityServiceEnforcer(
                 resolver.registerContentObserver(uri, false, observer)
                 activeSettingUris += uri
             } catch (failure: RuntimeException) {
-                logFailure("无法监听无障碍设置", failure)
+                logFailure("Cannot watch accessibility settings", failure)
             }
         }
 
@@ -207,7 +207,7 @@ internal class AccessibilityServiceEnforcer(
                 )
                 packageReceiverRegistered = true
             } catch (failure: RuntimeException) {
-                logFailure("无法监听 Eta 包变化", failure)
+                logFailure("Cannot watch su package changes", failure)
             }
         }
 
@@ -233,7 +233,7 @@ internal class AccessibilityServiceEnforcer(
                         addAction(Intent.ACTION_LOCKED_BOOT_COMPLETED)
                         addAction(Intent.ACTION_BOOT_COMPLETED)
                         addAction(Intent.ACTION_USER_UNLOCKED)
-                        // 回到解锁态时确认一次真实连接，稳定期间不轮询。
+                        // Verify the real connection once when back to the unlocked state; no polling while stable.
                         addAction(Intent.ACTION_USER_PRESENT)
                     },
                     null,
@@ -242,7 +242,7 @@ internal class AccessibilityServiceEnforcer(
                 )
                 lifecycleReceiverRegistered = true
             } catch (failure: RuntimeException) {
-                logFailure("无法监听 owner 用户生命周期", failure)
+                logFailure("Cannot watch the owner user lifecycle", failure)
             }
         }
     }
@@ -253,7 +253,7 @@ internal class AccessibilityServiceEnforcer(
                 activeSettingsObserver?.let(context.contentResolver::unregisterContentObserver)
                 activeSettingUris.clear()
             } catch (failure: RuntimeException) {
-                logFailure("无法停止监听无障碍设置", failure)
+                logFailure("Cannot stop watching accessibility settings", failure)
             }
         }
         if (packageReceiverRegistered) {
@@ -261,7 +261,7 @@ internal class AccessibilityServiceEnforcer(
                 packageReceiver?.let(context::unregisterReceiver)
                 packageReceiverRegistered = false
             } catch (failure: RuntimeException) {
-                logFailure("无法注销 Eta 包监听", failure)
+                logFailure("Cannot unregister the su package listener", failure)
             }
         }
         if (lifecycleReceiverRegistered) {
@@ -269,7 +269,7 @@ internal class AccessibilityServiceEnforcer(
                 lifecycleReceiver?.let(context::unregisterReceiver)
                 lifecycleReceiverRegistered = false
             } catch (failure: RuntimeException) {
-                logFailure("无法注销 owner 生命周期监听", failure)
+                logFailure("Cannot unregister the owner lifecycle listener", failure)
             }
         }
     }
@@ -303,7 +303,7 @@ internal class AccessibilityServiceEnforcer(
                         )
                         actualEnabled = isEnforcementEnabled(receiverContext)
                     } catch (failure: RuntimeException) {
-                        logFailure("无障碍保护控制请求失败", failure)
+                        logFailure("Accessibility protection control request failed", failure)
                     }
                     completeControlRequest(
                         pendingResult = pendingResult,
@@ -362,7 +362,7 @@ internal class AccessibilityServiceEnforcer(
 
         restoreBackoff.reset()
         reconcile(context, "user_control")
-        logger.info("无障碍保护开关已设置为 $requestedEnabled")
+        logger.info("Accessibility protection switch set to $requestedEnabled")
         return AccessibilityProtectionProtocol.RESULT_APPLIED
     }
 
@@ -377,7 +377,7 @@ internal class AccessibilityServiceEnforcer(
                     restoreMissingImmediately = true,
                 )
             } catch (failure: RuntimeException) {
-                logFailure("Runtime 请求的无障碍恢复失败", failure)
+                logFailure("Runtime-requested accessibility recovery failed", failure)
             }
         }
         if (!posted) {
@@ -399,7 +399,7 @@ internal class AccessibilityServiceEnforcer(
                 },
             )
         } catch (failure: RuntimeException) {
-            logFailure("无法返回无障碍保护控制结果", failure)
+            logFailure("Cannot return the accessibility protection control result", failure)
         } finally {
             pendingResult.finish()
         }
@@ -420,7 +420,7 @@ internal class AccessibilityServiceEnforcer(
             }
         ) {
             registrationRetryScheduled.set(false)
-            logFailure("无法调度无障碍监听注册重试")
+            logFailure("Cannot schedule the accessibility listener registration retry")
         }
     }
 
@@ -436,12 +436,12 @@ internal class AccessibilityServiceEnforcer(
                 try {
                     verifyServiceConnection(context, reason)
                 } catch (failure: RuntimeException) {
-                    logFailure("无障碍连接检查失败", failure)
+                    logFailure("Accessibility connection check failed", failure)
                 }
             }
         ) {
             healthCheckScheduled.set(false)
-            logFailure("无法调度无障碍连接检查")
+            logFailure("Cannot schedule the accessibility connection check")
         }
     }
 
@@ -464,8 +464,8 @@ internal class AccessibilityServiceEnforcer(
         )
         if (!containsAccessibilityService(currentServices, SERVICE_COMPONENT.flattenToString())) {
             if (restoreMissingImmediately) {
-                // GUI 工具已经在等待本次恢复，不能被此前排队的 30 秒设置退避拖到超时。
-                // 这里只响应经过协议版本与 UID 校验的显式请求；常规设置争抢仍遵守退避。
+                // The GUI tool is already waiting on this recovery; it must not be pushed past its timeout by the queued 30-second settings backoff.
+                // Only explicit requests validated by protocol version and UID are served here; regular settings races still honor the backoff.
                 enforce(context, "runtime_recovery_missing_service")
                 if (isExpectedServiceConfigured(context)) {
                     scheduleHealthCheck(
@@ -485,13 +485,13 @@ internal class AccessibilityServiceEnforcer(
             AccessibilityConnectionStatus.DISCONNECTED -> {
                 val attempt = repairLimiter.nextAttempt(SystemClock.elapsedRealtime())
                 if (attempt == null) {
-                    logFailure("无障碍服务连续重绑失败，已进入冷却")
+                    logFailure("Accessibility service rebind kept failing; cooling down")
                 } else {
                     beginServiceRepair(context, attempt, reason)
                 }
             }
             AccessibilityConnectionStatus.UNKNOWN ->
-                logFailure("无法确认无障碍服务连接状态")
+                logFailure("Cannot confirm the accessibility service connection state")
         }
     }
 
@@ -504,7 +504,7 @@ internal class AccessibilityServiceEnforcer(
                 AccessibilityProtectionProtocol.request(),
             )
         } catch (failure: RuntimeException) {
-            logFailure("无障碍健康检查 Provider 调用失败", failure)
+            logFailure("Accessibility health-check provider call failed", failure)
             return AccessibilityConnectionStatus.UNKNOWN
         }
         return accessibilityConnectionStatus(
@@ -537,12 +537,12 @@ internal class AccessibilityServiceEnforcer(
             )
         ) {
             repairInProgress.set(false)
-            logFailure("无法临时关闭 Eta 无障碍服务")
+            logFailure("Cannot temporarily disable the su accessibility service")
             return
         }
 
         logger.info(
-            "开始重绑无障碍服务: reason=$reason attempt=${attempt.number}",
+            "Rebinding accessibility service: reason=$reason attempt=${attempt.number}",
         )
         if (
             !post(attempt.disabledDurationMs) {
@@ -550,7 +550,7 @@ internal class AccessibilityServiceEnforcer(
             }
         ) {
             repairInProgress.set(false)
-            logFailure("无法调度 Eta 无障碍服务重启")
+            logFailure("Cannot schedule the su accessibility service restart")
             schedule(context, "repair_schedule_failed", delayMs = 0L)
         }
     }
@@ -564,7 +564,7 @@ internal class AccessibilityServiceEnforcer(
                 enforce(context, "repair_${attempt.number}")
             }
         } catch (failure: RuntimeException) {
-            logFailure("无法重新启用 Eta 无障碍服务", failure)
+            logFailure("Cannot re-enable the su accessibility service", failure)
         } finally {
             repairInProgress.set(false)
         }
@@ -590,7 +590,7 @@ internal class AccessibilityServiceEnforcer(
             try {
                 reconcile(context, reason)
             } catch (failure: RuntimeException) {
-                logFailure("无障碍保护校验失败", failure)
+                logFailure("Accessibility protection check failed", failure)
             } finally {
                 workScheduled.set(false)
                 if (rerunRequested.get()) schedule(context, "late_change")
@@ -598,7 +598,7 @@ internal class AccessibilityServiceEnforcer(
         }
         if (!posted) {
             workScheduled.set(false)
-            logFailure("无法调度无障碍保护校验")
+            logFailure("Cannot schedule the accessibility protection check")
         }
         return posted
     }
@@ -616,7 +616,7 @@ internal class AccessibilityServiceEnforcer(
                 mergedServices,
             )
             if (!restoredServices) {
-                logFailure("无法恢复无障碍服务列表")
+                logFailure("Cannot restore the accessibility service list")
             }
         }
         val serviceIsEnabled = mergedServices == null || restoredServices
@@ -634,7 +634,7 @@ internal class AccessibilityServiceEnforcer(
                 ENABLED,
             )
             if (!restoredMasterSwitch) {
-                logFailure("无法恢复无障碍总开关")
+                logFailure("Cannot restore the accessibility master switch")
             }
         }
         if (restoredServices || restoredMasterSwitch) {
@@ -659,7 +659,7 @@ internal class AccessibilityServiceEnforcer(
     private fun isOwnerUnlocked(context: Context): Boolean = try {
         context.getSystemService(UserManager::class.java)?.isUserUnlocked == true
     } catch (failure: RuntimeException) {
-        logFailure("无法读取 owner 用户状态", failure)
+        logFailure("Cannot read the owner user state", failure)
         false
     }
 
@@ -684,7 +684,7 @@ internal class AccessibilityServiceEnforcer(
     }
 
     /**
-     * Settings 没有公开 CAS；缺失时再读一次最新快照，尽量不覆盖同时启用的其他服务。
+     * Settings exposes no CAS; re-read the latest snapshot when missing so concurrently enabled services are not clobbered.
      */
     private fun mergeLatestAccessibilitySetting(resolver: ContentResolver): String? {
         val initialValue = Settings.Secure.getString(
@@ -740,7 +740,7 @@ internal class AccessibilityServiceEnforcer(
         } catch (_: PackageManager.NameNotFoundException) {
             return false
         } catch (failure: RuntimeException) {
-            logFailure("无法校验 Eta 无障碍服务组件", failure)
+            logFailure("Cannot validate the su accessibility service component", failure)
             return false
         }
         return isAccessibilityProtectionServiceValid(serviceInfo, SERVICE_COMPONENT)
@@ -761,7 +761,7 @@ internal class AccessibilityServiceEnforcer(
         } catch (_: PackageManager.NameNotFoundException) {
             return false
         } catch (failure: RuntimeException) {
-            logFailure("无法校验无障碍保护控制调用方", failure)
+            logFailure("Cannot validate the accessibility protection control caller", failure)
             return false
         }
         return applicationInfo.enabled &&
@@ -782,7 +782,7 @@ internal class AccessibilityServiceEnforcer(
             handler.postDelayed(block, delayMs)
         } catch (failure: RuntimeException) {
             logger.warnThrottled("accessibility_handler_rejected", LOG_INTERVAL_MS) {
-                "无障碍保护后台 Handler 拒绝任务: type=${failure.safeLogType()}"
+                "Accessibility protection background handler rejected task: type=${failure.safeLogType()}"
             }
             false
         }
@@ -806,7 +806,7 @@ internal class AccessibilityServiceEnforcer(
         if (lastRestoreLogAt != 0L && now - lastRestoreLogAt < LOG_INTERVAL_MS) return
         lastRestoreLogAt = now
         logger.info(
-            "已恢复 Eta 无障碍: reason=$reason " +
+            "Restored su accessibility: reason=$reason " +
                 "serviceList=$restoredServices masterSwitch=$restoredMasterSwitch",
         )
     }
@@ -862,7 +862,7 @@ internal data class AccessibilityRepairAttempt(
 )
 
 /**
- * 连续失败时最多尝试三轮，再冷却一分钟，避免服务持续崩溃时形成无限拉起循环。
+ * After consecutive failures, try at most three rounds, then cool down for one minute, so a constantly crashing service cannot cause an endless restart loop.
  */
 internal class AccessibilityRepairLimiter(
     disabledDurationsMs: LongArray = longArrayOf(500L, 1_000L, 2_000L),
@@ -906,7 +906,7 @@ internal class AccessibilityRepairLimiter(
 }
 
 /**
- * OEM 持续反删设置时逐步退避到 30 秒；稳定一分钟后恢复快速响应。
+ * Back off gradually to 30 seconds while the OEM keeps reverting the setting; resume fast response after one stable minute.
  */
 internal class AccessibilityRestoreBackoff(
     delaysMs: LongArray = longArrayOf(300L, 1_000L, 5_000L, 30_000L),

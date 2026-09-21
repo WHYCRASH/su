@@ -53,7 +53,7 @@ internal fun TtsModelPickerDialog(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         RadioButton(selected = state.selectedModel == null, onClick = null)
-                        Text("无", modifier = Modifier.weight(1f).padding(start = 12.dp))
+                        Text("None", modifier = Modifier.weight(1f).padding(start = 12.dp))
                     }
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 }
@@ -71,7 +71,7 @@ internal fun TtsModelPickerDialog(
                     ) {
                         Text(group.providerName, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
                         Icon(if (isExpanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
-                            contentDescription = if (isExpanded) "收起" else "展开")
+                            contentDescription = if (isExpanded) "Collapse" else "Expand")
                     }
                     if (isExpanded) Column(Modifier.selectableGroup()) {
                         group.models.forEach { model ->

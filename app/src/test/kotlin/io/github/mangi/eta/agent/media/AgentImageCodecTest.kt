@@ -36,8 +36,8 @@ class AgentImageCodecTest {
         val bitmap = patternedBitmap(width = 1_440, height = 3_200)
         try {
             val image = AgentImageCodec.fromScreenBitmap(bitmap, source = "screen")
-            val width = image.width ?: error("缺少图片宽度")
-            val height = image.height ?: error("缺少图片高度")
+            val width = image.width ?: error("Missing image width")
+            val height = image.height ?: error("Missing image height")
 
             assertEquals("image/jpeg", image.mimeType)
             assertTrue(image.reference.startsWith("data:image/jpeg;base64,"))
@@ -57,8 +57,8 @@ class AgentImageCodecTest {
                 bitmap,
                 source = "screen_context",
             )
-            val width = image.width ?: error("缺少图片宽度")
-            val height = image.height ?: error("缺少图片高度")
+            val width = image.width ?: error("Missing image width")
+            val height = image.height ?: error("Missing image height")
 
             assertEquals("image/jpeg", image.mimeType)
             assertTrue(image.reference.startsWith("data:image/jpeg;base64,"))
@@ -79,8 +79,8 @@ class AgentImageCodecTest {
         }
         try {
             val image = AgentImageCodec.fromScreenBytes(png, source = "screen")
-            val width = image.width ?: error("缺少图片宽度")
-            val height = image.height ?: error("缺少图片高度")
+            val width = image.width ?: error("Missing image width")
+            val height = image.height ?: error("Missing image height")
             assertEquals("image/jpeg", image.mimeType)
             assertTrue(maxOf(width, height) <= 1_600)
             assertTrue(image.bytes < png.size)
@@ -104,8 +104,8 @@ class AgentImageCodecTest {
             source = "user_attach",
             mimeHint = "image/jpeg",
         )
-        val width = image.width ?: error("缺少图片宽度")
-        val height = image.height ?: error("缺少图片高度")
+        val width = image.width ?: error("Missing image width")
+        val height = image.height ?: error("Missing image height")
 
         assertEquals("image/jpeg", image.mimeType)
         assertEquals(2_400, width)
@@ -147,9 +147,9 @@ class AgentImageCodecTest {
 
         try {
             val image = AgentImageCodec.fromToolFile(sourceFile, "tool_read_image")
-                ?: error("无法压缩文件工具图片")
-            val width = image.width ?: error("缺少图片宽度")
-            val height = image.height ?: error("缺少图片高度")
+                ?: error("Unable to compress the file tool image")
+            val width = image.width ?: error("Missing image width")
+            val height = image.height ?: error("Missing image height")
 
             assertEquals("image/jpeg", image.mimeType)
             assertTrue(maxOf(width, height) <= 1_600)
@@ -175,9 +175,9 @@ class AgentImageCodecTest {
                 context = context,
                 value = sourceFile.absolutePath,
                 source = "user_attach",
-            ) ?: error("无法读取测试图片")
+            ) ?: error("Unable to read test image")
             val preview = AgentImageCodec.previewFromReference(context, source)
-                ?: error("无法生成测试预览")
+                ?: error("Unable to generate test preview")
 
             assertEquals(sourceFile.absolutePath, source.reference)
             assertEquals("image/jpeg", preview.mimeType)
@@ -202,11 +202,11 @@ class AgentImageCodecTest {
             context = context,
             value = sourceFile.absolutePath,
             source = "user_attach",
-        ) ?: error("无法读取测试图片")
+        ) ?: error("Unable to read test image")
         assertTrue(sourceFile.delete())
 
         val preview = AgentImageCodec.previewFromReference(context, attachment)
-            ?: error("无法从已读取的附件生成预览")
+            ?: error("Unable to generate preview from the loaded attachment")
 
         assertEquals("image/jpeg", preview.mimeType)
         assertTrue(maxOf(preview.width!!, preview.height!!) <= 512)
@@ -235,7 +235,7 @@ class AgentImageCodecTest {
                 context = context,
                 value = uri.toString(),
                 source = "user_attach",
-            ) ?: error("无法通过 typed asset 读取测试图片")
+            ) ?: error("Unable to read test image via typed asset")
 
             assertEquals("image/jpeg", image.mimeType)
             assertEquals(873, image.width)

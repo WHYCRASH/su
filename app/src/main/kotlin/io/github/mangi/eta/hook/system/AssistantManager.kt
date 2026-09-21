@@ -31,7 +31,7 @@ internal object AssistantManager {
     private const val SHOW_SOURCE_PUSH_TO_TALK = 1 shl 5
     private const val DEFAULT_SHOW_FLAGS = SHOW_SOURCE_PUSH_TO_TALK
     private const val CONFIG_VERIFY_COOLDOWN_MS = 15_000L
-    // Android 37 RoleControllerManager 自身超时为 15 秒；本地 watchdog 只能晚于它做最终状态核验。
+    // Android 37's RoleControllerManager times out on its own after 15s; the local watchdog may only verify final state after it.
     private const val ROLE_OPERATION_WATCHDOG_MS = 17_000L
     private const val REFRESH_COOLDOWN_MS = 5_000L
 
@@ -96,7 +96,7 @@ internal object AssistantManager {
         val logger = hooks.logger
         preferenceLogger = logger
         if (!Prefs.registerRemoteListener(preferenceListener)) {
-            logger.warn("AssistantManager: RemotePreferences 不可用，无法监听助理选择变化")
+            logger.warn("AssistantManager: RemotePreferences unavailable, cannot watch assistant selection changes")
         }
         return hooks.install {
             val serviceClass = HookSupport.findClassOrNull(
@@ -110,13 +110,13 @@ internal object AssistantManager {
                 hooks.skipped(
                     id = "system.assistant-boot-phase",
                     description = "VoiceInteractionManagerService.onBootPhase",
-                    detail = "未找到 VoiceInteractionManagerService，跳过 onBootPhase Hook"
+                    detail = "VoiceInteractionManagerService not found, skipping onBootPhase Hook"
                 )
             } else if (onBootPhaseMethod == null) {
                 hooks.missing(
                     id = "system.assistant-boot-phase",
                     description = "VoiceInteractionManagerService.onBootPhase",
-                    detail = "未找到 VoiceInteractionManagerService.onBootPhase(int)"
+                    detail = "VoiceInteractionManagerService.onBootPhase(int) not found"
                 )
             } else {
                 hooks.intercept(
@@ -133,7 +133,7 @@ internal object AssistantManager {
                         val context = HookSupport.getFieldValue(service, "mContext") as? Context
                         if (context == null) {
                             logger.warnThrottled("assistant_boot_missing_context") {
-                                "AssistantManager: boot completed 时无法取得 mContext"
+                                "AssistantManager: could not get mContext at boot completed"
                             }
                         } else {
                             schedulePreferenceSelection(
@@ -182,7 +182,7 @@ internal object AssistantManager {
                 logger,
                 "${source}_${target.persistedValue}_not_active",
                 logFailures,
-            ) { "$source: ${binding.displayName} 尚未成为当前用户的默认助理" }
+            ) { "$source: ${binding.displayName} is not the current user's default assistant yet" }
             return false
         }
         val service = resolveVoiceInteractionService(logger, source, logFailures) ?: return false
@@ -201,7 +201,7 @@ internal object AssistantManager {
                 return runCatching {
                     launchFromKeyguardMethod.invoke(service)
                     logger.debug {
-                        "$source: 已通过 voiceinteraction 从锁屏启动 ${binding.displayName}"
+                        "$source: started ${binding.displayName} from keyguard via voiceinteraction"
                     }
                     true
                 }.getOrElse { throwable ->
@@ -210,7 +210,7 @@ internal object AssistantManager {
                         "${source}_launch_keyguard_failed",
                         logFailures
                     ) {
-                        "$source: launchVoiceAssistFromKeyguard 失败，type=${throwable.safeLogType()}"
+                        "$source: launchVoiceAssistFromKeyguard failed, type=${throwable.safeLogType()}"
                     }
                     false
                 }
@@ -225,7 +225,7 @@ internal object AssistantManager {
                 logger,
                 "${source}_voice_service_missing_show",
                 logFailures
-            ) { "$source: voiceinteraction 缺少 showSessionForActiveService" }
+            ) { "$source: voiceinteraction is missing showSessionForActiveService" }
             return false
         }
 
@@ -244,7 +244,7 @@ internal object AssistantManager {
                 "${source}_voice_service_failed",
                 logFailures
             ) {
-                "$source: 调用 showSessionForActiveService 失败，type=${throwable.safeLogType()}"
+                "$source: showSessionForActiveService call failed, type=${throwable.safeLogType()}"
             }
         }.getOrDefault(false).also { shown ->
             if (!shown) {
@@ -252,7 +252,7 @@ internal object AssistantManager {
                     logger,
                     "${source}_voice_service_returned_false",
                     logFailures
-                ) { "$source: showSessionForActiveService 返回 false" }
+                ) { "$source: showSessionForActiveService returned false" }
             }
         }
     }
@@ -273,7 +273,7 @@ internal object AssistantManager {
                 logger,
                 "assistant_stub_missing",
                 logFailures
-            ) { "AssistantManager: mServiceStub 尚未就绪，无法重建 voice interaction 实现" }
+            ) { "AssistantManager: mServiceStub not ready yet, cannot rebuild voice interaction implementation" }
             return false
         }
         val initForUserMethod = stub.javaClass.methods.firstOrNull {
@@ -287,7 +287,7 @@ internal object AssistantManager {
                 logger,
                 "assistant_stub_methods_missing",
                 logFailures
-            ) { "AssistantManager: mServiceStub 缺少 initForUser/switchImplementationIfNeeded" }
+            ) { "AssistantManager: mServiceStub is missing initForUser/switchImplementationIfNeeded" }
             return false
         }
 
@@ -301,7 +301,7 @@ internal object AssistantManager {
                 "assistant_stub_rebuild_failed",
                 logFailures
             ) {
-                "AssistantManager: 重建 voice interaction 实现失败，type=${throwable.safeLogType()}"
+                "AssistantManager: failed to rebuild voice interaction implementation, type=${throwable.safeLogType()}"
             }
             false
         }
@@ -317,7 +317,7 @@ internal object AssistantManager {
                 logger,
                 "${source}_hotword_stub_missing",
                 logFailures
-            ) { "$source: mServiceStub 尚未就绪，无法恢复软件热词检测" }
+            ) { "$source: mServiceStub not ready yet, cannot restore software hotword detection" }
             return false
         }
 
@@ -352,7 +352,7 @@ internal object AssistantManager {
                 logger,
                 "${source}_hotword_resume_failed",
                 logFailures
-            ) { "$source: 恢复软件热词检测失败，type=${throwable.safeLogType()}" }
+            ) { "$source: failed to restore software hotword detection, type=${throwable.safeLogType()}" }
             false
         }
     }
@@ -366,7 +366,7 @@ internal object AssistantManager {
         rebuildWhenVerified: Boolean,
     ): Boolean = handler.post {
         try {
-            // 请求入队后目标或开关可能变化，真正执行前必须重新读取 RemotePreferences。
+            // The target or switches may change after the request is queued; re-read RemotePreferences right before running.
             val target = Prefs.powerAssistantTarget()
             if (!shouldConfigureAssistant(
                     autoConfigEnabled = Prefs.isEnabled(Prefs.Keys.ASSISTANT_AUTO_CONFIG),
@@ -390,7 +390,7 @@ internal object AssistantManager {
             logger.errorThrottled(
                 key = "assistant_configuration_task_failed",
                 throwable = exception
-            ) { "AssistantManager: 默认助理后台任务异常" }
+            ) { "AssistantManager: default-assistant background task crashed" }
         }
     }
 
@@ -486,7 +486,7 @@ internal object AssistantManager {
         } catch (exception: Exception) {
             finishConfiguration(configurationKey)
             logger.warnThrottled("assistant_oem_restoration_failed") {
-                "AssistantManager: 恢复系统默认助理失败，type=${exception.safeLogType()}"
+                "AssistantManager: failed to restore the system default assistant, type=${exception.safeLogType()}"
             }
         }
     }
@@ -509,7 +509,7 @@ internal object AssistantManager {
                 hasManagedAssistantSettings(context, userId)
             ) {
                 logger.warnThrottled("assistant_oem_restoration_incomplete") {
-                    "AssistantManager: ColorOS 原生助理恢复后仍存在托管绑定"
+                    "AssistantManager: managed binding still present after restoring the stock assistant"
                 }
                 return
             }
@@ -519,7 +519,7 @@ internal object AssistantManager {
                 force = roleChanged,
                 logFailures = false,
             )
-            logger.debug { "AssistantManager: 已恢复 ColorOS 原生助理选择" }
+            logger.debug { "AssistantManager: restored stock assistant selection" }
         } finally {
             finishConfiguration(configurationKey)
         }
@@ -536,7 +536,7 @@ internal object AssistantManager {
     ) {
         val configurationKey = ConfigurationKey(userId, binding.target)
         if (!beginConfiguration(configurationKey)) {
-            logger.debug { "AssistantManager: 已有校正任务，跳过重复请求" }
+            logger.debug { "AssistantManager: correction task already running, skipping duplicate request" }
             return
         }
 
@@ -598,7 +598,7 @@ internal object AssistantManager {
                 lastForcedRefreshUptime = now
                 lastForcedRefreshTarget = binding.target
                 lastForcedRefreshUserId = userId
-                // 先做一次无等待重建，角色核验完成后仍会按最终状态再次确认。
+                // Rebuild once without waiting; the final state is confirmed again after role verification completes.
                 rebuildVoiceInteractionImplementation(
                     logger = logger,
                     userId = userId,
@@ -635,7 +635,7 @@ internal object AssistantManager {
         } catch (exception: Exception) {
             finishConfiguration(configurationKey)
             logger.warnThrottled("assistant_configuration_start_failed") {
-                "AssistantManager: 启动默认助理校正失败，type=${exception.safeLogType()}"
+                "AssistantManager: failed to start default-assistant correction, type=${exception.safeLogType()}"
             }
         }
     }
@@ -652,7 +652,7 @@ internal object AssistantManager {
     ) {
         val configurationKey = ConfigurationKey(userId, binding.target)
         try {
-            // RoleManager 请求无法取消；回调到达时必须确认目标和开关仍与入队时一致。
+            // RoleManager requests cannot be cancelled; on callback arrival the target and switches must still match the queued ones.
             val autoConfigEnabled = Prefs.isEnabled(Prefs.Keys.ASSISTANT_AUTO_CONFIG)
             val currentTarget = Prefs.powerAssistantTarget()
             if (!isAssistantConfigurationCurrent(
@@ -724,16 +724,16 @@ internal object AssistantManager {
                 )
                 logger.debug {
                     if (forceRefresh) {
-                        "AssistantManager: 已刷新 ${binding.displayName} 默认助理绑定"
+                        "AssistantManager: refreshed ${binding.displayName} default-assistant binding"
                     } else {
-                        "AssistantManager: 已校正 ${binding.displayName} 默认助理绑定"
+                        "AssistantManager: corrected ${binding.displayName} default-assistant binding"
                     }
                 }
             }
         } catch (exception: Exception) {
             invalidateVerificationCache()
             logger.warnThrottled("assistant_configuration_complete_failed") {
-                "AssistantManager: 完成默认助理校正失败，type=${exception.safeLogType()}"
+                "AssistantManager: failed to finish default-assistant correction, type=${exception.safeLogType()}"
             }
         } finally {
             finishConfiguration(configurationKey)
@@ -755,7 +755,7 @@ internal object AssistantManager {
                 logger,
                 "${source}_voice_service_missing",
                 logFailures
-            ) { "$source: 无法取得 voiceinteraction binder" }
+            ) { "$source: could not get voiceinteraction binder" }
             return null
         }
 
@@ -769,7 +769,7 @@ internal object AssistantManager {
                 "${source}_voice_service_as_interface_failed",
                 logFailures
             ) {
-                "$source: 解析 IVoiceInteractionManagerService 失败，type=${throwable.safeLogType()}"
+                "$source: failed to resolve IVoiceInteractionManagerService, type=${throwable.safeLogType()}"
             }
             null
         }
@@ -843,7 +843,7 @@ internal object AssistantManager {
             it.name == methodName && it.parameterTypes.size == baseArgs.size + 2
         } ?: run {
             logger.warnThrottled("assistant_role_method_$methodName") {
-                "AssistantManager: RoleManager 缺少 $methodName"
+                "AssistantManager: RoleManager is missing $methodName"
             }
             onFinished(false)
             return
@@ -862,20 +862,20 @@ internal object AssistantManager {
                     logger.errorThrottled(
                         key = "assistant_role_completion_${methodName}_$userId",
                         throwable = exception
-                    ) { "AssistantManager: $methodName 完成回调异常" }
+                    ) { "AssistantManager: $methodName completion callback crashed" }
                 }
             }
         }
         timeout = Runnable {
             logger.warnThrottled("assistant_role_timeout_${methodName}_$userId") {
-                "AssistantManager: $methodName 回调超过框架超时，核验最终角色状态"
+                "AssistantManager: $methodName callback passed the framework timeout, verifying final role state"
             }
             complete(roleMutationReachedTarget(context, userId, configurationKey.target))
         }
         val executor = Executor { runnable ->
             if (!handler.post(runnable)) {
                 logger.warnThrottled("assistant_role_callback_rejected_${methodName}_$userId") {
-                    "AssistantManager: $methodName 回调无法投递到系统 Handler"
+                    "AssistantManager: $methodName callback could not be posted to the system Handler"
                 }
                 runnable.run()
             }
@@ -892,13 +892,13 @@ internal object AssistantManager {
             method.invoke(roleManager, *args)
             if (!handler.postDelayed(timeout, ROLE_OPERATION_WATCHDOG_MS)) {
                 logger.warnThrottled("assistant_role_timeout_rejected_${methodName}_$userId") {
-                    "AssistantManager: $methodName 超时兜底无法投递到系统 Handler"
+                    "AssistantManager: $methodName timeout fallback could not be posted to the system Handler"
                 }
                 complete(roleMutationReachedTarget(context, userId, configurationKey.target))
             }
         } catch (exception: Exception) {
             logger.warnThrottled("assistant_role_mutation_$methodName") {
-                "AssistantManager: $methodName 失败，type=${exception.safeLogType()}"
+                "AssistantManager: $methodName failed, type=${exception.safeLogType()}"
             }
             complete(false)
         }
@@ -928,7 +928,7 @@ internal object AssistantManager {
             forceRefresh
         ) || changed
         if (changed) {
-            logger.debug { "AssistantManager: 已写入 ${binding.displayName} 助理 secure 配置" }
+            logger.debug { "AssistantManager: wrote ${binding.displayName} assistant secure settings" }
         }
         return changed
     }
@@ -1046,13 +1046,13 @@ internal object AssistantManager {
                 it.name == "of" && it.parameterTypes.contentEquals(arrayOf(Int::class.javaPrimitiveType))
             }
             if (ofMethod != null) {
-                return@runCatching ofMethod.invoke(null, userId) ?: error("UserHandle.of 返回 null")
+                return@runCatching ofMethod.invoke(null, userId) ?: error("UserHandle.of returned null")
             }
             val constructor = userHandleClass.getDeclaredConstructor(Int::class.javaPrimitiveType)
             constructor.isAccessible = true
-            constructor.newInstance(userId) ?: error("UserHandle(int) 返回 null")
+            constructor.newInstance(userId) ?: error("UserHandle(int) returned null")
         }.getOrElse {
-            error("无法构造 user=$userId 的 UserHandle")
+            error("Cannot build UserHandle for user=$userId")
         }
 
     private fun resolveCurrentUserId(): Int =
@@ -1073,7 +1073,7 @@ internal object AssistantManager {
             hooks.skipped(
                 id = "system.assistant-${methodName.removePrefix("on").lowercase()}",
                 description = "VoiceInteractionManagerService.$methodName",
-                detail = "未找到 VoiceInteractionManagerService，跳过 $methodName Hook"
+                detail = "VoiceInteractionManagerService not found, skipping $methodName Hook"
             )
             return
         }
@@ -1084,7 +1084,7 @@ internal object AssistantManager {
             hooks.missing(
                 id = "system.assistant-${methodName.removePrefix("on").lowercase()}",
                 description = "VoiceInteractionManagerService.$methodName",
-                detail = "未找到 VoiceInteractionManagerService.$methodName/$parameterCount"
+                detail = "VoiceInteractionManagerService.$methodName/$parameterCount not found"
             )
             return
         }

@@ -12,7 +12,7 @@ internal class ModuleLogger private constructor(
     constructor(module: XposedModule) : this(module, null, LogThrottle())
 
     fun scoped(childScope: String): ModuleLogger {
-        require(childScope.isNotBlank()) { "日志作用域不能为空" }
+        require(childScope.isNotBlank()) { "Log scope cannot be empty" }
         val combinedScope = scope?.let { "$it/$childScope" } ?: childScope
         return ModuleLogger(module, combinedScope, logThrottle)
     }

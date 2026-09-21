@@ -25,12 +25,12 @@ class AgentChatFinalResultTest {
     @Test
     fun onlyLastAgentMessageOfEachTurnIsFinalResult() {
         val messages = listOf(
-            UserMessageUi(id = "user-1", content = "查一下资料"),
-            AgentMessageUi(id = "agent-1", content = "我来帮你搜索。"),
+            UserMessageUi(id = "user-1", content = "Look up some reference material"),
+            AgentMessageUi(id = "agent-1", content = "I'll search for you."),
             toolActivity("tool-1"),
-            AgentMessageUi(id = "agent-2", content = "从搜索结果可以看到……"),
+            AgentMessageUi(id = "agent-2", content = "The search results show…"),
             toolActivity("tool-2"),
-            AgentMessageUi(id = "agent-3", content = "最终答案"),
+            AgentMessageUi(id = "agent-3", content = "Final answer"),
         )
 
         assertEquals(setOf("agent-3"), resolveFinalResultMessageIds(messages))
@@ -39,12 +39,12 @@ class AgentChatFinalResultTest {
     @Test
     fun multipleTurnsEachHaveTheirOwnFinalResult() {
         val messages = listOf(
-            UserMessageUi(id = "user-1", content = "第一问"),
-            AgentMessageUi(id = "agent-1", content = "第一答"),
-            UserMessageUi(id = "user-2", content = "第二问"),
-            AgentMessageUi(id = "agent-2", content = "中间步骤"),
+            UserMessageUi(id = "user-1", content = "First question"),
+            AgentMessageUi(id = "agent-1", content = "First answer"),
+            UserMessageUi(id = "user-2", content = "Second question"),
+            AgentMessageUi(id = "agent-2", content = "Intermediate step"),
             toolActivity("tool-1"),
-            AgentMessageUi(id = "agent-3", content = "第二答"),
+            AgentMessageUi(id = "agent-3", content = "Second answer"),
         )
 
         assertEquals(setOf("agent-1", "agent-3"), resolveFinalResultMessageIds(messages))
@@ -53,8 +53,8 @@ class AgentChatFinalResultTest {
     @Test
     fun turnInterruptedAfterToolKeepsPreviousAgentMessageAsFinalResult() {
         val messages = listOf(
-            UserMessageUi(id = "user-1", content = "任务"),
-            AgentMessageUi(id = "agent-1", content = "我先试试。"),
+            UserMessageUi(id = "user-1", content = "Task"),
+            AgentMessageUi(id = "agent-1", content = "Let me try it first."),
             toolActivity("tool-1"),
         )
 
@@ -64,7 +64,7 @@ class AgentChatFinalResultTest {
     @Test
     fun turnWithoutAgentMessageProducesNoFinalResult() {
         val messages = listOf(
-            UserMessageUi(id = "user-1", content = "任务"),
+            UserMessageUi(id = "user-1", content = "Task"),
             toolActivity("tool-1"),
         )
 
@@ -74,8 +74,8 @@ class AgentChatFinalResultTest {
     @Test
     fun streamingTurnDoesNotMarkIntermediateMessageAsFinalResult() {
         val messages = listOf(
-            UserMessageUi(id = "user-1", content = "任务"),
-            AgentMessageUi(id = "agent-1", content = "我来帮你搜索。"),
+            UserMessageUi(id = "user-1", content = "Task"),
+            AgentMessageUi(id = "agent-1", content = "I'll search for you."),
             toolActivity("tool-1"),
         )
 
@@ -88,10 +88,10 @@ class AgentChatFinalResultTest {
     @Test
     fun streamingKeepsFinalResultOfCompletedEarlierTurns() {
         val messages = listOf(
-            UserMessageUi(id = "user-1", content = "第一问"),
-            AgentMessageUi(id = "agent-1", content = "第一答"),
-            UserMessageUi(id = "user-2", content = "第二问"),
-            AgentMessageUi(id = "agent-2", content = "中间步骤"),
+            UserMessageUi(id = "user-1", content = "First question"),
+            AgentMessageUi(id = "agent-1", content = "First answer"),
+            UserMessageUi(id = "user-2", content = "Second question"),
+            AgentMessageUi(id = "agent-2", content = "Intermediate step"),
             toolActivity("tool-1"),
         )
 
@@ -104,10 +104,10 @@ class AgentChatFinalResultTest {
     @Test
     fun streamingEndRestoresFinalResultOfLastTurn() {
         val messages = listOf(
-            UserMessageUi(id = "user-1", content = "任务"),
-            AgentMessageUi(id = "agent-1", content = "中间步骤"),
+            UserMessageUi(id = "user-1", content = "Task"),
+            AgentMessageUi(id = "agent-1", content = "Intermediate step"),
             toolActivity("tool-1"),
-            AgentMessageUi(id = "agent-2", content = "最终答案"),
+            AgentMessageUi(id = "agent-2", content = "Final answer"),
         )
 
         assertEquals(
@@ -130,10 +130,10 @@ class AgentChatFinalResultTest {
     @Test
     fun steerSupplementDoesNotCloseTurnWhileContinuing() {
         val messages = listOf(
-            UserMessageUi(id = "user-1", content = "任务"),
-            AgentMessageUi(id = "agent-1", content = "我先做这一步。"),
-            UserMessageUi(id = "user-run-1-supplement-0", content = "再加上这个"),
-            AgentMessageUi(id = "agent-2", content = "继续输出中"),
+            UserMessageUi(id = "user-1", content = "Task"),
+            AgentMessageUi(id = "agent-1", content = "I'll do this step first."),
+            UserMessageUi(id = "user-run-1-supplement-0", content = "Plus this addition"),
+            AgentMessageUi(id = "agent-2", content = "Still generating"),
         )
         assertEquals(
             emptySet<String>(),
@@ -148,11 +148,11 @@ class AgentChatFinalResultTest {
     @Test
     fun steerSupplementKeepsEarlierTurnFinalResult() {
         val messages = listOf(
-            UserMessageUi(id = "user-1", content = "第一问"),
-            AgentMessageUi(id = "agent-1", content = "第一答"),
-            UserMessageUi(id = "user-2", content = "第二问"),
-            AgentMessageUi(id = "agent-2", content = "被打断"),
-            UserMessageUi(id = "user-run-2-supplement-0", content = "补充"),
+            UserMessageUi(id = "user-1", content = "First question"),
+            AgentMessageUi(id = "agent-1", content = "First answer"),
+            UserMessageUi(id = "user-2", content = "Second question"),
+            AgentMessageUi(id = "agent-2", content = "Interrupted"),
+            UserMessageUi(id = "user-run-2-supplement-0", content = "Follow-up"),
         )
         assertEquals(
             setOf("agent-1"),
@@ -167,8 +167,8 @@ class AgentChatFinalResultTest {
     @Test
     fun compressingTurnDoesNotMarkCurrentResult() {
         val messages = listOf(
-            UserMessageUi(id = "user-1", content = "写故事"),
-            AgentMessageUi(id = "agent-1", content = "写到一半"),
+            UserMessageUi(id = "user-1", content = "Write a story"),
+            AgentMessageUi(id = "agent-1", content = "Halfway through"),
         )
         assertEquals(
             emptySet<String>(),
@@ -183,10 +183,10 @@ class AgentChatFinalResultTest {
     @Test
     fun compressingKeepsFinalResultOfCompletedEarlierTurns() {
         val messages = listOf(
-            UserMessageUi(id = "user-1", content = "第一问"),
-            AgentMessageUi(id = "agent-1", content = "第一答"),
-            UserMessageUi(id = "user-2", content = "写故事"),
-            AgentMessageUi(id = "agent-2", content = "写到一半"),
+            UserMessageUi(id = "user-1", content = "First question"),
+            AgentMessageUi(id = "agent-1", content = "First answer"),
+            UserMessageUi(id = "user-2", content = "Write a story"),
+            AgentMessageUi(id = "agent-2", content = "Halfway through"),
         )
         assertEquals(
             setOf("agent-1"),

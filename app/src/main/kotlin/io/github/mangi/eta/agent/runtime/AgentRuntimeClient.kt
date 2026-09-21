@@ -15,10 +15,10 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
 
 /**
- * 入口进程侧的 Runtime 客户端。
+ * Runtime client on the entry-process side.
  *
- * 它只负责把一次 Agent 请求交给模块进程，并把事件/结果带回入口适配层；
- * 不执行模型、不执行工具、不渲染 UI。
+ * It only hands one agent request to the module process and carries events/results back to the entry adapter layer;
+ * it runs no models, no tools, and renders no UI.
  */
 internal class AgentRuntimeClient(
     private val context: Context,
@@ -52,7 +52,7 @@ internal class AgentRuntimeClient(
         onEvent: (AgentEvent) -> Unit,
         isStopRequested: () -> Boolean,
     ): AgentRuntimeWire.RunResult {
-        if (isStopRequested()) return AgentRuntimeWire.RunResult(request.runId, false, "", "已停止")
+        if (isStopRequested()) return AgentRuntimeWire.RunResult(request.runId, false, "", "Stopped")
         val resultLatch = CountDownLatch(1)
         val resultRef = AtomicReference<AgentRuntimeWire.RunResult?>()
         val preparedImagesRef = AtomicReference<AgentRuntimeImageTransfer.PreparedImages?>()
@@ -72,12 +72,12 @@ internal class AgentRuntimeClient(
         )
 
         val lease = AgentRuntimeConnection.acquire(context, logger)
-            ?: return AgentRuntimeWire.RunResult("", false, "", "Agent Runtime 服务绑定失败")
+            ?: return AgentRuntimeWire.RunResult("", false, "", "Failed to bind the Agent Runtime service")
         val serviceMessenger = lease.messenger
         val deathRecipient = IBinder.DeathRecipient {
             if (resultRef.get() == null) {
                 resultRef.set(
-                    AgentRuntimeWire.RunResult("", false, "", "Agent Runtime 服务连接已断开")
+                    AgentRuntimeWire.RunResult("", false, "", "Agent Runtime service connection was lost")
                 )
                 resultLatch.countDown()
             }
@@ -98,9 +98,9 @@ internal class AgentRuntimeClient(
                 cancel.data = AgentRuntimeWire.ackBundle(request.runId)
                 serviceMessenger.send(cancel)
             }
-            // 最终结果或 Binder 断连负责唤醒；正常长任务不因客户端等待时长被取消。
+            // The terminal result or a Binder disconnect wakes the waiter; normal long tasks are not cancelled by client wait time.
             resultLatch.await()
-            return resultRef.get() ?: AgentRuntimeWire.RunResult("", false, "", "Agent Runtime 未返回结果")
+            return resultRef.get() ?: AgentRuntimeWire.RunResult("", false, "", "Agent Runtime returned no result")
         } catch (interrupted: InterruptedException) {
             Thread.currentThread().interrupt()
             runCatching {
@@ -108,7 +108,7 @@ internal class AgentRuntimeClient(
                 cancelMessage.data = AgentRuntimeWire.ackBundle(request.runId)
                 serviceMessenger.send(cancelMessage)
             }
-            return AgentRuntimeWire.RunResult("", false, "", "Agent Runtime 等待被中断")
+            return AgentRuntimeWire.RunResult("", false, "", "Agent Runtime wait was interrupted")
         } catch (throwable: Throwable) {
             logger.warn("Agent runtime start request failed: type=${throwable.safeLogType()}")
             return AgentRuntimeWire.RunResult(
@@ -118,7 +118,7 @@ internal class AgentRuntimeClient(
                 error = when (throwable) {
                     is AgentRuntimeWire.PayloadTooLargeException -> throwable.message
                     is AgentRuntimeImageTransfer.ImageTransferException -> throwable.message
-                    else -> "Agent Runtime 请求发送失败（${throwable.safeLogType()}）"
+                    else -> "Failed to send the Agent Runtime request (${throwable.safeLogType()})"
                 },
             )
         } finally {
@@ -242,7 +242,7 @@ internal class AgentRuntimeClient(
         }
     }
 
-    /** 历史一次性交给 onReplay；未指定时沿用 onEvent。后续新增事件始终交给 onEvent。 */
+    /** History is delivered to onReplay in one batch, falling back to onEvent when unset. Later events always go to onEvent. */
     fun attachRun(
         runId: String,
         onReplay: ((List<AgentEvent>) -> Unit)? = null,
@@ -339,7 +339,7 @@ internal class AgentRuntimeClient(
                             runId = AgentRuntimeWire.runIdFromBundle(data),
                             ok = false,
                             content = "",
-                            error = "Agent Runtime 结果解析失败（${throwable.javaClass.simpleName}）",
+                            error = "Failed to parse the Agent Runtime result (${throwable.javaClass.simpleName})",
                         )
                     }
                     onResult(result)
@@ -396,7 +396,7 @@ internal class AgentRuntimeClient(
                             runId = AgentRuntimeWire.runIdFromBundle(data),
                             ok = false,
                             content = "",
-                            error = "Agent Runtime 结果解析失败（${throwable.javaClass.simpleName}）",
+                            error = "Failed to parse the Agent Runtime result (${throwable.javaClass.simpleName})",
                         )
                     }
                     delivery.result(result)

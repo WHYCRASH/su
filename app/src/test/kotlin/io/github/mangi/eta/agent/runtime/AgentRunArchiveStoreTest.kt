@@ -31,9 +31,9 @@ class AgentRunArchiveStoreTest {
                 id = "run-1",
                 source = "external_test",
                 payload = AgentExternalArchivePayload(
-                    userText = "查一下系统状态",
+                    userText = "Check system status",
                     conversationKey = "session-1",
-                    title = "外部入口",
+                    title = "External entry",
                 ).toJson(),
             ),
             events = listOf(
@@ -42,20 +42,20 @@ class AgentRunArchiveStoreTest {
                     kind = AgentEvent.AssistantBlockKind.THINKING,
                     index = 0,
                     deltaChars = 2,
-                    delta = "先",
+                    delta = "First",
                 ),
                 AgentEvent.AssistantBlockDelta(
                     round = 1,
                     kind = AgentEvent.AssistantBlockKind.THINKING,
                     index = 0,
                     deltaChars = 2,
-                    delta = "看",
+                    delta = "View",
                 ),
                 AgentEvent.ToolStarted(
                     round = 1,
                     toolCallId = "call-1",
                     name = "run_command",
-                    argsPreview = "执行命令 · Android · root",
+                    argsPreview = "Execute command · Android · root",
                     command = "uptime",
                 ),
                 AgentEvent.ToolFinished(
@@ -74,12 +74,12 @@ class AgentRunArchiveStoreTest {
             result = AgentRuntimeWire.RunResult(
                 runId = "run-1",
                 ok = true,
-                content = "系统状态正常",
-                reasoningContent = "先看系统状态",
+                content = "System status is normal",
+                reasoningContent = "Check system status first",
                 transcript = listOf(
                     AgentModelClient.ConversationMessage(
                         role = "assistant",
-                        content = "系统状态正常",
+                        content = "System status is normal",
                     )
                 ),
             ),
@@ -103,7 +103,7 @@ class AgentRunArchiveStoreTest {
                 kind = AgentEvent.AssistantBlockKind.THINKING,
                 index = 0,
                 deltaChars = 4,
-                delta = "先看",
+                delta = "FirstView",
             ),
             restored.events.first()
         )
@@ -121,9 +121,9 @@ class AgentRunArchiveStoreTest {
                     id = "handoff-1",
                     source = "external_test",
                     payload = AgentExternalArchivePayload(
-                        userText = "查一下系统状态",
+                        userText = "Check system status",
                         conversationKey = "session-1",
-                        title = "外部入口",
+                        title = "External entry",
                     ).toJson(),
                 ),
                 events = emptyList(),

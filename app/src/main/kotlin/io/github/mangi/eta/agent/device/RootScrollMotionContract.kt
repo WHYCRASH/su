@@ -2,7 +2,7 @@ package io.github.mangi.eta.agent.device
 
 import kotlin.math.abs
 
-/** 把屏幕节点位移转换成滚动位置位移；内容移动方向与滚动位置方向相反。 */
+/** Convert screen-node displacement into scroll-position displacement; content moves opposite to the scroll position. */
 internal object RootScrollMotionContract {
     fun inferScrollDelta(
         contentAxisDeltas: List<Int>,

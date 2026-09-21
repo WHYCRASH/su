@@ -32,7 +32,7 @@ internal object OpenAiResponsesProvider : AgentProviderClient {
     ): ProviderResponse {
         val config = request.config
         require(config.openAiEndpointMode == OpenAiEndpointMode.RESPONSES) {
-            "当前 Provider 未配置为 Responses API"
+            "Current provider is not configured for the Responses API"
         }
         val body = buildRequestJson(config, request.messages, request.tools, request.sessionId)
             .toString()
@@ -323,15 +323,15 @@ internal object OpenAiResponsesProvider : AgentProviderClient {
                     "response.web_search_call.in_progress",
                     "response.web_search_call.searching" -> {
                         val itemId = event.hostedToolId("web_search")
-                        startHostedTool(itemId, "网页搜索")
+                        startHostedTool(itemId, "Web search")
                     }
                     "response.web_search_call.completed" -> {
                         val itemId = event.hostedToolId("web_search")
-                        finishHostedTool(itemId, "网页搜索", success = true)
+                        finishHostedTool(itemId, "Web search", success = true)
                     }
                     "response.web_search_call.failed" -> {
                         val itemId = event.hostedToolId("web_search")
-                        finishHostedTool(itemId, "网页搜索", success = false)
+                        finishHostedTool(itemId, "Web search", success = false)
                     }
                     "response.completed", "response.incomplete", "response.failed" -> {
                         terminalType = type
@@ -365,13 +365,13 @@ internal object OpenAiResponsesProvider : AgentProviderClient {
             return interruptedAssistantMessage(streamedText.toString(), streamedReasoning.toString())
         }
 
-        if (!sawEvent) throw AgentModelFailure.incompleteStream("模型接口未返回 SSE data chunk")
+        if (!sawEvent) throw AgentModelFailure.incompleteStream("Model API returned no SSE data chunk")
         val recoveredFromStream = terminal == null &&
             (streamedText.isNotBlank() || streamedReasoning.isNotBlank() || toolCalls.isNotEmpty())
         val finalResponse = terminal ?: if (recoveredFromStream) {
             JSONObject()
         } else {
-            throw AgentModelFailure.incompleteStream("模型接口 Responses SSE 流缺少合法终止事件")
+            throw AgentModelFailure.incompleteStream("Model Responses SSE stream is missing a valid terminal event")
         }
         if (terminalType == "response.failed") throwResponseFailure(finalResponse)
         if (recoveredFromStream) terminalType = "response.completed"
@@ -380,8 +380,8 @@ internal object OpenAiResponsesProvider : AgentProviderClient {
         val hasTerminalOutput = terminalOutput != null && terminalOutput.length() > 0
         val output = terminalOutput ?: JSONArray()
         val finalResult = if (recoveredFromStream || (terminalType == "response.completed" && !hasTerminalOutput)) {
-            // 部分兼容接口只流式下发正文，终态 output 为空。这里只恢复本轮已经收到的
-            // 标准增量；不对非空终态做字段级拼补，也不把本地结果冒充为 opaque items。
+            // Some compatible APIs only stream the body text with an empty terminal output. Only recover
+            // the standard increments received in this round; never patch fields onto a non-empty terminal
             finalOutputFromStream(streamedText, streamedReasoning, toolCalls.values)
         } else {
             extractFinalOutput(output)
@@ -486,7 +486,7 @@ internal object OpenAiResponsesProvider : AgentProviderClient {
             }
         }
         hostedTools.filterValues { !it }.forEach { (id, _) ->
-            onEvent(ProviderEvent.HostedToolFinished(id, "网页搜索", success = true))
+            onEvent(ProviderEvent.HostedToolFinished(id, "Web search", success = true))
         }
 
         reportUsage(finalResponse.optJSONObject("usage"))
@@ -686,21 +686,21 @@ internal object OpenAiResponsesProvider : AgentProviderClient {
 
     private fun throwEventError(event: JSONObject) {
         val error = event.optJSONObject("error") ?: return
-        val message = error.optString("message").ifBlank { "未提供错误信息" }.compactError()
+        val message = error.optString("message").ifBlank { "No error message provided" }.compactError()
         val type = error.optString("type").takeIf { it.isNotBlank() }
-        throw AgentModelFailure.stream(error, "模型接口 SSE 返回错误${type?.let { " (type=$it)" }.orEmpty()}：$message")
+        throw AgentModelFailure.stream(error, "Model API SSE returned an error${type?.let { " (type=$it)" }.orEmpty()}: $message")
     }
 
     private fun throwTopLevelEventError(event: JSONObject): Nothing {
-        val message = event.optString("message").ifBlank { "未提供错误信息" }.compactError()
+        val message = event.optString("message").ifBlank { "No error message provided" }.compactError()
         val code = event.optString("code").takeIf { it.isNotBlank() }
-        throw AgentModelFailure.stream(event, "模型接口 SSE 返回错误${code?.let { " (code=$it)" }.orEmpty()}：$message")
+        throw AgentModelFailure.stream(event, "Model API SSE returned an error${code?.let { " (code=$it)" }.orEmpty()}: $message")
     }
 
     private fun throwResponseFailure(response: JSONObject): Nothing {
         val error = response.optJSONObject("error")
-        val message = error?.optString("message").orEmpty().ifBlank { "未提供错误信息" }
-        throw AgentModelFailure.stream(error ?: JSONObject(), "模型接口 Responses 请求失败：${message.compactError()}")
+        val message = error?.optString("message").orEmpty().ifBlank { "No error message provided" }
+        throw AgentModelFailure.stream(error ?: JSONObject(), "Model Responses request failed: ${message.compactError()}")
     }
 
     private fun JSONObject.intValue(vararg keys: String): Int? {
@@ -731,12 +731,12 @@ internal object OpenAiResponsesProvider : AgentProviderClient {
             .ifBlank { "${fallbackPrefix}_${optInt("output_index", 0)}" }
 
     private fun String.hostedToolDisplayName(): String? = when (this) {
-        "web_search_call" -> "网页搜索"
-        "file_search_call" -> "文件搜索"
-        "code_interpreter_call" -> "代码执行"
-        "computer_call" -> "计算机操作"
-        "image_generation_call" -> "图像生成"
-        "mcp_call" -> "MCP 工具"
+        "web_search_call" -> "Web search"
+        "file_search_call" -> "File search"
+        "code_interpreter_call" -> "Code execution"
+        "computer_call" -> "Computer use"
+        "image_generation_call" -> "Image generation"
+        "mcp_call" -> "MCP tool"
         else -> null
     }
 

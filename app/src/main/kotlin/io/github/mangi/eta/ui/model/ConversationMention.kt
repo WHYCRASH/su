@@ -51,7 +51,7 @@ internal object ConversationMention {
             conversation.preview.contains(needle, ignoreCase = true)
     }
 
-    const val OMISSION_MARKER = "\n\n[已截取：中间记录已省略，保留开头与最近记录]\n\n"
+    const val OMISSION_MARKER = "\n\n[Truncated: middle records omitted, keeping the start and recent records]\n\n"
 
     fun transcript(
         messages: List<AgentChatMessageUi>,
@@ -73,7 +73,7 @@ internal object ConversationMention {
         return (joined.take(headBudget) + OMISSION_MARKER + joined.takeLast(tailBudget)).take(maxChars)
     }
 
-    internal const val TOOL_DETAILS_DIRECTORY = "快照缓存/tools"
+    internal const val TOOL_DETAILS_DIRECTORY = "Snapshot cache/tools"
 
     private fun prepareToolDetailsDirectory(filesDir: File, conversationId: String?): File? {
         val token = sanitizeFileToken(conversationId.orEmpty().ifBlank { "conversation" })
@@ -82,7 +82,7 @@ internal object ConversationMention {
     }
 
     internal fun toolActivityDetails(message: ToolActivityMessageUi): String = buildString {
-        append("Evidence: summary only / 仅有摘要；原始参数与结果未在此文件中恢复。\n")
+        append("Evidence: summary only; original arguments and results are not restored in this file.\n")
         message.argumentsSummary.trim().takeIf { it.isNotEmpty() }?.let {
             append("Arguments summary:\n").append(it).append('\n')
         }
@@ -115,7 +115,7 @@ internal object ConversationMention {
         val hasSummary = message.argumentsSummary.isNotBlank() || !message.command.isNullOrBlank() || !message.resultSummary.isNullOrBlank()
         val details = original?.details() ?: if (hasSummary) toolActivityDetails(message) else ""
         if (original != null) append("\nEvidence: stored tool response; tool-side truncation may still apply.")
-        else if (hasSummary) append("\nEvidence: summary only / 仅有摘要（原文缺失、未保存、匹配不唯一或未在有界存档查询中找到）。")
+        else if (hasSummary) append("\nEvidence: summary only (original text missing, unsaved, ambiguous, or not found in the bounded archive query).")
         val detailsFile = if (details.isNotEmpty() && toolDetailsDirectory != null) {
             writeToolDetailsFile(toolDetailsDirectory, message, details)
         } else {
@@ -126,7 +126,7 @@ internal object ConversationMention {
             append("\nBytes: ").append(detailsFile.length())
             append("\nUse read_file(path, offset_bytes=0, max_bytes=16384); advance by returned byte range until EOF. Do not infer completeness from the summary.")
         } else if (details.isNotEmpty()) {
-            if (original != null) append("\n原文文件未能导出；以下仅显示摘要，不包含完整原文。")
+            if (original != null) append("\nThe original text file could not be exported; only the summary is shown below, without the full original.")
             append('\n').append(toolActivityDetails(message))
         }
         if (message.imageCount > 0) {
@@ -168,7 +168,7 @@ internal object ConversationMention {
             if (summary.isEmpty()) "Context compressed (${message.compactedCount} messages)"
             else "Context compressed (${message.compactedCount} messages): $summary"
         }
-        is SystemNoticeMessageUi -> "系统状态：${message.code.name}"
+        is SystemNoticeMessageUi -> "System status: ${message.code.name}"
         is RunTraceMessageUi, is SuggestionChipsMessageUi -> null
     }
     }

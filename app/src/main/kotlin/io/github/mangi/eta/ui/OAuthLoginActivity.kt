@@ -30,7 +30,7 @@ class OAuthLoginActivity : Activity() {
         current = WeakReference(this)
         val url = intent.getStringExtra(EXTRA_URL).orEmpty()
         if (url.isBlank()) {
-            fail(IllegalStateException("缺少登录地址"))
+            fail(IllegalStateException("Missing login address"))
             return
         }
 
@@ -163,7 +163,7 @@ class OAuthLoginActivity : Activity() {
             title: String? = null,
         ) {
             pending?.let { old ->
-                if (old.isActive) old.completeExceptionally(IllegalStateException("已取消登录"))
+                if (old.isActive) old.completeExceptionally(IllegalStateException("Login canceled"))
             }
             pending = deferred
             val intent = Intent(context, OAuthLoginActivity::class.java).apply {

@@ -60,7 +60,7 @@ class AgentToolCatalogTest {
         assertEquals("string", properties.getJSONObject("url").getString("type"))
         assertEquals("boolean", properties.getJSONObject("submit").getString("type"))
         assertFalse(properties.getJSONObject("url").getString("description").contains("HTTPS"))
-        assertFalse(function.getString("description").contains("拦截"))
+        assertFalse(function.getString("description").contains("intercept"))
         val actions = properties.getJSONObject("action").getJSONArray("enum").let { array ->
             (0 until array.length()).map { array.getString(it) }.toSet()
         }
@@ -82,9 +82,9 @@ class AgentToolCatalogTest {
 
             assertEquals("string", properties.getJSONObject("observation_id").getString("type"))
             assertTrue("observation_id must be required for $name", "observation_id" in parameters.requiredNames())
-            assertTrue(function.getString("description").contains("同一次"))
+            assertTrue(function.getString("description").contains("same latest observe_screen"))
             assertTrue(function.getString("description").contains("observe_screen"))
-            assertTrue(function.getString("description").contains("重新观察"))
+            assertTrue(function.getString("description").contains("re-observe first"))
         }
     }
 
@@ -101,10 +101,10 @@ class AgentToolCatalogTest {
         assertEquals(60, properties.getJSONObject("max_nodes").getInt("default"))
         assertEquals(1, properties.getJSONObject("max_nodes").getInt("minimum"))
         assertEquals(120, properties.getJSONObject("max_nodes").getInt("maximum"))
-        assertTrue(function.getString("description").contains("默认只返回"))
+        assertTrue(function.getString("description").contains("By default returns only"))
         assertTrue(function.getString("description").contains("include_screenshot=true"))
-        assertTrue(function.getString("description").contains("保持 include_ui_tree=true"))
-        assertTrue(function.getString("description").contains("禁止把新截图与旧节点混用"))
+        assertTrue(function.getString("description").contains("keep include_ui_tree=true"))
+        assertTrue(function.getString("description").contains("never mix a new screenshot"))
     }
 
     @Test
@@ -122,8 +122,8 @@ class AgentToolCatalogTest {
                 .stringValues()
 
             assertEquals(expectedDirections, directions)
-            assertTrue(function.getString("description").contains("down 显示下方内容"))
-            assertTrue(function.getString("description").contains("up 显示上方内容"))
+            assertTrue(function.getString("description").contains("down reveals content below"))
+            assertTrue(function.getString("description").contains("up reveals content above"))
         }
     }
 
@@ -138,8 +138,8 @@ class AgentToolCatalogTest {
 
             assertEquals("string", properties.getJSONObject("observation_id").getString("type"))
             assertFalse("observation_id remains optional when $name targets focus", "observation_id" in parameters.requiredNames())
-            assertTrue(function.getString("description").contains("index 与 observation_id"))
-            assertTrue(properties.getJSONObject("index").getString("description").contains("同时传入"))
+            assertTrue(function.getString("description").contains("index and observation_id"))
+            assertTrue(properties.getJSONObject("index").getString("description").contains("must also be passed"))
         }
 
         val inputText = tools.function("input_text")

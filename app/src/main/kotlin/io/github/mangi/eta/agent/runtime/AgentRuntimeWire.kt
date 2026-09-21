@@ -19,71 +19,71 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
 /**
- * AgentRuntime 跨进程通信协议。
+ * AgentRuntime cross-process communication protocol.
  *
- * 入口进程通过 bind + Messenger 与模块自身进程的 [AgentRuntimeService] 通信：
- * 发送一次运行请求，接收事件流和最终结果。
+ * The entry process communicates with [AgentRuntimeService] in the module's own process via bind + Messenger:
+ * it sends one run request and receives an event stream and the final result.
  *
- * 不引入 AIDL：结构化字段使用 [Bundle]，图片正文、会话历史与结果 transcript 均使用 [ParcelFileDescriptor]，避免占用 Binder 事务缓冲区。
+ * AIDL is not introduced: structured fields use [Bundle], while image bodies, session history, and result transcripts all use [ParcelFileDescriptor], to avoid occupying the Binder transaction buffer.
  */
 internal object AgentRuntimeWire {
     const val AGENT_UI_HANDOFF_SOURCE = "agent_ui"
     const val ETA_VOICE_HANDOFF_SOURCE = "eta_voice"
 
     internal class PayloadTooLargeException(sizeBytes: Int) : IllegalArgumentException(
-        "Agent Runtime 请求元数据过大（$sizeBytes bytes）；请缩短输入或会话历史后重试"
+        "Agent Runtime request metadata is too large ($sizeBytes bytes); shorten the input or session history and try again"
     )
 
-    /** bind 获取服务端 Messenger 的 Intent action。 */
+    /** Intent action used by bind to obtain the server-side Messenger. */
     const val ACTION_BIND = "io.github.mangi.eta.agent.runtime.BIND"
 
     // Messenger.what
-    /** client -> service：开始一次 Agent 运行，[Message.replyTo] 携带 client Messenger。 */
+    /** client -> service: starts an Agent run; [Message.replyTo] carries the client Messenger. */
     const val MSG_START_RUN = 1
 
-    /** service -> client：推送一个 [AgentEvent]。 */
+    /** service -> client: pushes an [AgentEvent]. */
     const val MSG_EVENT = 2
 
-    /** service -> client：最终结果。 */
+    /** service -> client: the final result. */
     const val MSG_RESULT = 3
 
-    /** client -> service：取消当前运行。 */
+    /** client -> service: cancels the current run. */
     const val MSG_CANCEL = 4
 
-    /** client -> service：确认一个最终结果已经被入口层成功展示。 */
+    /** client -> service: acknowledges that a final result has been successfully displayed by the entry layer. */
     const val MSG_ACK_RESULT = 5
 
-    /** client -> service：拉取尚未被入口层确认展示的最终结果。 */
+    /** client -> service: fetches final results that have not yet been acknowledged as displayed by the entry layer. */
     const val MSG_DRAIN_RESULTS = 6
 
-    /** service -> client：返回一组尚未确认展示的最终结果。 */
+    /** service -> client: returns a set of final results that have not yet been acknowledged as displayed. */
     const val MSG_DRAIN_RESULTS_RESPONSE = 7
 
-    /** service -> client：请求图片已经摄取，入口进程可以关闭文件描述符并删除临时文件。 */
+    /** service -> client: the requested image has been ingested; the entry process can close the file descriptor and delete the temporary file. */
     const val MSG_REQUEST_INGESTED = 8
 
-    /** client -> service：查询当前仍在执行或提交终态的 run。 */
+    /** client -> service: queries the run that is currently still executing or committing its terminal state. */
     const val MSG_QUERY_ACTIVE_RUN = 9
 
-    /** service -> client：返回当前 active runId；空字符串表示没有。 */
+    /** service -> client: returns the current active runId; an empty string means none. */
     const val MSG_QUERY_ACTIVE_RUN_RESPONSE = 10
 
-    /** client -> service：重新订阅指定 run 的安全事件重放、实时事件和最终结果。 */
+    /** client -> service: resubscribes to the specified run's safe event replay, live events, and final result. */
     const val MSG_ATTACH_RUN = 11
 
-    /** service -> client：返回是否成功重新订阅指定 run。 */
+    /** service -> client: returns whether resubscription to the specified run succeeded. */
     const val MSG_ATTACH_RUN_RESPONSE = 12
 
-    /** client -> service：向当前 run 追加补充指令。 */
+    /** client -> service: appends supplementary instructions to the current run. */
     const val MSG_STEER_RUN = 13
 
-    /** client -> service：暂停当前 run。 */
+    /** client -> service: pauses the current run. */
     const val MSG_PAUSE_RUN = 14
 
-    /** client -> service：恢复当前 run。 */
+    /** client -> service: resumes the current run. */
     const val MSG_RESUME_RUN = 15
 
-    /** client -> service：在当前 run 内压缩，不另开 run。 */
+    /** client -> service: compacts within the current run without starting a new run. */
     const val MSG_COMPACT_RUN = 16
 
     private const val MODULE_PACKAGE = "io.github.mangi.eta"
@@ -151,7 +151,6 @@ internal object AgentRuntimeWire {
     private const val KEY_HANDOFF_PAYLOAD = "handoff_payload"
     private const val KEY_HANDOFF_DISMISS_ENTRY_SURFACE_ON_FOREGROUND_OPERATION =
         "handoff_dismiss_entry_surface_on_foreground_operation"
-    private const val LEGACY_BREENO_HANDOFF_SOURCE = "breeno"
     private const val KEY_HISTORY_ALREADY_COMPACTED = "history_already_compacted"
     private const val KEY_CREATED_AT = "created_at"
     private const val KEY_RESULTS = "results"
@@ -159,7 +158,7 @@ internal object AgentRuntimeWire {
     private const val MAX_RESULT_REASONING_CHARS = 32_000
     private const val MAX_DRAIN_CONTENT_CHARS = 16_000
     private const val MAX_DRAIN_REASONING_CHARS = 4_000
-    private const val TRUNCATED_SUFFIX = "\n\n[跨进程结果过长，已截断]"
+    private const val TRUNCATED_SUFFIX = "\n\n[Cross-process result is too long and has been truncated]"
     private const val MAX_START_REQUEST_PARCEL_BYTES = 768 * 1024
 
     data class RunRequest(
@@ -175,7 +174,7 @@ internal object AgentRuntimeWire {
         val turnId: String = "",
     ) {
         val effectiveTurnId: String get() = turnId.ifBlank { runId }
-        // 旧入口沿用会话 handoff；无持久会话的入口以首个 run 为会话起点。
+        // Legacy entries continue using session handoff; entries without a persistent session use the first run as the session starting point.
         val effectiveModelSessionId: String
             get() = modelSessionId.ifBlank {
                 handoff?.takeIf { it.source == AGENT_UI_HANDOFF_SOURCE }
@@ -185,7 +184,7 @@ internal object AgentRuntimeWire {
     }
 
     /**
-     * 单张图片在 IPC 层的表示。远程 URL 可直接放入 Bundle，本地或内联图片只传只读文件描述符。
+     * Representation of a single image at the IPC layer. Remote URLs can be placed directly in the Bundle; local or inline images pass only a read-only file descriptor.
      */
     data class WireImage(
         val remoteUrl: String? = null,
@@ -197,7 +196,7 @@ internal object AgentRuntimeWire {
         val source: String = "unknown",
     )
 
-    /** 接收端在后台完成图片物化前持有文件描述符；关闭后不可再次使用。 */
+    /** The receiver holds the file descriptor until image materialization completes in the background; after it is closed, it cannot be used again. */
     class IncomingRunRequest internal constructor(
         val request: RunRequest,
         val images: List<WireImage>,
@@ -241,10 +240,10 @@ internal object AgentRuntimeWire {
     }
 
     fun toBundle(request: RunRequest, images: List<WireImage>, historyDescriptor: ParcelFileDescriptor): Bundle {
-        require(images.size == request.images.size) { "图片传输项与请求图片数量不一致" }
+        require(images.size == request.images.size) { "The number of image transfer items does not match the number of requested images" }
         val imageBundles = images.map { image ->
             require((image.remoteUrl == null) xor (image.fileDescriptor == null)) {
-                "图片传输项必须且只能包含远程 URL 或文件描述符"
+                "An image transfer item must contain exactly one of a remote URL or a file descriptor"
             }
             Bundle().apply {
                 image.remoteUrl?.let { putString(KEY_IMAGE_URL, it) }
@@ -259,7 +258,7 @@ internal object AgentRuntimeWire {
         return requestBundle(request, imageBundles, historyDescriptor)
     }
 
-    /** 兼容旧客户端与协议测试；history 仍走文件描述符，图片旧 data URL 方式仅用于回退。 */
+    /** For compatibility with legacy clients and protocol tests; history still uses file descriptors, and the legacy data URL image method is used only as a fallback. */
     fun toLegacyBundle(request: RunRequest, historyDescriptor: ParcelFileDescriptor): Bundle = requestBundle(
         request = request,
         historyDescriptor = historyDescriptor,
@@ -329,9 +328,9 @@ internal object AgentRuntimeWire {
             bundle.getParcelableArrayList(KEY_IMAGES, Bundle::class.java).orEmpty().forEach { image ->
                 val descriptor = image.getParcelable(KEY_IMAGE_FD, ParcelFileDescriptor::class.java)
                 val reference = image.getString(KEY_IMAGE_URL)
-                    ?: image.getString(KEY_DATA_URL) // 兼容升级前仍内联 data URL 的入口进程。
+                    ?: image.getString(KEY_DATA_URL) // For compatibility with entry processes that still inline data URLs prior to upgrade.
                 require((reference == null) xor (descriptor == null)) {
-                    "图片传输项必须且只能包含引用或文件描述符"
+                    "An image transfer item must contain exactly one of a reference or a file descriptor"
                 }
                 images += WireImage(
                     remoteUrl = reference,
@@ -353,7 +352,7 @@ internal object AgentRuntimeWire {
         }
     }
 
-    /** 拒绝或解析失败的请求不会进入 [IncomingRunRequest]，需显式释放其中的描述符。 */
+    /** Requests that are rejected or fail to parse do not enter [IncomingRunRequest]; their descriptors must be explicitly released. */
     fun closeImageDescriptors(bundle: Bundle?) {
         runCatching {
             bundle?.getParcelableArrayList(KEY_IMAGES, Bundle::class.java).orEmpty().forEach { image ->
@@ -362,11 +361,11 @@ internal object AgentRuntimeWire {
         }
     }
 
-    /** 只用于无文件描述符的旧协议读取。 */
+    /** Only used for legacy protocol reads that lack file descriptors. */
     fun runRequestFromBundle(bundle: Bundle): RunRequest =
         incomingRunRequestFromBundle(bundle).use { incoming ->
             require(incoming.images.none { it.fileDescriptor != null }) {
-                "包含文件描述符的请求必须先在 Runtime 后台物化"
+                "Requests containing file descriptors must first be materialized in the Runtime background"
             }
             incoming.request.copy(
                 images = incoming.images.map { image ->
@@ -472,7 +471,7 @@ internal object AgentRuntimeWire {
             ) {
                 bundle.getBoolean(KEY_HANDOFF_DISMISS_ENTRY_SURFACE_ON_FOREGROUND_OPERATION)
             } else {
-                source == LEGACY_BREENO_HANDOFF_SOURCE
+                false
             }
         )
     }
@@ -626,7 +625,7 @@ internal object AgentRuntimeWire {
         }
     }
 
-    /** 将 [AgentEvent] 打包为可跨进程传递的 [Bundle]。 */
+    /** Packs [AgentEvent] into a [Bundle] that can be passed across processes. */
     fun eventToBundle(event: AgentEvent, historyDescriptor: ParcelFileDescriptor? = null): Bundle = Bundle().apply {
         when (event) {
             is AgentEvent.RunStarted -> {
@@ -797,7 +796,7 @@ internal object AgentRuntimeWire {
         }
     }
 
-    /** 将 [Bundle] 还原为 [AgentEvent]，无法识别时返回 null。 */
+    /** Restores [Bundle] to [AgentEvent], returning null when it cannot be recognized. */
     fun eventFromBundle(bundle: Bundle): AgentEvent? = when (bundle.getString(KEY_TYPE)) {
         "run_started" -> AgentEvent.RunStarted(
             initialImages = bundle.getInt("initial_images"),

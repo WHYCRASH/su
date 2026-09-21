@@ -9,12 +9,7 @@ import android.service.voice.VoiceInteractionService
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccessibilityNew
 import androidx.compose.material.icons.rounded.AccountTree
@@ -23,18 +18,13 @@ import androidx.compose.material.icons.rounded.RemoveRedEye
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.BugReport
-import androidx.compose.material.icons.rounded.Campaign
-import androidx.compose.material.icons.rounded.CloudDownload
 import androidx.compose.material.icons.rounded.Code
-import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Dashboard
-import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Extension
 import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.GppMaybe
-import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.material.icons.rounded.HealthAndSafety
 import androidx.compose.material.icons.rounded.Hearing
 import androidx.compose.material.icons.rounded.Inventory
@@ -51,7 +41,6 @@ import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.PowerSettingsNew
 import androidx.compose.material.icons.rounded.Psychology
-import androidx.compose.material.icons.rounded.Restaurant
 import androidx.compose.material.icons.rounded.Security
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Smartphone
@@ -69,12 +58,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
@@ -89,8 +74,6 @@ import io.github.mangi.eta.config.PowerAssistantTarget
 import io.github.mangi.eta.config.Prefs
 import io.github.mangi.eta.core.AppFileLogger
 import io.github.mangi.eta.data.datastore.SettingsDataStore
-import io.github.mangi.eta.data.model.AppUpdateOffer
-import io.github.mangi.eta.data.repository.AppUpdateRepository
 import io.github.mangi.eta.data.repository.ProviderRepository
 import io.github.mangi.eta.data.repository.RuntimeConfigRepository
 import io.github.mangi.eta.systemizer.GoogleAppSystemizerInstaller
@@ -98,12 +81,10 @@ import io.github.mangi.eta.systemizer.RootManager
 import io.github.mangi.eta.systemizer.SystemizerInstallResult
 import io.github.mangi.eta.ui.app.EnhancementSettingsHistory
 import io.github.mangi.eta.ui.app.rememberDeviceCapabilities
-import io.github.mangi.eta.ui.components.AppUpdateDialog
 import io.github.mangi.eta.ui.components.MiuixDialogActions
 import io.github.mangi.eta.ui.components.MiuixScaffoldPage
 import io.github.mangi.eta.ui.components.WithoutPressRipple
 import io.github.mangi.eta.ui.components.PreferenceIcon
-import io.github.mangi.eta.ui.haptics.TouchHaptics
 import io.github.mangi.eta.ui.navigation.AppRoute
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -113,23 +94,21 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.DropdownItem
 import top.yukonga.miuix.kmp.basic.SmallTitle
-import top.yukonga.miuix.kmp.basic.TabRow
 import top.yukonga.miuix.kmp.basic.Text
 import io.github.mangi.eta.ui.components.ArrowPreference
-import io.github.mangi.eta.ui.components.HapticBasicComponent
 import io.github.mangi.eta.ui.components.SwitchPreference
 import io.github.mangi.eta.ui.components.WindowSpinnerPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.window.WindowDialog
 
 /**
- * 模块配置界面。
+ * Module configuration screen.
  *
- * 开关默认值由 [Prefs.Keys.BOOLEAN_DEFAULTS] 统一定义。Eta Runtime 自己消费的开关写入
- * App 本地配置；仅 Hook 消费的开关通过 RemotePreferences 提交到 LSPosed。
+ * Switch defaults are defined centrally by [Prefs.Keys.BOOLEAN_DEFAULTS]. Switches consumed by the
+ * su Runtime are written to the app's local configuration; switches consumed only by hooks are
+ * submitted to LSPosed through RemotePreferences.
  */
 @Composable
 internal fun SettingsScreen(
@@ -146,11 +125,6 @@ internal fun SettingsScreen(
     var hasUsedSystemizer by remember { mutableStateOf(enhancementHistory.hasUsedSystemizer) }
     var showSystemizerDialog by remember { mutableStateOf(false) }
     var installingSystemizer by remember { mutableStateOf(false) }
-    val currentVersion = remember { AppUpdateRepository.currentVersionName(context) }
-    var checkingUpdate by remember { mutableStateOf(false) }
-    var relayStationExpanded by remember { mutableStateOf(false) }
-    var showDonateDialog by remember { mutableStateOf(false) }
-    var updateOffer by remember { mutableStateOf<AppUpdateOffer?>(null) }
     val appSettings by SettingsDataStore.settingsFlow().collectAsState(
         initial = io.github.mangi.eta.data.model.Settings(),
     )
@@ -190,7 +164,7 @@ internal fun SettingsScreen(
         }
     }
 
-    // 悬浮窗权限状态：授权后从系统设置返回时（ON_RESUME）刷新。
+    // Overlay permission state: refreshed on ON_RESUME when returning from system settings.
     var overlayGranted by remember {
         mutableStateOf(android.provider.Settings.canDrawOverlays(context))
     }
@@ -225,7 +199,7 @@ internal fun SettingsScreen(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    // Provider / Model 选中状态展示
+    // Provider / model selection display
     val providers by ProviderRepository.providersFlow().collectAsState(initial = emptyList())
     val storedProviderId by RuntimeConfigRepository.selectedProviderIdFlow()
         .collectAsState(initial = null)
@@ -243,8 +217,9 @@ internal fun SettingsScreen(
         "${provider.name} / ${selectedModel?.displayName ?: stringResource(R.string.settings_model_not_selected)}"
     } ?: stringResource(R.string.settings_not_configured)
 
-    // prefs 绑定到 XposedService：service 到达时切换到 RemotePreferences（跨进程提交到
-    // LSPosed 数据库）；未就绪时保持 null，UI 禁止修改。
+    // prefs is bound to XposedService: once the service arrives we switch to RemotePreferences
+    // (cross-process commits into the LSPosed database); until then it stays null and the UI
+    // forbids edits.
     var prefs by remember { mutableStateOf(Prefs.remotePreferencesForUi(EtaApp.serviceInstance)) }
     val agentPrefs = remember { Prefs.localAgentPreferences() }
     var powerAssistantTarget by remember(prefs) {
@@ -289,7 +264,7 @@ internal fun SettingsScreen(
         title = stringResource(R.string.ui_set_up_7debf9),
         onBack = onBack,
     ) {
-            // ── LLM 提供商 ──────────────────────────────────────────────
+            // ── LLM provider ───────────────────────────────────────────
             item(key = "section_agent") {
                 SmallTitle(stringResource(R.string.settings_llm_providers))
                 Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
@@ -331,7 +306,7 @@ internal fun SettingsScreen(
                         startAction = { PreferenceIcon(icon = Icons.Rounded.RemoveRedEye) },
                         onClick = { onNavigate(AppRoute.AuxiliaryVision) },
                     )
-                    ArrowPreference(title = "子代理",
+                    ArrowPreference(title = "Sub-agents",
                         startAction = { PreferenceIcon(icon = Icons.Rounded.Psychology) },
                         onClick = { onNavigate(AppRoute.SubAgents) })
                     ArrowPreference(
@@ -342,7 +317,7 @@ internal fun SettingsScreen(
                 }
             }
 
-            // ── 扩展 ────────────────────────────────────────────
+            // ── Extensions ─────────────────────────────────────
             item(key = "section_context_extensions") {
                 SmallTitle(stringResource(R.string.settings_context_extensions))
                 Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
@@ -379,7 +354,7 @@ internal fun SettingsScreen(
                 }
             }
 
-            // ── 通用 ────────────────────────────────────────────────────
+            // ── General ────────────────────────────────────────
             item(key = "section_general") {
                 SmallTitle(stringResource(R.string.settings_general))
                 Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
@@ -431,7 +406,7 @@ internal fun SettingsScreen(
                 }
             }
 
-            // ── 工具 ───────────────────────────────────────────────────
+            // ── Tools ──────────────────────────────────────────────────
             item(key = "section_tools") {
                 SmallTitle(stringResource(R.string.ui_tool_a72ef1))
                 Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
@@ -512,7 +487,7 @@ internal fun SettingsScreen(
                 }
             }
 
-            // ── 系统助手接管 ──────────────────────────────────────────────
+            // ── System assistant takeover ──────────────────────
             item(key = "section_assistant_takeover") {
                 SmallTitle(stringResource(R.string.ui_system_assistant_takes_over_f46043))
                 Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
@@ -578,29 +553,6 @@ internal fun SettingsScreen(
                 }
             }
 
-            if (prefs != null || hasConnectedFramework) {
-                // ── 厂商助手兼容入口 ──────────────────────────────────────────
-                item(key = "section_oem_assistant_compatibility") {
-                    SmallTitle(stringResource(R.string.ui_xiaobu_xiaoai_compatible_entrance_ae918a))
-                    Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
-                        SwitchPref(
-                            context = context,
-                            prefs = prefs,
-                            title = stringResource(R.string.ui_enable_vendor_assistant_custom_models_c8e465),
-                            key = Prefs.Keys.AGENT_CUSTOM_MODEL,
-                            icon = Icons.Rounded.Memory,
-                        )
-
-                        SwitchPref(
-                            context = context,
-                            prefs = prefs,
-                            title = stringResource(R.string.ui_only_take_over_with_agent_prefix_d17556),
-                            key = Prefs.Keys.AGENT_REQUIRE_PREFIX,
-                            icon = Icons.Rounded.Code,
-                        )
-                    }
-                }
-            }
 
             if (prefs != null || hasConnectedFramework || capabilities.root.isGranted || hasUsedSystemizer) {
                 // ── Gemini ─────────────────────────────────────────────────
@@ -658,7 +610,7 @@ internal fun SettingsScreen(
             }
 
             if (prefs != null || hasConnectedFramework) {
-                // ── 一圈即搜 ────────────────────────────────────────────────
+                // ── Circle to Search ───────────────────────────────
                 item(key = "section_circle_to_search") {
                     SmallTitle(stringResource(R.string.ui_search_in_one_turn_179584))
                     Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
@@ -668,14 +620,6 @@ internal fun SettingsScreen(
                             title = stringResource(R.string.ui_long_press_on_the_gesture_bar_triggers_a_circle_to_s_b80117),
                             key = Prefs.Keys.GESTURE_BAR_CIRCLE_TO_SEARCH,
                             icon = Icons.Rounded.SwipeUp,
-                        )
-
-                        SwitchPref(
-                            context = context,
-                            prefs = prefs,
-                            title = stringResource(R.string.ui_long_press_with_two_fingers_to_trigger_a_circle_sear_ab597a),
-                            key = Prefs.Keys.DOUBLE_FINGER_CIRCLE_TO_SEARCH,
-                            icon = Icons.Rounded.TouchApp,
                         )
                     }
                 }
@@ -738,7 +682,7 @@ internal fun SettingsScreen(
                 }
             }
 
-            // ── 权限 ────────────────────────────────────────────────────
+            // ── Permissions ────────────────────────────────────
             item(key = "section_permissions") {
                 SmallTitle(stringResource(R.string.ui_permissions_560165))
                 Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
@@ -865,110 +809,10 @@ internal fun SettingsScreen(
                 }
             }
 
-            // ── 关于 ────────────────────────────────────────────────────
+            // ── About ───────────────────────────────────────────────────
             item(key = "section_about") {
                 SmallTitle(stringResource(R.string.ui_about_bed172))
                 Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
-                    ArrowPreference(
-                        title = stringResource(R.string.update_check_title),
-                        summary = if (checkingUpdate) {
-                            stringResource(R.string.update_checking)
-                        } else {
-                            stringResource(
-                                R.string.update_current_version,
-                                currentVersion.ifBlank { stringResource(R.string.update_unknown_version) },
-                            )
-                        },
-                        startAction = {
-                            PreferenceIcon(
-                                icon = Icons.Rounded.CloudDownload,
-                            )
-                        },
-                        onClick = {
-                            if (checkingUpdate) return@ArrowPreference
-                            checkingUpdate = true
-                            coroutineScope.launch {
-                                val result = AppUpdateRepository.checkForUpdate(context, force = true)
-                                checkingUpdate = false
-                                result.fold(
-                                    onSuccess = { offer ->
-                                        if (offer == null) {
-                                            Toast.makeText(
-                                                context,
-                                                context.getString(R.string.update_latest),
-                                                Toast.LENGTH_SHORT,
-                                            ).show()
-                                        } else {
-                                            updateOffer = offer
-                                        }
-                                    },
-                                    onFailure = { failure ->
-                                        Toast.makeText(
-                                            context,
-                                            failure.message?.takeIf { it.isNotBlank() }
-                                                ?: context.getString(R.string.update_check_failed),
-                                            Toast.LENGTH_SHORT,
-                                        ).show()
-                                    },
-                                )
-                            }
-                        },
-                    )
-                    ArrowPreference(
-                        title = stringResource(R.string.about_telegram_channel),
-                        startAction = {
-                            PreferenceIcon(
-                                icon = Icons.Rounded.Campaign,
-                            )
-                        },
-                        endActions = {
-                            Text(
-                                text = "Telegram",
-                                fontSize = MiuixTheme.textStyles.body2.fontSize,
-                                color = MiuixTheme.colorScheme.onSurfaceVariantActions,
-                            )
-                        },
-                        onClick = {
-                            openExternalUrl(
-                                context,
-                                "https://t.me/+6JhB2iRjjDExYWM1",
-                                context.getString(R.string.about_telegram_open_failed),
-                            )
-                        },
-                    )
-                    ArrowPreference(
-                        title = stringResource(R.string.about_qq_group),
-                        startAction = {
-                            PreferenceIcon(
-                                icon = Icons.Rounded.Groups,
-                            )
-                        },
-                        endActions = {
-                            Text(
-                                text = "QQ",
-                                fontSize = MiuixTheme.textStyles.body2.fontSize,
-                                color = MiuixTheme.colorScheme.onSurfaceVariantActions,
-                            )
-                        },
-                        onClick = {
-                            val opened = runCatching {
-                                context.startActivity(
-                                    android.content.Intent(
-                                        android.content.Intent.ACTION_VIEW,
-                                        android.net.Uri.parse("mqqapi://card/show_pslcard?src_type=internal&version=1&uin=735910197&card_type=group&source=qrcode"),
-                                    )
-                                )
-                                true
-                            }.getOrDefault(false)
-                            if (!opened) {
-                                openExternalUrl(
-                                    context,
-                                    "https://qm.qq.com/cgi-bin/qm/qr?_wv=1027&k=QZmmrmSQqSAyI8Mo5NHAMc9l6TejcBrw&authKey=mQrh5avqMDc09GunNdtCmuN5tk9UynOekkjHxfuKPjhN4ELWBMJN5edaYw51UXbQ&noverify=0&group_code=735910197",
-                                    context.getString(R.string.about_qq_group_open_failed),
-                                )
-                            }
-                        },
-                    )
                     ArrowPreference(
                         title = stringResource(R.string.ui_source_code_740296),
                         startAction = {
@@ -984,91 +828,18 @@ internal fun SettingsScreen(
                             )
                         },
                         onClick = {
-                            val intent = android.content.Intent(
-                                android.content.Intent.ACTION_VIEW,
-                                android.net.Uri.parse("https://github.com/y2485871697/Eta"),
-                            )
-                            context.startActivity(intent)
-                        },
-                    )
-                    HapticBasicComponent(
-                        title = stringResource(R.string.about_relay_station),
-                        startAction = {
-                            PreferenceIcon(
-                                icon = Icons.Rounded.Language,
+                            context.startActivity(
+                                android.content.Intent(
+                                    android.content.Intent.ACTION_VIEW,
+                                    android.net.Uri.parse("https://github.com/WHYCRASH/su"),
+                                ),
                             )
                         },
-                        endActions = {
-                            Icon(
-                                imageVector = if (relayStationExpanded) {
-                                    Icons.Rounded.ExpandMore
-                                } else {
-                                    Icons.Rounded.ChevronRight
-                                },
-                                contentDescription = null,
-                                modifier = Modifier
-                                    .align(Alignment.CenterVertically)
-                                    .padding(end = 6.dp)
-                                    .size(16.dp),
-                                tint = MiuixTheme.colorScheme.onSurfaceVariantActions,
-                            )
-                        },
-                        holdDownState = relayStationExpanded,
-                        onClick = { relayStationExpanded = !relayStationExpanded },
-                        bottomAction = if (relayStationExpanded) {
-                            {
-                                Column {
-                                    ArrowPreference(
-                                        title = stringResource(R.string.about_relay_station_st_api),
-                                        insideMargin = PaddingValues(0.dp),
-                                        onClick = {
-                                            openExternalUrl(
-                                                context,
-                                                "https://api.123336.xyz/sign-up?aff=Wd45",
-                                                context.getString(R.string.about_relay_station_open_failed),
-                                            )
-                                        },
-                                    )
-                                    ArrowPreference(
-                                        title = stringResource(R.string.about_relay_station_moyu),
-                                        insideMargin = PaddingValues(0.dp),
-                                        onClick = {
-                                            openExternalUrl(
-                                                context,
-                                                "https://www.u354483.nyat.app:35119/register?aff=5U8U292F5RG6",
-                                                context.getString(R.string.about_relay_station_open_failed),
-                                            )
-                                        },
-                                    )
-                                }
-                            }
-                        } else {
-                            null
-                        },
-                    )
-                    ArrowPreference(
-                        title = stringResource(R.string.about_donate),
-                        startAction = {
-                            PreferenceIcon(
-                                icon = Icons.Rounded.Restaurant,
-                            )
-                        },
-                        onClick = { showDonateDialog = true },
                     )
                 }
             }
         }
     }
-
-        if (showDonateDialog) {
-            DonateQrDialog(onDismiss = { showDonateDialog = false })
-        }
-
-        AppUpdateDialog(
-            offer = updateOffer,
-            currentVersion = currentVersion,
-            onDismiss = { updateOffer = null },
-        )
 
         if (showClearLogsDialog) {
             WindowDialog(
@@ -1096,7 +867,6 @@ internal fun SettingsScreen(
                             try {
                                 withContext(Dispatchers.IO) {
                                     AppFileLogger.clear()
-                                    io.github.mangi.eta.agent.voice.doubao.DoubaoDiagnostics.clear()
                                 }
                                 Toast.makeText(
                                     context.applicationContext,
@@ -1155,7 +925,7 @@ internal fun SettingsScreen(
         )
 }
 
-// ── 系统化确认对话框 ─────────────────────────────────────────────────────────
+// ── Google app systemizer confirmation dialog ───────────────────────────────
 
 @Composable
 private fun SystemizerConfirmDialog(
@@ -1184,13 +954,15 @@ private fun SystemizerConfirmDialog(
     }
 }
 
-// ── 带图标的布尔开关 ─────────────────────────────────────────────────────────
+// ── Boolean switch with icon ────────────────────────────────────────────────
 
 /**
- * 单个布尔开关：状态随 [prefs]/[key] 变化重读，切换时同步写入。
+ * A single boolean switch: its state is re-read when [prefs]/[key] changes and written back
+ * synchronously when toggled.
  *
- * 配置来源由调用方按能力边界传入。Hook 开关仍可能因 LSPosed 未连接而禁用；Agent
- * Runtime 开关始终使用 App 本地配置。
+ * The caller passes the configuration source that matches its capability boundary. Hook switches
+ * may still be disabled while LSPosed is disconnected; Agent Runtime switches always use the
+ * app's local configuration.
  */
 @Composable
 private fun SwitchPref(
@@ -1222,8 +994,9 @@ private fun SwitchPref(
         summary = summary,
         checked = checked,
         onCheckedChange = { value ->
-            // 同步提交；RemotePreferences.commit() 失败（binder 提交失败）时回滚 UI 状态，
-            // 避免 UI 显示已切换而 hook 进程实际未收到。
+            // Commit synchronously; when RemotePreferences.commit() fails (binder commit
+            // failure) roll the UI state back, so the UI never shows a toggle that the hook
+            // process never received.
             val targetPrefs = prefs ?: return@SwitchPreference
             if (putBooleanSync(targetPrefs, key, value)) {
                 checked = value
@@ -1245,11 +1018,11 @@ private fun SwitchPref(
         enabled = enabled,
     )
 }
-
 /**
- * 同步写入布尔值。RemotePreferences 的 [commit] 先更新本进程 map 再同步等待 binder 提交，
- * 失败（binder RemoteException）返回 false 但本进程 map 已被改写——此时 hook 进程收不到新值。
- * 返回是否提交成功，供调用方决定是否更新 UI。
+ * Writes a boolean synchronously. RemotePreferences' [commit] updates this process' map first and
+ * then waits for the binder commit; on failure (binder RemoteException) it returns false even
+ * though the local map was already rewritten, so the hook process never sees the new value.
+ * Returns whether the commit succeeded, so the caller can decide whether to update the UI.
  */
 private fun putBooleanSync(
     prefs: SharedPreferences,
@@ -1269,7 +1042,7 @@ private fun PowerAssistantTarget.displayName(context: Context): String =
     when (this) {
         PowerAssistantTarget.OEM -> context.getString(R.string.power_assistant_system_default)
         PowerAssistantTarget.GEMINI -> "Gemini"
-        PowerAssistantTarget.ETA -> "Eta"
+        PowerAssistantTarget.ETA -> "su"
     }
 
 private fun isAgentAccessibilityEnabled(context: Context): Boolean {
@@ -1285,7 +1058,7 @@ private fun isAgentAccessibilityEnabled(context: Context): Boolean {
 }
 
 private fun defaultDiagnosticLogFileName(): String =
-    "代鱼-诊断日志-${SimpleDateFormat("yyyyMMdd-HHmm", Locale.US).format(Date())}.zip"
+    "su-diagnostics-${SimpleDateFormat("yyyyMMdd-HHmm", Locale.US).format(Date())}.zip"
 
 private fun isEtaAssistantActive(context: Context): Boolean =
     VoiceInteractionService.isActiveService(
@@ -1294,58 +1067,6 @@ private fun isEtaAssistantActive(context: Context): Boolean =
     )
 
 
-
-@Composable
-private fun DonateQrDialog(onDismiss: () -> Unit) {
-    var wechatSelected by remember { mutableStateOf(true) }
-    val view = LocalView.current
-    WindowDialog(
-        show = true,
-        title = stringResource(R.string.about_donate),
-        onDismissRequest = onDismiss,
-    ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            TabRow(
-                tabs = listOf(
-                    stringResource(R.string.about_donate_wechat),
-                    stringResource(R.string.about_donate_alipay),
-                ),
-                selectedTabIndex = if (wechatSelected) 0 else 1,
-                onTabSelected = {
-                    TouchHaptics.click(view)
-                    wechatSelected = it == 0
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 12.dp),
-            )
-            Image(
-                painter = painterResource(
-                    if (wechatSelected) R.drawable.donate_wechat else R.drawable.donate_alipay,
-                ),
-                contentDescription = if (wechatSelected) {
-                    stringResource(R.string.about_donate_wechat)
-                } else {
-                    stringResource(R.string.about_donate_alipay)
-                },
-                contentScale = ContentScale.Fit,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 8.dp),
-            )
-        }
-    }
-}
-
-private fun openExternalUrl(context: Context, url: String, failureMessage: String) {
-    val intent = android.content.Intent(
-        android.content.Intent.ACTION_VIEW,
-        android.net.Uri.parse(url),
-    )
-    runCatching { context.startActivity(intent) }.onFailure {
-        Toast.makeText(context, failureMessage, Toast.LENGTH_SHORT).show()
-    }
-}
 
 private fun SystemizerInstallResult.toToastMessage(context: Context): String =
     when (this) {
@@ -1363,6 +1084,6 @@ private fun SystemizerInstallResult.toToastMessage(context: Context): String =
             .lineSequence()
             .map { it.trim() }
             .lastOrNull { it.isNotEmpty() }
-            ?.let { "$message：$it" }
+            ?.let { "$message: $it" }
             ?: message
     }

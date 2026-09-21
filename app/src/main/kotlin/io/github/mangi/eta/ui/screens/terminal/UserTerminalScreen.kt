@@ -80,8 +80,8 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.window.WindowListPopup
 
 /**
- * 用户手动终端：块式输出（命令、输出、退出码），给人用；与 AI 工具调用的任务模型分开。
- * 会话由 [UserTerminalStore] 持有，离开页面后正在运行的命令仍在常驻会话里继续。
+ * User manual terminal: block-based output (command, output, exit code), for humans; separate from the task model used by AI tool calls.
+ * The session is held by [UserTerminalStore]; after leaving the page, running commands continue in the persistent session.
  */
 @Composable
 internal fun UserTerminalScreen(
@@ -95,7 +95,7 @@ internal fun UserTerminalScreen(
     var showSessions by remember { mutableStateOf(false) }
     val lifecycleOwner = LocalLifecycleOwner.current
 
-    // 从安装页返回后刷新 Linux 就绪态，引导页才会自动让位给终端；守护任务状态一并刷新。
+    // After returning from the install page, refresh the Linux readiness state so the onboarding page will automatically yield to the terminal; also refresh the daemon task status.
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
@@ -112,7 +112,7 @@ internal fun UserTerminalScreen(
     fun submit() {
         val command = input.trim()
         if (command.isEmpty()) return
-        // 运行中输入发给前台进程 stdin，否则作为新命令执行。
+        // While running, input is sent to the foreground process's stdin; otherwise it is executed as a new command.
         if (state.running) {
             store.sendInput(command)
         } else {
@@ -206,7 +206,7 @@ private fun BlockList(
             lastVisible >= layoutInfo.totalItemsCount - 1
         }
     }
-    // 输出增长只在用户本来就停留在底部时跟随，向上翻历史不被打断。
+    // Output growth only auto-follows when the user is already at the bottom; scrolling up through history is not interrupted.
     LaunchedEffect(blocks.size, blocks.lastOrNull()?.output?.length) {
         if (atBottom && blocks.isNotEmpty()) {
             listState.scrollToItem(blocks.lastIndex)
@@ -267,7 +267,7 @@ private fun CommandBlock(
                     style = MiuixTheme.textStyles.body2.copy(fontFamily = FontFamily.Monospace),
                 )
                 if (block.output.isNotEmpty()) {
-                    // 原始输出含 ANSI 序列；整段重解析保证流式截断的序列在下一次到达后恢复。
+                    // Raw output contains ANSI sequences; reparsing the whole segment ensures sequences truncated during streaming are restored once the next chunk arrives.
                     val parsedOutput = remember(block.output) { ansiToAnnotatedString(block.output) }
                     Text(
                         text = parsedOutput,

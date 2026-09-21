@@ -7,19 +7,12 @@
     <string name="voice_mode_choose">Choose voice mode</string>
     <string name="voice_mode_dictation">Voice input</string>
     <string name="voice_mode_universal">Voice conversation</string>
-    <string name="voice_mode_doubao">Doubao realtime call</string>
     <string name="voice_mode_connecting">Connecting…</string>
     <string name="voice_mode_listening">Listening…</string>
     <string name="voice_mode_transcribing">Finishing transcription…</string>
-    <string name="voice_mode_thinking">Daiyu is thinking…</string>
-    <string name="voice_mode_speaking">Daiyu is speaking</string>
+    <string name="voice_mode_thinking">su is thinking…</string>
+    <string name="voice_mode_speaking">su is speaking</string>
     <string name="voice_mode_universal_settings_summary">Offline speech recognition · current chat model · configured read-aloud voice</string>
     <string name="voice_mode_universal_settings_hint">Configure speech recognition and read-aloud in their existing settings. Voice conversation sends recognized text to the current chat and listens again after playback.</string>
-    <string name="voice_mode_doubao_provider">Realtime call provider</string>
-    <string name="voice_mode_doubao_provider_missing">Add and configure a Doubao Voice provider first</string>
-    <string name="voice_mode_doubao_voice">Realtime voice ID</string>
-    <string name="voice_mode_doubao_instructions">Realtime assistant instructions</string>
-    <string name="voice_mode_doubao_settings_hint">Independent provider, voice and instructions. Read-aloud settings are not inherited. Changes apply to the next call. Choose a realtime voice from the list above.</string>
     <string name="voice_mode_universal_enable">Enable voice conversation</string>
-    <string name="voice_mode_doubao_enable">Enable Doubao realtime calls</string>
 </resources>

@@ -35,9 +35,9 @@ class AgentRunCheckpointStoreTest {
             nanoTime = { nowNanos },
         )!!
 
-        recorder.accept(textDelta("你"))
+        recorder.accept(textDelta("H"))
         nowNanos = 300_000_000L
-        recorder.accept(textDelta("好"))
+        recorder.accept(textDelta("i"))
         recorder.accept(
             AgentEvent.AssistantBlockDelta(
                 round = 1,
@@ -52,7 +52,7 @@ class AgentRunCheckpointStoreTest {
                 round = 1,
                 toolCallId = "call-1",
                 name = "run_command",
-                argsPreview = "执行命令 · Android · root",
+                argsPreview = "Run command · Android · root",
                 command = "uptime",
             )
         )
@@ -61,7 +61,7 @@ class AgentRunCheckpointStoreTest {
                 round = 1,
                 toolCallId = "call-1",
                 name = "run_command",
-                resultSummary = "完成",
+                resultSummary = "Done",
                 imageCount = 0,
                 imageBytes = 0,
                 success = true,
@@ -70,13 +70,13 @@ class AgentRunCheckpointStoreTest {
 
         val restored = AgentRunCheckpointStore.list(context).single()
         val delta = restored.events.filterIsInstance<AgentEvent.AssistantBlockDelta>().single()
-        assertEquals("你好", delta.delta)
+        assertEquals("Hi", delta.delta)
         assertEquals(2, delta.deltaChars)
         val toolStarted = restored.events.filterIsInstance<AgentEvent.ToolStarted>().single()
-        assertEquals("执行命令 · Android · root", toolStarted.argsPreview)
+        assertEquals("Run command · Android · root", toolStarted.argsPreview)
         assertEquals("uptime", toolStarted.command)
         val toolFinished = restored.events.filterIsInstance<AgentEvent.ToolFinished>().single()
-        assertEquals("完成", toolFinished.resultSummary)
+        assertEquals("Done", toolFinished.resultSummary)
         assertFalse(restored.events.any { event ->
             event is AgentEvent.AssistantBlockDelta &&
                 event.kind == AgentEvent.AssistantBlockKind.TOOL_CALL
@@ -123,7 +123,7 @@ class AgentRunCheckpointStoreTest {
             request = request("run-discard"),
             nanoTime = { 0L },
         )!!
-        recorder.accept(textDelta("不应保留"))
+        recorder.accept(textDelta("must not be kept"))
 
         recorder.discard()
 
@@ -135,7 +135,7 @@ class AgentRunCheckpointStoreTest {
     private fun request(runId: String): AgentRuntimeWire.RunRequest =
         AgentRuntimeWire.RunRequest(
             runId = runId,
-            prompt = "测试",
+            prompt = "test",
             config = AgentModelClient.ModelConfig(
                 baseUrl = "https://example.com/v1",
                 apiKey = "test-key",

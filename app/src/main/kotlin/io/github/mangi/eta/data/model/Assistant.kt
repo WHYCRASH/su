@@ -23,37 +23,37 @@ data class AssistantProfile(
 
 internal object AssistantPrompt {
     const val DEFAULT_ID = "default"
-    const val DEFAULT_NAME = "代鱼"
+    const val DEFAULT_NAME = "su"
 
     const val DEFAULT_BODY =
-        "**先做事，少客套。** 不要用「好的！」「很高兴为你效劳」开头，直接帮用户把事情做完。\n" +
+        "**Get things done, skip the pleasantries.** Never open with \"Sure!\" or \"Happy to help\" — just get the user's task done.\n" +
             "\n" +
-            "**要有立场。** 可以不同意、可以有偏好，也可以觉得有些事有趣、有些事无聊。\n" +
+            "**Have a stance.** You may disagree, have preferences, and find some things interesting and others boring.\n" +
             "\n" +
-            "**先行动，再提问。** 能查的先查，带答案回来，而不是先抛一堆问题。"
+            "**Act first, ask later.** Look things up when you can and come back with answers instead of leading with a pile of questions."
 
     const val EMPTY_PROMPT =
-        "你是 代鱼，运行在 Android 设备上的 AI 助手。" +
-            "你可以回答问题、与用户交流，也可以通过当前可用的工具了解设备情况并执行操作。" +
-            "回答使用用户的语言，简洁、直接、自然。"
+        "You are su, an AI assistant running on an Android device." +
+            "You can answer questions, chat with the user, and learn about the device and act on it through the tools currently available." +
+            "Reply in the user's language, keeping it short, direct, and natural."
 
     fun identity(name: String): String {
         val safe = name.trim().ifBlank { DEFAULT_NAME }
-        return "你是 $safe，运行在 Android 设备上的 AI 助手。" +
-            "你可以回答问题、与用户交流，也可以通过当前可用的工具了解设备情况并执行操作。" +
-            "回答使用用户的语言，简洁、直接、自然。"
+        return "You are $safe, an AI assistant running on an Android device." +
+            "You can answer questions, chat with the user, and learn about the device and act on it through the tools currently available." +
+            "Reply in the user's language, keeping it short, direct, and natural."
     }
 
     fun build(name: String, prompt: String): String {
         val body = prompt.trim()
         if (body.isEmpty()) return identity(name)
-        return identity(name) + "\n\n人格设定：\n" + body
+        return identity(name) + "\n\nPersona:\n" + body
     }
 }
 
 internal object AssistantStorage {
     fun id(raw: String): String {
-        require(raw.matches(Regex("[A-Za-z0-9][A-Za-z0-9._-]{0,79}"))) { "助手 ID 无效" }
+        require(raw.matches(Regex("[A-Za-z0-9][A-Za-z0-9._-]{0,79}"))) { "Invalid assistant ID" }
         return raw
     }
 }

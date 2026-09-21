@@ -53,8 +53,8 @@ internal sealed interface AlpineInstallResult {
 }
 
 /**
- * 下载官方 Alpine minirootfs，并在 Root 授权边界内完成原子解压。
- * 下载内容先校验固定 SHA-256；安装过程不会扩大到 App 私有环境目录之外。
+ * Download the official Alpine minirootfs and complete atomic extraction within the Root authorization boundary.
+ * The downloaded content is first verified against a fixed SHA-256; the installation process does not extend outside the app's private environment directory.
  */
 internal class AlpineEnvironmentInstaller(
     private val context: Context,
@@ -133,9 +133,9 @@ internal class AlpineEnvironmentInstaller(
         } catch (failure: RootlessInstallFailure) {
             return@withContext AlpineInstallResult.Failed(AlpineInstallStage.EXTRACTING, failure.code, failure.message)
         } catch (_: java.io.IOException) {
-            return@withContext AlpineInstallResult.Failed(AlpineInstallStage.EXTRACTING, "INSTALL_IO_FAILED", "安装文件无法读写，请检查内部存储空间并重试")
+            return@withContext AlpineInstallResult.Failed(AlpineInstallStage.EXTRACTING, "INSTALL_IO_FAILED", "Unable to read or write the installation file. Check internal storage space and try again.")
         } catch (_: IllegalArgumentException) {
-            return@withContext AlpineInstallResult.Failed(AlpineInstallStage.EXTRACTING, "INVALID_ARCHIVE", "环境归档无效或包含不安全路径，请重新下载后重试")
+            return@withContext AlpineInstallResult.Failed(AlpineInstallStage.EXTRACTING, "INVALID_ARCHIVE", "The environment archive is invalid or contains unsafe paths. Please download it again and try again.")
         } finally {
             archive.delete()
         }
@@ -349,13 +349,13 @@ internal class AlpineEnvironmentInstaller(
             "zstd",
         )
 
-        /** 真机链路只保留一个国内镜像，避免可访问但过慢的源阻塞后续尝试。 */
+        /** On the real-device flow, keep only one domestic mirror to avoid a reachable but too-slow source blocking subsequent attempts. */
         internal val APK_MIRROR_BASE_URLS = listOf(
             "https://mirrors.aliyun.com/alpine",
             "https://dl-cdn.alpinelinux.org/alpine",
         )
 
-        /** 逐个尝试镜像并把成功者写回 repositories，后续 profile 安装会复用它。 */
+        /** Try mirrors one by one and write the successful one back to repositories; subsequent profile installs will reuse it. */
         internal fun apkMirrorScript(): String = "#!/bin/sh\n${apkMirrorScriptBody()}"
 
         private fun apkMirrorScriptBody(): String = buildString {

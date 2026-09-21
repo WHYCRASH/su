@@ -74,16 +74,16 @@ internal fun iconForTool(toolId: String): ImageVector = when (toolId) {
     "get_current_context" -> Icons.Rounded.Smartphone
     "open_app", "launch_app" -> Icons.Rounded.Apps
     "open_uri" -> Icons.AutoMirrored.Rounded.OpenInNew
-    "browser_use", "网页浏览" -> Icons.Rounded.Language
-    "web_search", "web_search_call", "网页搜索" -> Icons.Rounded.TravelExplore
+    "browser_use", "Web Browsing" -> Icons.Rounded.Language
+    "web_search", "web_search_call", "Web Search" -> Icons.Rounded.TravelExplore
     "browser_read" -> Icons.AutoMirrored.Rounded.MenuBook
     "browser_interact" -> Icons.Rounded.AdsClick
     "browser_screenshot" -> Icons.Rounded.ScreenshotMonitor
-    "file_search", "file_search_call", "文件搜索" -> Icons.AutoMirrored.Rounded.ManageSearch
-    "code_interpreter", "code_interpreter_call", "代码执行" -> Icons.Rounded.Terminal
-    "computer", "computer_call", "计算机操作" -> Icons.Rounded.Computer
-    "image_generation", "image_generation_call", "图像生成" -> Icons.Rounded.Image
-    "mcp_call", "MCP 工具" -> Icons.Rounded.Extension
+    "file_search", "file_search_call", "File Search" -> Icons.AutoMirrored.Rounded.ManageSearch
+    "code_interpreter", "code_interpreter_call", "Code Execution" -> Icons.Rounded.Terminal
+    "computer", "computer_call", "Computer Operation" -> Icons.Rounded.Computer
+    "image_generation", "image_generation_call", "Image Generation" -> Icons.Rounded.Image
+    "mcp_call", "MCP Tools" -> Icons.Rounded.Extension
     "delegate_task", "get_task_result", "cancel_task" -> Icons.Rounded.Psychology
     "memory_get", "memory_write" -> Icons.Rounded.Psychology
     "press_key" -> Icons.Rounded.KeyboardCommandKey
@@ -92,7 +92,7 @@ internal fun iconForTool(toolId: String): ImageVector = when (toolId) {
     "skills_list", "skills_read", "skills_read_resource",
     "skills_list_curated", "skills_inspect_github", "skills_install_from_github",
         -> Icons.Rounded.Extension
-    "set_alarm", "set_timer", "list_alarms", "list_active_timers" ->
+    "set_alarm", "set_timer" ->
         Icons.Rounded.Alarm
     "device_status", "set_device_state", "get_device_environment" ->
         Icons.Rounded.Smartphone
@@ -106,23 +106,20 @@ internal fun iconForTool(toolId: String): ImageVector = when (toolId) {
     "get_setting", "set_setting" -> Icons.Rounded.Settings
     "app_state_control" -> Icons.Rounded.AdminPanelSettings
     "get_logcat" -> Icons.Rounded.Description
-    "get_current_location", "search_saved_places" -> Icons.Rounded.LocationOn
+    "get_current_location" -> Icons.Rounded.LocationOn
     "get_health_summary" -> Icons.Rounded.MonitorHeart
     "recent_app_activity", "app_usage_summary" -> Icons.Rounded.Insights
     "search_calendar_events" -> Icons.Rounded.CalendarMonth
     "search_contacts" -> Icons.Rounded.Contacts
     "search_call_history" -> Icons.Rounded.Phone
     "search_messages" -> Icons.Rounded.ChatBubble
-    "search_media", "search_qq_chat_images", "search_wechat_chat_images" ->
+    "search_media" ->
         Icons.Rounded.Image
     "search_audio" -> Icons.Rounded.MusicNote
-    "search_recordings", "search_coloros_recordings", "search_recording_summaries" ->
+    "search_recordings" ->
         Icons.Rounded.Mic
     "search_files" -> Icons.Rounded.FolderOpen
     "search_downloads" -> Icons.Rounded.Download
-    "search_clipboard_history" -> Icons.Rounded.ContentPaste
-    "search_coloros_notes" -> Icons.AutoMirrored.Rounded.StickyNote2
-    "search_coloros_memories" -> Icons.Rounded.Psychology
     "search_personal_orders" -> Icons.Rounded.ShoppingBag
     "terminal", "terminal_job", "run_command" -> Icons.Rounded.Terminal
     "read_file" -> Icons.Rounded.Description

@@ -117,10 +117,10 @@ class OpenAiChatCompletionsProviderTest {
     @Test
     fun completeSplitsVisibleBlocksWhenDeltaTypeChanges() {
         val body = buildString {
-            append(sseChunk(JSONObject().put("reasoning_content", "先分析")))
-            append(sseChunk(JSONObject().put("content", "先说明")))
-            append(sseChunk(JSONObject().put("reasoning_content", "再确认")))
-            append(sseChunk(JSONObject().put("content", "最终回答"), finishReason = "stop"))
+            append(sseChunk(JSONObject().put("reasoning_content", "Analyze first")))
+            append(sseChunk(JSONObject().put("content", "Explain first")))
+            append(sseChunk(JSONObject().put("reasoning_content", "Then confirm")))
+            append(sseChunk(JSONObject().put("content", "Final answer"), finishReason = "stop"))
             append("data: [DONE]\n\n")
         }
 
@@ -135,16 +135,16 @@ class OpenAiChatCompletionsProviderTest {
             assertEquals(
                 listOf(
                     "start:THINKING:0",
-                    "delta:THINKING:0:先分析",
+                    "delta:THINKING:0:Analyze first",
                     "end:THINKING:0",
                     "start:TEXT:1",
-                    "delta:TEXT:1:先说明",
+                    "delta:TEXT:1:Explain first",
                     "end:TEXT:1",
                     "start:THINKING:2",
-                    "delta:THINKING:2:再确认",
+                    "delta:THINKING:2:Then confirm",
                     "end:THINKING:2",
                     "start:TEXT:3",
-                    "delta:TEXT:3:最终回答",
+                    "delta:TEXT:3:Final answer",
                     "end:TEXT:3",
                 ),
                 events.mapNotNull { event ->
@@ -166,7 +166,7 @@ class OpenAiChatCompletionsProviderTest {
             .put("completion_tokens", 2)
             .put("total_tokens", 12)
         val body = buildString {
-            append(sseChunk(JSONObject().put("content", "完成")))
+            append(sseChunk(JSONObject().put("content", "Done")))
             append(sseChunk(null, finishReason = "stop"))
             append(usageChunk(usage))
         }
@@ -179,7 +179,7 @@ class OpenAiChatCompletionsProviderTest {
                 onEvent = events::add
             )
 
-            assertEquals("完成", response.assistantMessage.getString("content"))
+            assertEquals("Done", response.assistantMessage.getString("content"))
             assertEquals(
                 12,
                 events.filterIsInstance<ProviderEvent.Usage>().single().usage.contextTokens
@@ -190,7 +190,7 @@ class OpenAiChatCompletionsProviderTest {
     @Test
     fun completeRejectsOpenRouterMidStreamError() {
         val body = buildString {
-            append(sseChunk(JSONObject().put("content", "部分内容")))
+            append(sseChunk(JSONObject().put("content", "Partial content")))
             append(
                 sseErrorChunk(
                     code = 502,
@@ -220,7 +220,7 @@ class OpenAiChatCompletionsProviderTest {
     @Test
     fun completeTreatsTruncatedStreamWithTextAsNaturalStop() {
         val body = buildString {
-            append(sseChunk(JSONObject().put("content", "项目介绍已经写完。")))
+            append(sseChunk(JSONObject().put("content", "The project introduction has been written.")))
         }
 
         withSseServer(body) { baseUrl ->
@@ -229,7 +229,7 @@ class OpenAiChatCompletionsProviderTest {
                 runController = AgentRunController(),
             )
 
-            assertEquals("项目介绍已经写完。", response.assistantMessage.getString("content"))
+            assertEquals("The project introduction has been written.", response.assistantMessage.getString("content"))
             assertEquals("stop", response.assistantMessage.getString("finish_reason"))
         }
     }
@@ -275,7 +275,7 @@ class OpenAiChatCompletionsProviderTest {
                 )
             }.exceptionOrNull()
             assertTrue(thrown is AgentModelFailure)
-            assertTrue(thrown?.message.orEmpty().contains("网页"))
+            assertTrue(thrown?.message.orEmpty().contains("web page"))
             assertTrue(!thrown?.message.orEmpty().startsWith("Invalid content-type"))
         } finally {
             server.stop(0)
@@ -294,11 +294,11 @@ class OpenAiChatCompletionsProviderTest {
         withSseServer(body, onRequest = requestBody::set) { baseUrl ->
             val request = providerRequest(baseUrl).copy(
                 messages = JSONArray()
-                    .put(JSONObject().put("role", "system").put("content", "基础约束"))
-                    .put(JSONObject().put("role", "user").put("content", "旧问题"))
-                    .put(JSONObject().put("role", "system").put("content", "动态上下文"))
-                    .put(JSONObject().put("role", "assistant").put("content", "旧回答"))
-                    .put(JSONObject().put("role", "user").put("content", "当前问题")),
+                    .put(JSONObject().put("role", "system").put("content", "Basic constraints"))
+                    .put(JSONObject().put("role", "user").put("content", "Old question"))
+                    .put(JSONObject().put("role", "system").put("content", "Dynamic context"))
+                    .put(JSONObject().put("role", "assistant").put("content", "Old answer"))
+                    .put(JSONObject().put("role", "user").put("content", "Current question")),
             )
 
             OpenAiChatCompletionsProvider.complete(request, AgentRunController())
@@ -306,13 +306,13 @@ class OpenAiChatCompletionsProviderTest {
 
         val sent = JSONObject(requestBody.get()).getJSONArray("messages")
         assertEquals(listOf("system", "user", "assistant", "user"), sent.roles())
-        assertEquals("基础约束\n\n动态上下文", sent.getJSONObject(0).getString("content"))
+        assertEquals("Basic constraints\n\nDynamic context", sent.getJSONObject(0).getString("content"))
     }
 
     @Test
     fun completeParsesReasoningAliasAndFinalMessageSnapshot() {
         val body = buildString {
-            append(sseChunk(JSONObject().put("reasoning", "先确认目录。")))
+            append(sseChunk(JSONObject().put("reasoning", "Confirm the directory first.")))
             append(
                 sseChunk(
                     JSONObject().put(
@@ -334,7 +334,7 @@ class OpenAiChatCompletionsProviderTest {
                     message = JSONObject()
                         .put("role", "assistant")
                         .put("content", "")
-                        .put("reasoning_content", "先确认目录。")
+                        .put("reasoning_content", "Confirm the directory first.")
                 )
             )
             append("data: [DONE]\n\n")
@@ -345,7 +345,7 @@ class OpenAiChatCompletionsProviderTest {
                 request = providerRequest(baseUrl),
                 runController = AgentRunController(),
             )
-            assertEquals("先确认目录。", response.assistantMessage.getString("reasoning_content"))
+            assertEquals("Confirm the directory first.", response.assistantMessage.getString("reasoning_content"))
             assertEquals(
                 "call_1",
                 response.assistantMessage.getJSONArray("tool_calls").getJSONObject(0).getString("id"),
@@ -365,12 +365,12 @@ class OpenAiChatCompletionsProviderTest {
             OpenAiChatCompletionsProvider.complete(
                 request = providerRequest(baseUrl).copy(
                     messages = JSONArray()
-                        .put(JSONObject().put("role", "user").put("content", "列出目录"))
+                        .put(JSONObject().put("role", "user").put("content", "List the directory"))
                         .put(
                             JSONObject()
                                 .put("role", "assistant")
                                 .put("content", "I will read it.")
-                                .put("reasoning_content", "需要先列目录")
+                                .put("reasoning_content", "Need to list the directory first")
                                 .put(
                                     "tool_calls",
                                     JSONArray().put(
@@ -402,14 +402,14 @@ class OpenAiChatCompletionsProviderTest {
         val assistant = (0 until sent.length())
             .map { sent.getJSONObject(it) }
             .first { it.optString("role") == "assistant" }
-        assertEquals("需要先列目录", assistant.getString("reasoning_content"))
+        assertEquals("Need to list the directory first", assistant.getString("reasoning_content"))
         assertTrue(assistant.has("tool_calls"))
     }
 
     @Test
     fun completeAccumulatesChunkedToolCalls() {
         val body = buildString {
-            append(sseChunk(JSONObject().put("reasoning_content", "需要调用工具。")))
+            append(sseChunk(JSONObject().put("reasoning_content", "Need to call the tool.")))
             append(
                 sseChunk(
                     JSONObject().put(
@@ -464,9 +464,9 @@ class OpenAiChatCompletionsProviderTest {
             assertEquals("call_1", toolCall.getString("id"))
             assertEquals("terminal", toolCall.getJSONObject("function").getString("name"))
             assertEquals("{\"a\":1}", toolCall.getJSONObject("function").getString("arguments"))
-            assertEquals("需要调用工具。", response.assistantMessage.getString("reasoning_content"))
+            assertEquals("Need to call the tool.", response.assistantMessage.getString("reasoning_content"))
             assertEquals(
-                "需要调用工具。",
+                "Need to call the tool.",
                 events.filterIsInstance<ProviderEvent.BlockDelta>()
                     .filter { it.kind == AssistantBlockKind.THINKING }
                     .joinToString("") { it.delta }
@@ -490,8 +490,8 @@ class OpenAiChatCompletionsProviderTest {
                 JSONObject().put("cached_tokens", 3)
             )
         val body = buildString {
-            append(sseChunk(JSONObject().put("reasoning_content", "先分析")))
-            append(sseChunk(JSONObject().put("content", "结果"), finishReason = "stop"))
+            append(sseChunk(JSONObject().put("reasoning_content", "Analyze first")))
+            append(sseChunk(JSONObject().put("content", "Result"), finishReason = "stop"))
             append(usageChunk(usage))
             append("data: [DONE]\n\n")
         }
@@ -513,8 +513,8 @@ class OpenAiChatCompletionsProviderTest {
                 onEvent = events::add
             )
 
-            assertEquals("结果", response.assistantMessage.getString("content"))
-            assertEquals("先分析", response.assistantMessage.getString("reasoning_content"))
+            assertEquals("Result", response.assistantMessage.getString("content"))
+            assertEquals("Analyze first", response.assistantMessage.getString("reasoning_content"))
             val parsedUsage = events.filterIsInstance<ProviderEvent.Usage>().single().usage
             assertEquals(18, parsedUsage.contextTokens)
             assertEquals(10, parsedUsage.inputTokens)

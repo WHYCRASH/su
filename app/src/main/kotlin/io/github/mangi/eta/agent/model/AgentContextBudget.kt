@@ -13,8 +13,8 @@ internal object AgentContextBudget {
     private const val IMAGE_GRID = 32
     private const val IMAGE_MAX_EDGE = 2048
     private const val IMAGE_MIN_TOKENS = 85
-    // 对齐 Operit：中文约 1.5 token/字，拉丁约 4 字符/token。
-    // 原先统一 codepoint/3，中文会少算 4～6 倍，界面用量就会远低于接口账单。
+    // Match Operit: roughly 1.5 tokens per CJK character, roughly 4 Latin characters per token.
+    // The old uniform codepoint/3 estimate undercounted CJK by 4-6x, leaving the UI usage far below the billed API usage.
     private const val CJK_TOKENS_PER_CHAR = 1.5
     private const val LATIN_TOKENS_PER_CHAR = 0.25
     private val DATA_URL_REGEX =
@@ -87,7 +87,7 @@ internal object AgentContextBudget {
 
     fun countMessage(message: AgentModelClient.ConversationMessage): Int {
         var tokens = TOKENS_PER_MESSAGE
-        // contentJson 才是发出去的 content；有它时不要再加一份纯文本。
+        // contentJson is the content actually sent; do not add a second copy of the plain text when present.
         tokens += countPayload(message)
         if (message.reasoningContent.isNotBlank()) {
             tokens += countTokens(message.reasoningContent)
@@ -109,8 +109,8 @@ internal object AgentContextBudget {
     }
 
     /**
-     * 多模态 content 里的图片按视觉 token 计，不能把 data URL / 路径当正文去估。
-     * 工具回图进下一轮 prompt 时，base64 按拉丁 4 字符/token 会一下子多出几万。
+     * Images inside multimodal content count as vision tokens; never estimate a data URL / path as body text.
+     * When tool-returned images enter the next round's prompt, base64 at 4 Latin chars/token would suddenly add tens of thousands.
      */
     private fun countStructuredContent(raw: String): Int {
         val parsed = runCatching { JSONTokener(raw).nextValue() }.getOrNull()

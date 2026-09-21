@@ -109,7 +109,7 @@ internal fun aggregateVisibleTokens(rows: List<UsageContentRow>): TokenTotals {
                 output += (row.outputTokens ?: 0).toLong()
                 cached += (row.cachedTokens ?: 0).toLong()
             }
-            // 旧压缩行曾把 resumeRound 写进 input_tokens，且 output_tokens 为空，不能当用量。
+            // Legacy compacted rows once wrote resumeRound into input_tokens with empty output_tokens; not real usage.
             "context_compacted" -> {
                 if (row.outputTokens == null) continue
                 input += (row.inputTokens ?: 0).toLong()

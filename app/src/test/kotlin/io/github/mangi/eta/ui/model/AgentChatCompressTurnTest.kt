@@ -9,9 +9,9 @@ class AgentChatCompressTurnTest {
     fun previousAssistantDoesNotCountAsCurrentTurnOutput() {
         val state = AgentChatUiState(
             messages = listOf(
-                UserMessageUi("u1", "上一轮"),
-                AgentMessageUi("a1", "旧回复"),
-                UserMessageUi("u2", "新问题"),
+                UserMessageUi("u1", "Previous round"),
+                AgentMessageUi("a1", "Old reply"),
+                UserMessageUi("u2", "New question"),
             ),
             input = "",
             isStreaming = true,
@@ -25,10 +25,10 @@ class AgentChatCompressTurnTest {
     fun currentTurnThinkingCounts() {
         val state = AgentChatUiState(
             messages = listOf(
-                UserMessageUi("u1", "上一轮"),
-                AgentMessageUi("a1", "旧回复"),
-                UserMessageUi("u2", "新问题"),
-                ThinkingMessageUi("t2", "思考中", isStreaming = true),
+                UserMessageUi("u1", "Previous round"),
+                AgentMessageUi("a1", "Old reply"),
+                UserMessageUi("u2", "New question"),
+                ThinkingMessageUi("t2", "Thinking", isStreaming = true),
             ),
             input = "",
             isStreaming = true,
@@ -41,7 +41,7 @@ class AgentChatCompressTurnTest {
     fun currentTurnRunningToolCountsAsRunningAndStarted() {
         val state = AgentChatUiState(
             messages = listOf(
-                UserMessageUi("u1", "新问题"),
+                UserMessageUi("u1", "New question"),
                 ToolActivityMessageUi(
                     id = "tool-1",
                     toolName = "run_command",
@@ -61,7 +61,7 @@ class AgentChatCompressTurnTest {
     fun finishedToolsDoNotCountAsRunning() {
         val state = AgentChatUiState(
             messages = listOf(
-                UserMessageUi("u1", "新问题"),
+                UserMessageUi("u1", "New question"),
                 ToolActivityMessageUi(
                     id = "tool-1",
                     toolName = "run_command",
@@ -81,15 +81,15 @@ class AgentChatCompressTurnTest {
     fun previousTurnToolsDoNotCountAsCurrentTurnTools() {
         val state = AgentChatUiState(
             messages = listOf(
-                UserMessageUi("u1", "上一轮"),
+                UserMessageUi("u1", "Previous round"),
                 ToolActivityMessageUi(
                     id = "tool-old",
                     toolName = "run_command",
                     status = ToolActivityStatusUi.Success,
                     argumentsSummary = "ls",
                 ),
-                UserMessageUi("u2", "新问题"),
-                ThinkingMessageUi("t2", "思考中", isStreaming = true),
+                UserMessageUi("u2", "New question"),
+                ThinkingMessageUi("t2", "Thinking", isStreaming = true),
             ),
             input = "",
             isStreaming = true,
@@ -103,7 +103,7 @@ class AgentChatCompressTurnTest {
     fun currentTurnFinishedToolsCount() {
         val state = AgentChatUiState(
             messages = listOf(
-                UserMessageUi("u1", "新问题"),
+                UserMessageUi("u1", "New question"),
                 ToolActivityMessageUi(
                     id = "tool-1",
                     toolName = "run_command",
@@ -122,8 +122,8 @@ class AgentChatCompressTurnTest {
     fun partialAssistantAfterLastUserShouldContinue() {
         val state = AgentChatUiState(
             messages = listOf(
-                UserMessageUi("u1", "写5000字故事"),
-                AgentMessageUi("a1", "故事写到一半"),
+                UserMessageUi("u1", "Write a 5000-word story"),
+                AgentMessageUi("a1", "Story halfway written"),
             ),
             input = "",
             isStreaming = false,
@@ -136,9 +136,9 @@ class AgentChatCompressTurnTest {
     fun steerAfterPartialShouldNotCountAsPartialToContinue() {
         val state = AgentChatUiState(
             messages = listOf(
-                UserMessageUi("u1", "写5000字故事"),
-                AgentMessageUi("a1", "故事写到一半"),
-                UserMessageUi("u2", "还有没"),
+                UserMessageUi("u1", "Write a 5000-word story"),
+                AgentMessageUi("a1", "Story halfway written"),
+                UserMessageUi("u2", "Any more?"),
             ),
             input = "",
             isStreaming = false,
@@ -151,9 +151,9 @@ class AgentChatCompressTurnTest {
     fun appendSupplementStaysInSameTurnForKeepAndResume() {
         val state = AgentChatUiState(
             messages = listOf(
-                UserMessageUi("u1", "写5000字故事"),
-                AgentMessageUi("a1", "故事写到一半"),
-                UserMessageUi("user-run-1-supplement-0", "还有没"),
+                UserMessageUi("u1", "Write a 5000-word story"),
+                AgentMessageUi("a1", "Story halfway written"),
+                UserMessageUi("user-run-1-supplement-0", "Any more?"),
             ),
             input = "",
             isStreaming = false,
@@ -168,7 +168,7 @@ class AgentChatCompressTurnTest {
     fun userOnlyTurnHasNoPartialAssistant() {
         val state = AgentChatUiState(
             messages = listOf(
-                UserMessageUi("u1", "写5000字故事"),
+                UserMessageUi("u1", "Write a 5000-word story"),
             ),
             input = "",
             isStreaming = true,
