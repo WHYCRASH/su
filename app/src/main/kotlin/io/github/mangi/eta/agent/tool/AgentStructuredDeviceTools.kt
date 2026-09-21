@@ -501,7 +501,7 @@ internal class AgentStructuredDeviceTools(
 
     private fun listenerNotifications(packageFilter: String, limit: Int): String {
         if (!AgentNotificationHistoryService.isEnabled(context)) {
-            return error("NOTIFICATION_ACCESS_REQUIRED", "Please grant Eta notification access on the permission health page first")
+            return error("NOTIFICATION_ACCESS_REQUIRED", "Notification access is configured by the su module; reinstall the module or check notification listener access.")
         }
         val notifications = AgentNotificationHistoryService.currentNotifications()
             ?: return error("NOTIFICATION_LISTENER_UNAVAILABLE", "The notification service is not connected yet. Please try again later")

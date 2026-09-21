@@ -26,7 +26,7 @@ internal fun projectToolGroups(groups: List<ToolGroupUi>, showAll: Boolean, root
         group.copy(tools = group.tools.filter { showAll || visibleOnCurrentDevice(it.id, rootGranted) })
     }.filter { it.tools.isNotEmpty() }
 
-/** A missing normal permission prefers an actionable grant entry; viewing the enhancement notes never requests Root itself. */
+/** An unavailable non-root capability has no card action; viewing the enhancement notes never requests Root itself. */
 internal fun toolCardAction(id: String, capabilities: AgentToolCapabilities): AgentToolsAction? {
     val requirement = toolCardRequirement(id)
     return when (capabilities.unavailableCode(actualToolName(id))) {
@@ -37,6 +37,6 @@ internal fun toolCardAction(id: String, capabilities: AgentToolCapabilities): Ag
                 AgentToolsAction.OpenEnhancements
             else -> null
         }
-        else -> AgentToolsAction.OpenPermissions
+        else -> null
     }
 }

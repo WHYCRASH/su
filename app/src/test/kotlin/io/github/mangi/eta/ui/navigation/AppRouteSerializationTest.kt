@@ -17,7 +17,6 @@ class AppRouteSerializationTest {
             AppRoute.Tools,
             AppRoute.Haptics,
             AppRoute.Skills,
-            AppRoute.Permissions,
             AppRoute.SystemEnhance,
             AppRoute.Settings,
             AppRoute.AppearanceSettings,

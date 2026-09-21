@@ -89,6 +89,12 @@ for eta_abi in arm64-v8a x86_64 armeabi-v7a x86; do
         -ffile-prefix-map="$eta_repo"=. \
         "$eta_repo/app/src/main/cpp/eta_pty.c" -o "$eta_output/$eta_abi/libeta_pty.so"
     "$eta_toolchain/llvm-strip" "$eta_output/$eta_abi/libeta_pty.so"
+    printf 'Building KernelSU profile helper: %s\n' "$eta_abi"
+    "$eta_cc" -O2 -Wall -Wextra -Werror -fPIE -pie \
+        -Wl,-z,max-page-size=16384 -Wl,-z,relro,-z,now \
+        -ffile-prefix-map="$eta_repo"=. \
+        "$eta_repo/app/src/main/cpp/eta_ksu_profile.c" -o "$eta_output/$eta_abi/libeta_ksu_profile.so"
+    "$eta_toolchain/llvm-strip" "$eta_output/$eta_abi/libeta_ksu_profile.so"
     if [[ "$eta_abi" != arm64-v8a && "$eta_abi" != x86_64 ]]; then continue; fi
 
     eta_prefix="$eta_abi_build/prefix"
@@ -168,6 +174,7 @@ python3 - "$eta_repo" <<'PY'
 import gzip, io, pathlib, tarfile, sys
 root = pathlib.Path(sys.argv[1])
 paths = [root / 'scripts/build-terminal-native.sh', root / 'app/src/main/cpp/eta_pty.c',
+         root / 'app/src/main/cpp/eta_ksu_profile.c',
          root / 'gradle/libs.versions.toml']
 paths += sorted((root / 'scripts/native').glob('*.patch'))
 paths += [root / 'scripts/native/README.md']

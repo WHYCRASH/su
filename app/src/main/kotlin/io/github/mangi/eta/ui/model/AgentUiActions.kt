@@ -24,17 +24,11 @@ sealed interface AgentHomeAction {
     data class BranchMessage(val id: String) : AgentHomeAction
     data object OpenTools : AgentHomeAction
     data object OpenSkills : AgentHomeAction
-    data object OpenPermissions : AgentHomeAction
     data object OpenSystemEnhance : AgentHomeAction
     data object OpenSettings : AgentHomeAction
     data object OpenBrowser : AgentHomeAction
     data class EditAssistant(val id: String) : AgentHomeAction
     data object ExpandRunTrace : AgentHomeAction
-}
-
-sealed interface PermissionHealthAction {
-    data class OpenItemAction(val itemId: String) : PermissionHealthAction
-    data object NavigateBack : PermissionHealthAction
 }
 
 sealed interface AgentChatAction {
@@ -64,7 +58,6 @@ sealed interface AgentChatAction {
 
 sealed interface AgentToolsAction {
     data object OpenEnhancements : AgentToolsAction
-    data object OpenPermissions : AgentToolsAction
     data object NavigateBack : AgentToolsAction
     data object OpenBrowser : AgentToolsAction
 }

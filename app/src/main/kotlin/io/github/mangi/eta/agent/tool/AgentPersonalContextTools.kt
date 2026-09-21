@@ -35,7 +35,7 @@ internal class AgentPersonalContextTools(private val context: Context) {
         if (!AgentNotificationHistoryService.isEnabled(context)) {
             return error(
                 "NOTIFICATION_HISTORY_ACCESS_REQUIRED",
-                "First grant Eta notification access on the Permission Health page; once granted, it will begin recording notifications from the past 7 days.",
+                "Notification access is configured by the su module; reinstall the module or check notification listener access.",
             )
         }
         return notificationHistory.search(
@@ -151,7 +151,7 @@ internal class AgentPersonalContextTools(private val context: Context) {
 
     private fun usageAccessError(): String = error(
         "APP_USAGE_ACCESS_REQUIRED",
-        "First grant Eta usage access on the Permission Health page.",
+        "Usage access is configured by the su module; reinstall the module or check app-ops state.",
     )
 
     private fun ok(tool: String) = JSONObject().put("ok", true).put("tool", tool)

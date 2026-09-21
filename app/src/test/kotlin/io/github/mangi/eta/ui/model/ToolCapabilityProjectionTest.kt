@@ -40,9 +40,9 @@ class ToolCapabilityProjectionTest {
         assertFalse(visibleOnCurrentDevice("get_health_summary", rootGranted = false))
     }
 
-    @Test fun missingOrdinaryPermissionOpensPermissionsBeforePartialRootBenefits() {
+    @Test fun missingOrdinaryPermissionYieldsNoCardAction() {
         val capabilities = AgentToolCapabilities(rootAvailable = false, notificationsAllowed = false)
-        assertEquals(AgentToolsAction.OpenPermissions, toolCardAction("recent_notifications", capabilities))
+        assertEquals(null, toolCardAction("recent_notifications", capabilities))
         assertEquals(AgentToolsAction.OpenEnhancements, toolCardAction("terminal", capabilities))
         assertEquals(AgentToolsAction.OpenBrowser, toolCardAction("browser_read", capabilities))
         assertEquals(AgentToolsAction.OpenEnhancements,

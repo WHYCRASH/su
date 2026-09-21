@@ -3,12 +3,7 @@ package io.github.mangi.eta.ui.app
 import androidx.compose.runtime.CompositionLocalProvider
 import io.github.mangi.eta.ui.components.StreamingMarkdownCache
 import io.github.mangi.eta.ui.components.LocalStreamingMarkdownStates
-import android.Manifest
 import android.app.Activity
-import android.content.Intent
-import android.net.Uri
-import android.os.Build
-import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -53,10 +48,7 @@ import androidx.navigationevent.compose.NavigationBackHandler
 import androidx.navigationevent.compose.rememberNavigationEventState
 import io.github.mangi.eta.EtaApp
 import io.github.mangi.eta.R
-import io.github.mangi.eta.agent.device.BoundedRootCommandExecutor
-import io.github.mangi.eta.agent.device.DeviceLocationProvider
 import io.github.mangi.eta.agent.device.RootAccess
-import io.github.mangi.eta.core.AndroidAgentLogger
 import io.github.mangi.eta.data.repository.RuntimeConfigRepository
 import io.github.mangi.eta.ui.AppearanceSettingsScreen
 import io.github.mangi.eta.ui.HapticsSettingsScreen
@@ -71,7 +63,6 @@ import io.github.mangi.eta.ui.model.AgentSystemEnhanceAction
 import io.github.mangi.eta.ui.model.AgentToolsAction
 import io.github.mangi.eta.ui.model.ConversationSummaryUi
 import io.github.mangi.eta.ui.model.conversationTokenUsage
-import io.github.mangi.eta.ui.model.PermissionHealthAction
 import io.github.mangi.eta.ui.navigation.AgentNavigator
 import io.github.mangi.eta.ui.navigation.AppRoute
 import io.github.mangi.eta.ui.pages.providers.ModelProviderDetailScreen
@@ -88,7 +79,6 @@ import io.github.mangi.eta.ui.screens.home.AgentHomeScreen
 import io.github.mangi.eta.ui.screens.mcp.McpServerDetailScreen
 import io.github.mangi.eta.ui.screens.mcp.McpServersScreen
 import io.github.mangi.eta.ui.screens.memory.AgentMemoryScreen
-import io.github.mangi.eta.ui.screens.permissions.PermissionHealthScreen
 import io.github.mangi.eta.ui.screens.skills.AgentSkillsScreen
 import io.github.mangi.eta.ui.screens.stats.UsageStatsScreen
 import io.github.mangi.eta.ui.screens.terminal.LinuxEnvironmentScreen
@@ -150,11 +140,6 @@ fun AgentAppRoot(
     }
     val streamingMarkdownCache = remember { StreamingMarkdownCache() }
     val requestExecutionNotifications = rememberExecutionNotificationRequest()
-    val locationPermissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions()
-    ) {
-        agentState.refreshPermissionHealth()
-    }
     val lifecycleOwner = LocalLifecycleOwner.current
     val focusManager = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
@@ -168,7 +153,6 @@ fun AgentAppRoot(
                 }
                 Lifecycle.Event.ON_RESUME -> {
                     RootAccess.refresh(context)
-                    agentState.refreshPermissionHealth()
                     agentState.refreshRuntimeResults()
                     agentState.refreshRequestOverhead()
                 }
@@ -400,7 +384,6 @@ fun AgentAppRoot(
             onOpenAssistants = { pushFromDrawer(AppRoute.Assistants()) },
             onOpenUsageStats = { pushFromDrawer(AppRoute.UsageStats) },
             onOpenSkills = { pushFromDrawer(AppRoute.Skills) },
-            onOpenPermissions = { pushFromDrawer(AppRoute.Permissions) },
             onOpenSettings = { pushFromDrawer(AppRoute.Settings) },
             onOpenModelProviders = { pushFromDrawer(AppRoute.ModelProviders) },
         ) { padding ->
@@ -486,7 +469,6 @@ fun AgentAppRoot(
                                 is AgentHomeAction.BranchMessage -> agentState.branchConversation(action.id)
                                 AgentHomeAction.OpenTools -> pushRoute(AppRoute.Tools)
                                 AgentHomeAction.OpenSkills -> pushRoute(AppRoute.Skills)
-                                AgentHomeAction.OpenPermissions -> pushRoute(AppRoute.Permissions)
                                 AgentHomeAction.OpenSystemEnhance -> pushRoute(AppRoute.SystemEnhance)
                                 AgentHomeAction.OpenSettings -> pushRoute(AppRoute.Settings)
                                 AgentHomeAction.OpenBrowser -> pushRoute(AppRoute.Browser)
@@ -587,7 +569,6 @@ fun AgentAppRoot(
                             AgentToolsAction.NavigateBack -> popRoute()
                             AgentToolsAction.OpenBrowser -> pushRoute(AppRoute.Browser)
                             AgentToolsAction.OpenEnhancements -> pushRoute(AppRoute.SystemEnhance)
-                            AgentToolsAction.OpenPermissions -> pushRoute(AppRoute.Permissions)
                         }
                     },
                 )
@@ -608,112 +589,6 @@ fun AgentAppRoot(
                             is AgentSkillsAction.ToggleSkill -> agentState.toggleSkill(action.skillId, action.enabled)
                             is AgentSkillsAction.DeleteSkill -> agentState.deleteSkill(action.skillId)
                             is AgentSkillsAction.ReinstallBuiltin -> agentState.reinstallBuiltin(action.skillId)
-                        }
-                    },
-                )
-            }
-            entry<AppRoute.Permissions>(swipeDismiss = swipeDismiss) {
-                LaunchedEffect(Unit) {
-                    agentState.refreshPermissionHealth()
-                }
-                PermissionHealthScreen(
-                    state = agentState.permissionHealthState,
-                    onAction = { action ->
-                        when (action) {
-                            PermissionHealthAction.NavigateBack -> popRoute()
-                            is PermissionHealthAction.OpenItemAction -> {
-                                when (action.itemId) {
-                                    "accessibility" -> {
-                                        runCatching {
-                                            context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-                                        }
-                                    }
-                                    "overlay" -> {
-                                        runCatching {
-                                            context.startActivity(
-                                                Intent(
-                                                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                                                    Uri.parse("package:${context.packageName}")
-                                                )
-                                            )
-                                        }
-                                    }
-                                    "background" -> {
-                                        if (RootAccess.isGranted && Build.MANUFACTURER.lowercase() in setOf("oppo", "realme", "oneplus")) {
-                                            uiScope.launch(Dispatchers.IO) {
-                                                BoundedRootCommandExecutor(AndroidAgentLogger).use {
-                                                    it.execute(
-                                                        "am start --user current -n " +
-                                                            "com.oplus.battery/com.oplus.powermanager.fuelgaue.PowerControlActivity " +
-                                                            "--es title Eta --es pkgName io.github.mangi.eta --es drainType APP",
-                                                    )
-                                                }
-                                            }
-                                        } else {
-                                            runCatching {
-                                                context.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
-                                            }
-                                        }
-                                    }
-                                    "app_list" -> {
-                                        runCatching {
-                                            context.startActivity(
-                                                Intent(
-                                                    Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                                                    Uri.parse("package:${context.packageName}")
-                                                )
-                                            )
-                                        }
-                                    }
-                                    "location" -> {
-                                        when (DeviceLocationProvider.accessState(context)) {
-                                            DeviceLocationProvider.AccessState.DENIED -> {
-                                                locationPermissionLauncher.launch(
-                                                    arrayOf(
-                                                        Manifest.permission.ACCESS_COARSE_LOCATION,
-                                                        Manifest.permission.ACCESS_FINE_LOCATION,
-                                                    )
-                                                )
-                                            }
-                                            DeviceLocationProvider.AccessState.FOREGROUND_ONLY -> {
-                                                runCatching {
-                                                    context.startActivity(
-                                                        Intent(
-                                                            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                                                            Uri.parse("package:${context.packageName}")
-                                                        )
-                                                    )
-                                                }
-                                            }
-                                            DeviceLocationProvider.AccessState.DISABLED -> {
-                                                runCatching {
-                                                    context.startActivity(
-                                                        Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)
-                                                    )
-                                                }
-                                            }
-                                            DeviceLocationProvider.AccessState.AVAILABLE -> {
-                                                agentState.refreshPermissionHealth()
-                                            }
-                                        }
-                                    }
-                                    "notification_history" -> {
-                                        runCatching {
-                                            context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
-                                        }
-                                    }
-                                    "usage_access" -> {
-                                        runCatching {
-                                            context.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
-                                        }
-                                    }
-                                    "notifications" -> {
-                                        context.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-                                            .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName))
-                                    }
-                                    "root" -> pushRoute(AppRoute.SystemEnhance)
-                                }
-                            }
                         }
                     },
                 )

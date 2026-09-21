@@ -44,6 +44,7 @@ Base: `app/src/main/kotlin/io/github/mangi/eta/`
 - `ui/` (`app/`, `screens/`, `pages/`, `components/`, `navigation/`, `markdown/`, `haptics/`) — `MainActivity`, `AgentAppRoot/Shell/State/ViewModel`, `AppRoute/AgentNavigator`.
 - `hook/system/` + `hook/google/` + `core/` + `config/` + `systemizer/` — LSPosed hooks, `AndroidAgentLogger`, `LogSafety`, `Prefs`, `PowerAssistantTarget`.
 - Non-Kotlin: `app/src/main/cpp/` + `jniLibs/`, `assets/agent/workspace.py`, `res/`, `app/src/test/{kotlin,python}/`.
+- `module/` (repo root) — ReSukiSU NoMount module inputs: `customize.sh`, `service.sh`, `boot-completed.sh` (permissions/app-ops/root-profile provisioning), `uninstall.sh`, `action.sh`, `system/etc/permissions/privapp-permissions-io.github.mangi.eta.xml`. `module.prop` and the whitelist are generated into `app/build/ksu-module/staging/` by `:app:assembleKsuModule`; never hand-edit the shipped list.
 
 ## Development Commands
 
@@ -62,6 +63,10 @@ PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s app/src/test/python -v
 # Assemble / verify release APK (signed if ETA_RELEASE_* or keystore.properties present)
 ./gradlew --no-daemon --no-configuration-cache :app:assembleRelease
 apksigner verify app/build/outputs/apk/release/app-release.apk
+
+# ReSukiSU NoMount module (privileged su.apk + generated privapp whitelist + root-profile helper)
+./gradlew --no-daemon --no-configuration-cache :app:assembleKsuModule
+unzip -l app/build/outputs/ksu-module/su-5.3.1-arm64.zip
 
 # Lint
 ./gradlew :app:lintDebug

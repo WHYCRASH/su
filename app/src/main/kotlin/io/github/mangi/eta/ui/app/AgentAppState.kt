@@ -1,13 +1,10 @@
 package io.github.mangi.eta.ui.app
 
-import android.content.ComponentName
 import android.content.ContentResolver
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
 import android.net.Uri
-import android.os.PowerManager
-import android.provider.Settings
 import android.text.format.DateFormat
 import android.widget.Toast
 import kotlin.jvm.Volatile
@@ -18,9 +15,7 @@ import androidx.compose.runtime.snapshots.Snapshot
 import io.github.mangi.eta.EtaApp
 import io.github.mangi.eta.ui.components.StreamPerformanceDiagnostics
 import io.github.mangi.eta.R
-import io.github.mangi.eta.agent.accessibility.AgentAccessibilityService
 import io.github.mangi.eta.agent.device.AgentFileReferenceGateway
-import io.github.mangi.eta.agent.device.DeviceLocationProvider
 import io.github.mangi.eta.agent.device.RootAccess
 import io.github.mangi.eta.agent.media.AgentChatImageCache
 import io.github.mangi.eta.agent.media.AgentImageCodec
@@ -108,9 +103,6 @@ import io.github.mangi.eta.ui.model.ConversationMention
 import io.github.mangi.eta.ui.model.toMentionedConversations
 import io.github.mangi.eta.ui.model.PendingFileReferenceUi
 import io.github.mangi.eta.ui.model.PendingImageUi
-import io.github.mangi.eta.ui.model.PermissionHealthItemUi
-import io.github.mangi.eta.ui.model.PermissionHealthUiState
-import io.github.mangi.eta.ui.model.PermissionStatusUi
 import io.github.mangi.eta.ui.model.SkillItemUi
 import io.github.mangi.eta.ui.model.SkillNoticeUi
 import io.github.mangi.eta.ui.model.SkillReplacementUi
@@ -289,9 +281,6 @@ internal class AgentAppState(
     var skillsState by mutableStateOf(AgentSkillsUiState(isLoading = true))
         private set
 
-    var permissionHealthState by mutableStateOf(PermissionHealthUiState(emptyList()))
-        private set
-
     var memoryState by mutableStateOf(AgentMemoryUiState())
         private set
 
@@ -303,7 +292,6 @@ internal class AgentAppState(
         ProviderBalanceStore.start(scope)
         scope.launch {
             RootAccess.state.collectLatest {
-                refreshPermissionHealth()
                 refreshRequestOverhead()
             }
         }
@@ -3174,15 +3162,6 @@ internal class AgentAppState(
         )
     }
 
-    private var permissionRefreshJob: Job? = null
-
-    fun refreshPermissionHealth() {
-        permissionRefreshJob?.cancel()
-        permissionRefreshJob = scope.launch(Dispatchers.IO) {
-            val refreshed = buildPermissionHealthState(appContext)
-            withContext(Dispatchers.Main) { permissionHealthState = refreshed }
-        }
-    }
 
     fun refreshSkills() {
         scope.launch(Dispatchers.IO) {
@@ -5088,105 +5067,6 @@ internal fun buildToolsState(context: Context): AgentToolsUiState =
         )
     )
 
-private fun buildPermissionHealthState(context: Context): PermissionHealthUiState {
-    val backgroundRunningEnabled = isIgnoringBatteryOptimizations(context)
-    val overlayEnabled = Settings.canDrawOverlays(context)
-    val appListEnabled = hasAppListAccess(context)
-    val accessibilityEnabled = isAgentAccessibilityEnabled(context) || AgentAccessibilityService.isAvailable()
-    val rootEnabled = RootAccess.isGranted
-    val notificationsEnabled = context.getSystemService(android.app.NotificationManager::class.java).areNotificationsEnabled()
-    val locationAccess = DeviceLocationProvider.accessState(context)
-    val notificationHistoryEnabled = io.github.mangi.eta.agent.device.AgentNotificationHistoryService.isEnabled(context)
-    val usageAccessEnabled = io.github.mangi.eta.agent.tool.AgentPersonalContextTools.hasUsageAccess(context)
-
-    return PermissionHealthUiState(
-        items = listOf(
-            PermissionHealthItemUi(
-                id = "background",
-                title = context.getString(R.string.state_background_running_permission_dde21b),
-                summary = "",
-                status = if (backgroundRunningEnabled) PermissionStatusUi.Available else PermissionStatusUi.Missing,
-                primaryActionLabel = if (backgroundRunningEnabled) null else context.getString(R.string.state_ui_to_open_13ec17),
-            ),
-            PermissionHealthItemUi(
-                id = "overlay",
-                title = context.getString(R.string.state_floating_window_permissions_076b77),
-                summary = "",
-                status = if (overlayEnabled) PermissionStatusUi.Available else PermissionStatusUi.Missing,
-                primaryActionLabel = if (overlayEnabled) null else context.getString(R.string.state_ui_to_authorize_762ec4),
-            ),
-            PermissionHealthItemUi(
-                id = "app_list",
-                title = context.getString(R.string.state_application_list_reading_135f16),
-                summary = "",
-                status = if (appListEnabled) PermissionStatusUi.Available else PermissionStatusUi.Missing,
-                primaryActionLabel = if (appListEnabled) null else context.getString(R.string.state_ui_to_open_13ec17),
-            ),
-            PermissionHealthItemUi(
-                id = "location",
-                title = context.getString(R.string.state_location_permissions_b53f9c),
-                summary = when (locationAccess) {
-                    DeviceLocationProvider.AccessState.DENIED -> context.getString(R.string.state_ui_used_to_understand_the_location_of_mobile_phones_af52e9)
-                    DeviceLocationProvider.AccessState.FOREGROUND_ONLY -> context.getString(R.string.capability_location_foreground)
-                    DeviceLocationProvider.AccessState.DISABLED -> context.getString(R.string.state_ui_system_location_service_is_turned_off_3902e7)
-                    DeviceLocationProvider.AccessState.AVAILABLE -> context.getString(R.string.state_ui_only_read_when_the_agent_calls_the_tool_8cf77b)
-                },
-                status = when (locationAccess) {
-                    DeviceLocationProvider.AccessState.DENIED -> PermissionStatusUi.Missing
-                    DeviceLocationProvider.AccessState.FOREGROUND_ONLY -> PermissionStatusUi.Warning
-                    DeviceLocationProvider.AccessState.DISABLED -> PermissionStatusUi.Disabled
-                    DeviceLocationProvider.AccessState.AVAILABLE -> PermissionStatusUi.Available
-                },
-                primaryActionLabel = when (locationAccess) {
-                    DeviceLocationProvider.AccessState.DENIED -> context.getString(R.string.state_ui_to_authorize_762ec4)
-                    DeviceLocationProvider.AccessState.FOREGROUND_ONLY -> context.getString(R.string.state_ui_go_to_settings_1f2998)
-                    DeviceLocationProvider.AccessState.DISABLED -> context.getString(R.string.state_ui_to_open_13ec17)
-                    DeviceLocationProvider.AccessState.AVAILABLE -> null
-                },
-            ),
-            PermissionHealthItemUi(
-                id = "notification_history",
-                title = context.getString(R.string.state_notice_of_use_rights_1ae29a),
-                summary = if (notificationHistoryEnabled) {
-                    context.getString(R.string.state_ui_natively_bounded_storage_of_last_7_days_of_notif_ca7f01)
-                } else {
-                    context.getString(R.string.state_ui_start_logging_searchable_notification_history_af_b36af6)
-                },
-                status = if (notificationHistoryEnabled) PermissionStatusUi.Available else PermissionStatusUi.Missing,
-                primaryActionLabel = if (notificationHistoryEnabled) null else context.getString(R.string.state_ui_to_authorize_762ec4),
-            ),
-            PermissionHealthItemUi(
-                id = "usage_access",
-                title = context.getString(R.string.state_usage_access_20f1f8),
-                summary = context.getString(R.string.state_used_to_read_recently_opened_applications_and_foregr_73e796),
-                status = if (usageAccessEnabled) PermissionStatusUi.Available else PermissionStatusUi.Missing,
-                primaryActionLabel = if (usageAccessEnabled) null else context.getString(R.string.state_ui_to_authorize_762ec4),
-            ),
-            PermissionHealthItemUi(
-                id = "accessibility",
-                title = context.getString(R.string.state_accessibility_permissions_f80103),
-                summary = "",
-                status = if (accessibilityEnabled) PermissionStatusUi.Available else PermissionStatusUi.Missing,
-                primaryActionLabel = if (accessibilityEnabled) null else context.getString(R.string.state_ui_to_open_13ec17),
-            ),
-            PermissionHealthItemUi(
-                id = "notifications",
-                title = context.getString(R.string.capability_notifications_title),
-                summary = context.getString(R.string.capability_notifications_summary),
-                status = if (notificationsEnabled) PermissionStatusUi.Available else PermissionStatusUi.Disabled,
-                primaryActionLabel = context.getString(R.string.state_ui_go_to_settings_1f2998),
-            ),
-            PermissionHealthItemUi(
-                id = "root",
-                title = context.getString(R.string.capability_enhancements),
-                summary = context.getString(R.string.capability_optional_root),
-                status = if (rootEnabled) PermissionStatusUi.Available else PermissionStatusUi.Disabled,
-                primaryActionLabel = if (rootEnabled) null else context.getString(R.string.state_ui_to_open_13ec17),
-            ),
-        )
-    )
-}
-
 private fun agentBooleanForUi(key: String): Boolean {
     return Prefs.isEnabled(key)
 }
@@ -5200,29 +5080,3 @@ private fun AgentTokenUsage.toUi(): TokenUsageUi =
         cachedTokens = cachedTokens,
     )
 
-private fun isAgentAccessibilityEnabled(context: Context): Boolean {
-    val expected = ComponentName(
-        context,
-        AgentAccessibilityService::class.java,
-    ).flattenToString()
-    val enabledServices = Settings.Secure.getString(
-        context.contentResolver,
-        Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
-    ).orEmpty()
-    return enabledServices.split(':').any { it.equals(expected, ignoreCase = true) }
-}
-
-private fun isIgnoringBatteryOptimizations(context: Context): Boolean {
-    val powerManager = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
-    return powerManager?.isIgnoringBatteryOptimizations(context.packageName) ?: false
-}
-
-private fun hasAppListAccess(context: Context): Boolean {
-    return try {
-        val pm = context.packageManager
-        val packages = pm.getInstalledPackages(0)
-        packages.size > 10
-    } catch (e: Exception) {
-        false
-    }
-}

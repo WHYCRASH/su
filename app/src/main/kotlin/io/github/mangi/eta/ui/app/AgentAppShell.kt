@@ -98,7 +98,6 @@ internal fun AgentAppShell(
     onOpenAssistants: () -> Unit = {},
     onOpenUsageStats: () -> Unit,
     onOpenSkills: () -> Unit,
-    onOpenPermissions: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenModelProviders: () -> Unit,
     modifier: Modifier = Modifier,
@@ -180,7 +179,6 @@ internal fun AgentAppShell(
                 onOpenModelProviders = onOpenModelProviders,
                 onOpenUsageStats = onOpenUsageStats,
                 onOpenSkills = onOpenSkills,
-                onOpenPermissions = onOpenPermissions,
             ) {
                 pageContent()
             }
@@ -286,7 +284,6 @@ private fun titleForRoute(route: AppRoute?, currentConversationTitle: String? = 
     is AppRoute.Tools -> stringResource(R.string.route_tools)
     is AppRoute.Haptics -> stringResource(R.string.haptics_title)
     is AppRoute.Skills -> stringResource(R.string.route_skills)
-    is AppRoute.Permissions -> stringResource(R.string.route_permissions)
     is AppRoute.SystemEnhance -> stringResource(R.string.route_system_enhancements)
     is AppRoute.Settings -> stringResource(R.string.route_settings)
     is AppRoute.SpeechSettings -> stringResource(R.string.speech_title)

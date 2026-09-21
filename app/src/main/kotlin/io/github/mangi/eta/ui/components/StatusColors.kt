@@ -4,7 +4,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import io.github.mangi.eta.R
-import io.github.mangi.eta.ui.model.PermissionStatusUi
 import io.github.mangi.eta.ui.model.RunStatusUi
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -33,20 +32,3 @@ fun RunStatusUi.label(): String = stringResource(when (this) {
     RunStatusUi.Cancelled -> R.string.status_cancelled
 })
 
-// ── PermissionStatusUi mapping ───────────────────────────────────────
-
-@Composable
-fun PermissionStatusUi.color(): Color = when (this) {
-    PermissionStatusUi.Available -> StatusIdle
-    PermissionStatusUi.Warning -> StatusWarning
-    PermissionStatusUi.Missing -> StatusError
-    PermissionStatusUi.Disabled -> StatusIdle
-}
-
-@Composable
-fun PermissionStatusUi.label(): String = stringResource(when (this) {
-    PermissionStatusUi.Available -> R.string.status_ready
-    PermissionStatusUi.Warning -> R.string.status_needs_attention
-    PermissionStatusUi.Missing -> R.string.status_unauthorized
-    PermissionStatusUi.Disabled -> R.string.status_disabled
-})

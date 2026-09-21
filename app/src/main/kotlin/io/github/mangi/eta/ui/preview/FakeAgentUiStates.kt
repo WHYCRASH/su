@@ -7,9 +7,6 @@ import io.github.mangi.eta.ui.model.AgentToolsUiState
 import io.github.mangi.eta.ui.model.ConversationModeUi
 import io.github.mangi.eta.ui.model.ConversationPaneUiState
 import io.github.mangi.eta.ui.model.ConversationSummaryUi
-import io.github.mangi.eta.ui.model.PermissionHealthItemUi
-import io.github.mangi.eta.ui.model.PermissionHealthUiState
-import io.github.mangi.eta.ui.model.PermissionStatusUi
 import io.github.mangi.eta.ui.model.ThinkingMessageUi
 import io.github.mangi.eta.ui.model.TokenUsageUi
 import io.github.mangi.eta.ui.model.ToolActivityMessageUi
@@ -115,67 +112,6 @@ internal object FakeAgentUiStates {
         input = "",
         isStreaming = false,
         thinkingEnabled = true,
-    )
-
-    val permissionHealth = PermissionHealthUiState(
-        items = listOf(
-            PermissionHealthItemUi(
-                id = "accessibility",
-                title = "Accessibility service",
-                summary = "Enabled; the agent can operate the UI",
-                status = PermissionStatusUi.Available,
-                primaryActionLabel = null,
-            ),
-            PermissionHealthItemUi(
-                id = "overlay",
-                title = "Overlay permission",
-                summary = "Granted; can show the run overlay",
-                status = PermissionStatusUi.Available,
-                primaryActionLabel = null,
-            ),
-            PermissionHealthItemUi(
-                id = "notification",
-                title = "Notification permission",
-                summary = "For background-task completion alerts",
-                status = PermissionStatusUi.Available,
-                primaryActionLabel = null,
-            ),
-            PermissionHealthItemUi(
-                id = "location",
-                title = "Location permission",
-                summary = "Read only when the agent calls a tool",
-                status = PermissionStatusUi.Available,
-                primaryActionLabel = null,
-            ),
-            PermissionHealthItemUi(
-                id = "root",
-                title = "Root access",
-                summary = "Not granted; some terminal commands are restricted",
-                status = PermissionStatusUi.Warning,
-                primaryActionLabel = "Check",
-            ),
-            PermissionHealthItemUi(
-                id = "shizuku",
-                title = "Shizuku",
-                summary = "Not configured; ADB-level features unavailable",
-                status = PermissionStatusUi.Disabled,
-                primaryActionLabel = "Set up",
-            ),
-            PermissionHealthItemUi(
-                id = "xposed",
-                title = "Hook / Xposed",
-                summary = "Framework not active; system enhancements unavailable",
-                status = PermissionStatusUi.Missing,
-                primaryActionLabel = "View",
-            ),
-            PermissionHealthItemUi(
-                id = "background",
-                title = "Background keep-alive",
-                summary = "Battery optimization is still on; long tasks may be interrupted",
-                status = PermissionStatusUi.Warning,
-                primaryActionLabel = "Settings",
-            ),
-        ),
     )
 
     val tools = AgentToolsUiState(

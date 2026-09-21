@@ -64,7 +64,6 @@
   <string name="haptics_intensity_expand">Adjust haptic intensity</string>
   <string name="haptics_intensity_collapse">Close intensity picker</string>
   <string name="route_skills">Skills</string>
-  <string name="route_permissions">Permissions</string>
   <string name="route_system_enhancements">System enhancements</string>
   <string name="route_settings">Settings</string>
   <string name="route_memory">Memory</string>
@@ -433,7 +432,6 @@
   <string name="ui_current_model_a0af8f">current model</string>
   <string name="ui_restore_automatic_8d4e1e">Restore automatic</string>
   <string name="ui_maintain_hey_google_detection_after_screen_rest_9d6877">Maintain Hey Google detection after screen rest</string>
-  <string name="ui_floating_window_permissions_076b77">Display Over Other Apps</string>
   <string name="ui_manually_fill_in_the_display_name_and_model_id_077a7b">Manually fill in the display name and Model ID</string>
   <string name="ui_long_press_on_the_gesture_bar_triggers_a_circle_to_s_b80117">Touch and hold the gesture bar to start Circle to Search</string>
   <string name="ui_open_current_browser_58358e">Open current browser</string>
@@ -449,14 +447,10 @@
   <string name="ui_new_anthropic_db6098">Add Anthropic provider</string>
   <string name="ui_added_openai_compatible_6bd471">Add OpenAI-compatible provider</string>
   <string name="ui_add_new_provider_74df54">Add new provider</string>
-  <string name="ui_accessibility_enhancement_tools_8fd257">Accessibility Services</string>
   <string name="ui_no_skills_installed_yet_4e960f">No Skills installed yet</string>
   <string name="ui_replace_user_skills_250e98">Replace Skill?</string>
   <string name="ui_how_can_i_help_you_e75391">How can I help you?</string>
   <string name="ui_server_side_web_search_ddb8e0">Provider-hosted web search</string>
-  <string name="ui_permissions_560165">Permissions</string>
-  <string name="ui_permissions_and_status_35f368">Permission status</string>
-  <string name="ui_permission_health_3048bb">Permissions Manager</string>
   <string name="ui_check_memory_pressure_2d9600">Check memory pressure</string>
   <string name="ui_core_memory_injection_budget_48b5d5">Core memory injection budget</string>
   <string name="ui_model_provider_e8c7f5">Model providers</string>
@@ -558,16 +552,11 @@
   <string name="state_root_permissions_958906">Root permissions</string>
   <string name="state_runtime_displays_a_status_pop_up_window_when_the_ser_54f285">Runtime displays a status pop-up window when the service is running</string>
   <string name="state_direct_access_to_personal_data_387d7b">Direct access to personal data</string>
-  <string name="state_location_permissions_b53f9c">Location Access</string>
-  <string name="state_usage_access_20f1f8">App Usage Access</string>
   <string name="state_the_built_in_skills_have_not_changed_please_try_agai_34e5e3">The built-in skills have not changed, please try again later.</string>
   <string name="state_deletion_is_not_complete_eta_will_try_to_recover_whe_c4297e">Deletion is not complete. su will try to recover when refreshing the skill list, please confirm the status and try again.</string>
-  <string name="state_background_running_permission_dde21b">Background Execution</string>
   <string name="state_follow_up_ability_589688">follow-up ability</string>
   <string name="state_screens_and_controls_3f095b">Screens and controls</string>
   <string name="state_applications_and_systems_9624e6">Applications and Systems</string>
-  <string name="state_application_list_reading_135f16">Installed Apps Access</string>
-  <string name="state_floating_window_permissions_076b77">Display Over Other Apps</string>
   <string name="state_the_skill_list_is_temporarily_unavailable_please_try_29b0be">The skill list is temporarily unavailable, please try again later.</string>
   <string name="state_skill_pack_is_no_longer_available_please_select_the__7cdfb4">Skill pack is no longer available, please select the ZIP file again.</string>
   <string name="state_skill_has_been_deleted_34c29b">Skill has been deleted</string>
@@ -583,12 +572,10 @@
   <string name="state_unable_to_continue_installation_136d7c">Unable to continue installation</string>
   <string name="state_unable_to_read_skills_599082">Unable to read skills</string>
   <string name="state_unable_to_read_skill_pack_a53563">Unable to read skill pack</string>
-  <string name="state_accessibility_permissions_f80103">Accessibility Services</string>
   <string name="state_replacement_confirmation_has_expired_please_select_t_fce9f2">Replacement confirmation has expired, please select the ZIP file again.</string>
   <string name="state_core_memory_is_automatically_injected_and_detailed_c_07232b">Core memory is automatically injected, and detailed content is retrieved by the model on demand.</string>
   <string name="state_model_increments_tool_calls_and_final_results_are_sy_3f2321">Model increments, tool calls, and final results are synced to the current session</string>
   <string name="state_streaming_events_360e09">streaming events</string>
-  <string name="state_used_to_read_recently_opened_applications_and_foregr_73e796">Required to monitor recent app usage and screen time</string>
   <string name="state_system_enhancement_capabilities_are_reserved_for_sub_0a8b21">System enhancement capabilities are reserved for subsequent secondary functions</string>
   <string name="state_terminal_and_files_ae7c54">Terminal and files</string>
   <string name="state_web_browsing_e56105">web browsing</string>
@@ -597,7 +584,6 @@
   <string name="state_direct_access_to_equipment_eda92c">Direct access to equipment</string>
   <string name="state_please_select_the_zip_file_provided_by_the_system_fi_fea145">Please select the ZIP file provided by the system file selector.</string>
   <string name="state_run_floating_window_48af02">Display Over Other Apps</string>
-  <string name="state_notice_of_use_rights_1ae29a">Notification Access</string>
   <string name="page_sdcard_is_available_cbb808">/sdcard is available</string>
   <string name="page_sdcard_is_currently_unavailable_8195de">/sdcard is currently unavailable</string>
   <string name="page_workspace_is_not_available_3db427">/workspace is not available</string>
@@ -737,6 +723,7 @@
   <string name="page_stop_a17f70">stop</string>
   <string name="page_sure_f526c8">Sure</string>
   <string name="page_system_default_assistant_576746">System default assistant</string>
+  <string name="page_testing_f43705">Testing...</string>
   <string name="page_the_accessibility_protection_backend_is_unavailable__e50b64">The accessibility protection backend is unavailable, please confirm that the system scope is enabled and restart</string>
   <string name="page_the_installation_is_complete_and_will_take_effect_af_82329a">The installation is complete and will take effect after restarting.</string>
   <string name="page_there_is_currently_no_model_provider_please_add_one_78ab6a">There is currently no model provider, please add one.</string>
@@ -897,11 +884,7 @@
   <string name="state_ui_skill_md_is_missing_required_information_or_is_i_debe6e">SKILL.md is missing required information or is in an invalid format.</string>
   <string name="state_ui_skill_md_not_found_in_zip_a57975">SKILL.md not found in ZIP.</string>
   <string name="state_ui_the_zip_content_has_changed_please_reselect_and__ab8b12">The ZIP content has changed, please reselect and confirm the skill you want to replace.</string>
-  <string name="state_ui_only_read_when_the_agent_calls_the_tool_8cf77b">Accessed only when triggered by an active tool</string>
   <string name="state_ui_only_supports_normal_files_and_folders_4adea0">Only supports normal files and folders</string>
-  <string name="state_ui_to_open_13ec17">Open</string>
-  <string name="state_ui_to_authorize_762ec4">Grant access</string>
-  <string name="state_ui_go_to_settings_1f2998">Go to settings</string>
   <string name="state_ui_built_in_skills_with_the_same_name_are_protected_446ad3">Built-in skills with the same name are protected and cannot be replaced by ZIP.</string>
   <string name="state_ui_the_target_with_the_same_name_is_not_a_user_skil_00474b">The target with the same name is not a user skill that can be safely replaced and existing files are not overwritten.</string>
   <string name="state_ui_the_installation_failed_and_automatic_recovery_d_0d9e01">The installation failed and automatic recovery did not complete completely. su has retained a recovery backup in the application private directory. Please check the skill list first and stop the installation.</string>
@@ -910,7 +893,6 @@
   <string name="state_ui_the_selected_path_has_been_added_42b432">The selected path has been added</string>
   <string name="state_ui_the_skill_pack_contains_an_unsafe_file_path_and__d8cfc0">The skill pack contains an unsafe file path and was not installed.</string>
   <string name="state_ui_the_skill_pack_exceeds_the_safe_size_or_file_num_42e151">The skill pack exceeds the safe size or file number limit.</string>
-  <string name="state_ui_start_logging_searchable_notification_history_af_b36af6">Required to record and search notification history</string>
   <string name="state_ui_file_path_reference_requires_opening_the_termina_deca4c">File path reference requires opening the terminal and file tools first</string>
   <string name="state_ui_unable_to_save_skills_original_skills_have_been__9d4748">Unable to save skills, original skills have been automatically restored.</string>
   <string name="state_ui_unable_to_obtain_the_real_path_please_select_fro_32f367">Unable to obtain the real path, please select from "Internal Storage" or enter the path manually</string>
@@ -921,10 +903,7 @@
   <string name="state_ui_video_exceeds_limit">Video exceeds the %1$d MiB limit</string>
   <string name="state_ui_unnamed_skill_a58008">Unnamed skill</string>
   <string name="state_ui_the_local_zip_must_contain_only_one_skill_b89daf">The local ZIP must contain only one skill.</string>
-  <string name="state_ui_natively_bounded_storage_of_last_7_days_of_notif_ca7f01">Stores up to 7 days of notification history; accessed only when triggered by an active tool</string>
   <string name="state_ui_model_switching_failed_please_try_again_later_4af439">Model switching failed, please try again later</string>
-  <string name="state_ui_used_to_understand_the_location_of_mobile_phones_af52e9">Required to access your location when a location tool is active</string>
-  <string name="state_ui_system_location_service_is_turned_off_3902e7">System location service is turned off</string>
   <string name="state_ui_memory_save_failed_1f501e">Memory save failed</string>
   <string name="state_ui_memory_saved_a2c61c">memory saved</string>
   <string name="state_ui_memory_cleared_b415bb">memory cleared</string>
@@ -949,10 +928,6 @@
   <string name="settings_not_configured">Not configured</string>
   <string name="settings_default_assistant_active">Set as default digital assistant</string>
   <string name="settings_select_default_assistant">Select su as the default digital assistant</string>
-  <string name="status_authorized">Granted</string>
-  <string name="status_unauthorized">Not Granted</string>
-  <string name="status_enabled">Enabled</string>
-  <string name="status_disabled">Disabled</string>
   <string name="accessibility_protection_unavailable">The accessibility protection backend is unavailable. Enable the system scope and restart</string>
   <string name="accessibility_protection_rejected">The system rejected the accessibility protection request</string>
   <string name="settings_write_failed">Couldn\'t save settings</string>
@@ -1104,8 +1079,6 @@
   <string name="linux_apk_stage_verifying">Verifying analysis commands</string>
   <string name="linux_apk_stage_complete">APK analysis tools installed</string>
   <string name="status_cancelled">Cancelled</string>
-  <string name="status_ready">Granted</string>
-  <string name="status_needs_attention">Needs attention</string>
   <plurals name="provider_configured_count">
     <item quantity="one">Configured providers (%d)</item>
     <item quantity="other">Configured providers (%d)</item>
@@ -1158,15 +1131,6 @@
   <string name="memory_saving">Saving</string>
   <string name="memory_save">Save</string>
   <string name="memory_clear">Clear</string>
-  <string name="permission_health_ok">All good</string>
-  <plurals name="permission_health_issues">
-    <item quantity="one">%d item needs attention</item>
-    <item quantity="other">%d items need attention</item>
-  </plurals>
-  <string name="permission_status_ok">Available</string>
-  <string name="permission_status_missing">Missing</string>
-  <string name="permission_status_warning">Issue</string>
-  <string name="permission_status_disabled">Not enabled</string>
   <string name="chat_edit_replace_later">Sending will replace this message and everything after it</string>
   <string name="chat_edit_replace_message">Sending will replace this message</string>
   <string name="chat_eta_working">su is working…</string>

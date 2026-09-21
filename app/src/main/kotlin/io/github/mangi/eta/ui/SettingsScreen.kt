@@ -11,7 +11,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.AccessibilityNew
 import androidx.compose.material.icons.rounded.AccountTree
 import androidx.compose.material.icons.rounded.SmartToy
 import androidx.compose.material.icons.rounded.RemoveRedEye
@@ -25,13 +24,11 @@ import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Extension
 import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.GppMaybe
-import androidx.compose.material.icons.rounded.HealthAndSafety
 import androidx.compose.material.icons.rounded.Hearing
 import androidx.compose.material.icons.rounded.Inventory
 import androidx.compose.material.icons.rounded.Inventory2
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Language
-import androidx.compose.material.icons.rounded.Layers
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Memory
 import androidx.compose.material.icons.rounded.Compress
@@ -68,7 +65,6 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import io.github.mangi.eta.EtaApp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.accessibility.AccessibilityProtectionClient
-import io.github.mangi.eta.agent.accessibility.AgentAccessibilityService
 import io.github.mangi.eta.agent.voice.EtaVoiceInteractionService
 import io.github.mangi.eta.config.PowerAssistantTarget
 import io.github.mangi.eta.config.Prefs
@@ -164,13 +160,6 @@ internal fun SettingsScreen(
         }
     }
 
-    // Overlay permission state: refreshed on ON_RESUME when returning from system settings.
-    var overlayGranted by remember {
-        mutableStateOf(android.provider.Settings.canDrawOverlays(context))
-    }
-    var accessibilityGranted by remember {
-        mutableStateOf(isAgentAccessibilityEnabled(context))
-    }
     var accessibilityProtectionEnabled by remember {
         mutableStateOf(AccessibilityProtectionClient.isEnabled(context))
     }
@@ -188,8 +177,6 @@ internal fun SettingsScreen(
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
-                overlayGranted = android.provider.Settings.canDrawOverlays(context)
-                accessibilityGranted = isAgentAccessibilityEnabled(context)
                 accessibilityProtectionEnabled =
                     AccessibilityProtectionClient.isEnabled(context)
                 etaAssistantActive = isEtaAssistantActive(context)
@@ -682,18 +669,8 @@ internal fun SettingsScreen(
                 }
             }
 
-            // ── Permissions ────────────────────────────────────
             item(key = "section_permissions") {
-                SmallTitle(stringResource(R.string.ui_permissions_560165))
                 Card(modifier = Modifier.padding(horizontal = 12.dp).padding(bottom = 12.dp)) {
-                    ArrowPreference(
-                        title = stringResource(R.string.ui_permission_health_3048bb),
-                        summary = stringResource(R.string.ui_permissions_and_status_35f368),
-                        startAction = {
-                            PreferenceIcon(icon = Icons.Rounded.HealthAndSafety)
-                        },
-                        onClick = { onNavigate(AppRoute.Permissions) },
-                    )
                     ArrowPreference(
                         title = stringResource(R.string.capability_enhancements),
                         summary = stringResource(R.string.capability_enhancements_summary),
@@ -701,69 +678,6 @@ internal fun SettingsScreen(
                             PreferenceIcon(icon = Icons.Rounded.Security)
                         },
                         onClick = { onNavigate(AppRoute.SystemEnhance) },
-                    )
-                    ArrowPreference(
-                        title = stringResource(R.string.ui_floating_window_permissions_076b77),
-                        startAction = {
-                            PreferenceIcon(
-                                icon = Icons.Rounded.Layers,
-                            )
-                        },
-                        endActions = {
-                            Text(
-                                text = stringResource(
-                                    if (overlayGranted) R.string.status_authorized else R.string.status_unauthorized,
-                                ),
-                                fontSize = MiuixTheme.textStyles.body2.fontSize,
-                                color = if (overlayGranted) {
-                                    MiuixTheme.colorScheme.onSurfaceVariantActions
-                                } else {
-                                    MiuixTheme.colorScheme.error
-                                },
-                            )
-                        },
-                        onClick = {
-                            if (!overlayGranted) {
-                                runCatching {
-                                    context.startActivity(
-                                        android.content.Intent(
-                                            android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                                            android.net.Uri.parse("package:${context.packageName}"),
-                                        ),
-                                    )
-                                }
-                            }
-                        },
-                    )
-
-                    ArrowPreference(
-                        title = stringResource(R.string.ui_accessibility_enhancement_tools_8fd257),
-                        startAction = {
-                            PreferenceIcon(
-                                icon = Icons.Rounded.AccessibilityNew,
-                            )
-                        },
-                        endActions = {
-                            val enabled = accessibilityGranted || AgentAccessibilityService.isAvailable()
-                            Text(
-                                text = stringResource(
-                                    if (enabled) R.string.status_enabled else R.string.status_disabled,
-                                ),
-                                fontSize = MiuixTheme.textStyles.body2.fontSize,
-                                color = if (enabled) {
-                                    MiuixTheme.colorScheme.onSurfaceVariantActions
-                                } else {
-                                    MiuixTheme.colorScheme.primary
-                                },
-                            )
-                        },
-                        onClick = {
-                            runCatching {
-                                context.startActivity(
-                                    android.content.Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS),
-                                )
-                            }
-                        },
                     )
                     if (prefs != null || hasConnectedFramework) {
                         SwitchPreference(
@@ -779,8 +693,6 @@ internal fun SettingsScreen(
                                     enabled = enabled,
                                 ) { result ->
                                     accessibilityProtectionPending = false
-                                    accessibilityProtectionEnabled = result.enabled
-                                    accessibilityGranted = isAgentAccessibilityEnabled(context)
                                     val failureMessage = when (result.status) {
                                         AccessibilityProtectionClient.ControlStatus.APPLIED -> null
                                         AccessibilityProtectionClient.ControlStatus.UNAVAILABLE ->
@@ -1045,18 +957,6 @@ private fun PowerAssistantTarget.displayName(context: Context): String =
         PowerAssistantTarget.ETA -> "su"
     }
 
-private fun isAgentAccessibilityEnabled(context: Context): Boolean {
-    val expected = ComponentName(
-        context,
-        AgentAccessibilityService::class.java
-    ).flattenToString()
-    val enabledServices = android.provider.Settings.Secure.getString(
-        context.contentResolver,
-        android.provider.Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
-    ).orEmpty()
-    return enabledServices.split(':').any { it.equals(expected, ignoreCase = true) }
-}
-
 private fun defaultDiagnosticLogFileName(): String =
     "su-diagnostics-${SimpleDateFormat("yyyyMMdd-HHmm", Locale.US).format(Date())}.zip"
 
@@ -1065,8 +965,6 @@ private fun isEtaAssistantActive(context: Context): Boolean =
         context,
         ComponentName(context, EtaVoiceInteractionService::class.java),
     )
-
-
 
 private fun SystemizerInstallResult.toToastMessage(context: Context): String =
     when (this) {

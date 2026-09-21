@@ -38,7 +38,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.HealthAndSafety
 import androidx.compose.material.icons.rounded.CreateNewFolder
 import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.History
@@ -177,7 +176,6 @@ fun ConversationSidePaneScaffold(
     onOpenModelProviders: () -> Unit,
     onOpenUsageStats: () -> Unit,
     onOpenSkills: () -> Unit,
-    onOpenPermissions: () -> Unit,
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
@@ -305,7 +303,6 @@ fun ConversationSidePaneScaffold(
                     onOpenModelProviders = { launchAfterDrawerClosed(onOpenModelProviders) },
                     onOpenUsageStats = { launchAfterDrawerClosed(onOpenUsageStats) },
                     onOpenSkills = { launchAfterDrawerClosed(onOpenSkills) },
-                    onOpenPermissions = { launchAfterDrawerClosed(onOpenPermissions) },
                     modifier = Modifier.fillMaxHeight(),
                 )
             },
@@ -343,7 +340,6 @@ private fun ConversationPanePanel(
     onOpenModelProviders: () -> Unit,
     onOpenUsageStats: () -> Unit,
     onOpenSkills: () -> Unit,
-    onOpenPermissions: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val query = state.searchQuery.trim()
@@ -448,7 +444,6 @@ private fun ConversationPanePanel(
             )
             Spacer(modifier = Modifier.height(DrawerMetrics.DockTopGap))
             PaneDock(
-                onOpenPermissions = onOpenPermissions,
                 onOpenSettings = onOpenSettings,
                 onOpenModelProviders = onOpenModelProviders,
                 onOpenUsageStats = onOpenUsageStats,
@@ -1067,7 +1062,6 @@ private fun PaneAssistantBar(
 
 @Composable
 private fun PaneDock(
-    onOpenPermissions: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenModelProviders: () -> Unit,
     onOpenUsageStats: () -> Unit,
@@ -1077,12 +1071,6 @@ private fun PaneDock(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        DrawerCircleButton(
-            icon = Icons.Rounded.HealthAndSafety,
-            label = stringResource(R.string.ui_permission_health_3048bb),
-            onClick = onOpenPermissions,
-        )
-        Spacer(modifier = Modifier.width(10.dp))
         DrawerCircleButton(
             icon = Icons.Rounded.Memory,
             label = stringResource(R.string.conversation_dock_models),
