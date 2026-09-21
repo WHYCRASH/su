@@ -38,3 +38,4 @@ google-services.json
 
 # Runtime-owned collaboration workspaces and artifacts
 /.agent/
+/.omp/
