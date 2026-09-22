@@ -25,7 +25,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
-import io.github.mangi.eta.EtaApp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.skill.SkillIndexEntry
 import io.github.mangi.eta.agent.skill.SkillRuntime
@@ -136,7 +135,7 @@ internal fun AssistantEditScreen(
                 runCatching {
                     if (memoryChanged) savedSnapshot = AgentMemoryRepository.replaceAll(targetMemory, assistantId, baseRevision)
                     AssistantRepository.update(targetProfile)
-                    RuntimeConfigRepository.syncToRemotePreferences(EtaApp.serviceInstance)
+                    RuntimeConfigRepository.refreshRuntimeConfig()
                 }
             }
             savedSnapshot?.let { snapshot ->

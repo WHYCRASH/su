@@ -37,7 +37,6 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import io.github.mangi.eta.EtaApp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.data.model.AnthropicProviderSetting
 import io.github.mangi.eta.data.model.BalanceOption
@@ -133,7 +132,7 @@ internal fun ModelProviderDetailScreen(
     }
 
     LaunchedEffect(Unit) {
-        RuntimeConfigRepository.ensureDefaults(EtaApp.serviceInstance)
+        RuntimeConfigRepository.ensureDefaults()
     }
 
     if (provider == null && draft == null) {
@@ -486,17 +485,13 @@ private fun ProviderConfigTab(
                                         }
                                     }
                                     val added = ProviderRepository.addProvider(toSave)
-                                    RuntimeConfigRepository.syncToRemotePreferences(
-                                        EtaApp.serviceInstance
-                                    )
+                                    RuntimeConfigRepository.refreshRuntimeConfig()
                                     status = context.getString(R.string.capability_provider_created)
                                     creationCommitted = true
                                     onCreated(added.id)
                                 } else {
                                     ProviderRepository.updateProvider(built)
-                                    RuntimeConfigRepository.syncToRemotePreferences(
-                                        EtaApp.serviceInstance
-                                    )
+                                    RuntimeConfigRepository.refreshRuntimeConfig()
                                     status = context.getString(R.string.capability_provider_saved)
                                 }
                             } catch (cancelled: CancellationException) {
@@ -580,7 +575,7 @@ private fun ProviderConfigTab(
                         isWorking = true
                         try {
                             ProviderRepository.deleteProvider(provider.id)
-                            RuntimeConfigRepository.syncToRemotePreferences(EtaApp.serviceInstance)
+                            RuntimeConfigRepository.refreshRuntimeConfig()
                             showDeleteDialog = false
                             onDeleted()
                         } catch (cancelled: CancellationException) {
@@ -617,7 +612,7 @@ private fun ProviderConfigTab(
                         isWorking = true
                         try {
                             ProviderRepository.resetBuiltIn(provider.id)
-                            RuntimeConfigRepository.syncToRemotePreferences(EtaApp.serviceInstance)
+                            RuntimeConfigRepository.refreshRuntimeConfig()
                             status = context.getString(R.string.page_reset_a0cc65)
                             showResetDialog = false
                         } catch (cancelled: CancellationException) {

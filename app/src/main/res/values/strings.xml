@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <resources>
   <string name="app_name">su</string>
-  <string name="xposed_description">A system-level AI agent that routes system assistant entry points to su and enables Gemini, Circle to Search, browser, terminal, and device tools.</string>
+  <string name="app_description">A system-level AI agent with assistant entry points, a headless browser, on-device Linux terminals, and device control tools.</string>
   <string name="agent_accessibility_label">su</string>
   <string name="agent_accessibility_description">Read screen content and perform taps, swipes, text input, and other actions to help the agent complete tasks.</string>
   <string name="notification_history_service_label">su notification history</string>
@@ -375,20 +375,15 @@
 - User name:
 - Long-term preferences:</string>
   <string name="ui_apk_analysis_95ad17">APK analysis</string>
-  <string name="ui_agent_and_local_tools_can_still_be_used_but_the_syst_b14479">Agent and local tools remain available. System assistant takeover, Gemini, and Circle to Search settings cannot be changed right now.</string>
   <string name="ui_endpoint_mode_3c8546">Endpoint mode</string>
   <string name="ui_eta_system_assistant_003e9b">su system assistant</string>
-  <string name="ui_lsposed_service_is_not_connected_44734d">LSPosed service is not connected</string>
   <string name="ui_linux_tool_environment_314d22">Linux Container</string>
   <string name="ui_the_entire_contents_of_memory_md_will_be_deleted_and_83a8ac">The entire contents of MEMORY.md will be deleted and the memory switch will remain in its current state.</string>
   <string name="ui_provider_does_not_exist_83cee6">Provider does not exist</string>
-  <string name="ui_search_in_one_turn_179584">Circle to Search</string>
   <string name="ui_contextual_usage_d12810">Context usage</string>
   <string name="ui_context_length_tokens_227860">Context window (tokens)</string>
-  <string name="ui_bright_screen_evokes_automatic_voice_input_4358fe">Bright screen evokes automatic voice input</string>
   <string name="ui_only_take_over_with_agent_prefix_d17556">Only take over with /agent prefix</string>
   <string name="ui_only_check_the_ranges_actually_supported_by_the_mode_2c343d">Only check the ranges actually supported by the model or gateway; unsupported combinations will clearly report an error before requesting.</string>
-  <string name="ui_valid_only_for_gemini_and_eta_d5b63d">Valid only for Gemini and su</string>
   <string name="ui_preferences_and_strategies_2abd3c">Preferences and Strategies</string>
   <string name="ui_stop_a17f70">stop</string>
   <string name="ui_allow_sensitive_device_operation_3d42ea">Allow sensitive device operation</string>
@@ -404,7 +399,6 @@
   <string name="ui_delete_model_cf24da">Delete model</string>
   <string name="ui_delete_user_skills_f319a9">Delete Skill</string>
   <string name="ui_delete_this_conversation_3f351b">Delete this conversation</string>
-  <string name="ui_long_press_with_two_fingers_to_trigger_a_circle_sear_ab597a">Touch and hold with two fingers to start Circle to Search</string>
   <string name="ui_cancel_edit_c698df">Cancel edit</string>
   <string name="ui_available_capacity_743337">Available capabilities</string>
   <string name="ui_optional_tools_3097d6">Optional tools</string>
@@ -419,7 +413,6 @@
   <string name="ui_enter_the_url_in_the_address_bar_or_let_the_agent_br_e2ae90">Enter the URL in the address bar, or let the Agent browse the page for you. Sessions are only used within su.</string>
   <string name="ui_copy_4edd1d">copy</string>
   <string name="ui_install_087db6">Install</string>
-  <string name="ui_convert_google_apps_to_system_apps_0f6d89">Convert Google Apps to system apps</string>
   <string name="ui_this_will_close_the_current_page_and_clear_eta_brows_1cd331">This will close the current page and clear su Browser\'s cookies and site data. External browsers are not affected.</string>
   <string name="ui_display_name_ed16be">Display name</string>
   <string name="ui_tool_a72ef1">tool</string>
@@ -431,9 +424,7 @@
   <string name="ui_current_25e74d">current</string>
   <string name="ui_current_model_a0af8f">current model</string>
   <string name="ui_restore_automatic_8d4e1e">Restore automatic</string>
-  <string name="ui_maintain_hey_google_detection_after_screen_rest_9d6877">Maintain Hey Google detection after screen rest</string>
   <string name="ui_manually_fill_in_the_display_name_and_model_id_077a7b">Manually fill in the display name and Model ID</string>
-  <string name="ui_long_press_on_the_gesture_bar_triggers_a_circle_to_s_b80117">Touch and hold the gesture bar to start Circle to Search</string>
   <string name="ui_open_current_browser_58358e">Open current browser</string>
   <string name="ui_search_provider_74e049">Search provider</string>
   <string name="ui_search_model_df5586">Search model</string>
@@ -467,20 +458,17 @@
   <string name="ui_environmental_status_5b32a1">Environment status</string>
   <string name="ui_user_skills_748e7f">Installed by you</string>
   <string name="ui_determined_by_model_or_provider_06c326">Determined by model or provider</string>
-  <string name="ui_long_press_the_power_button_1958d0">Long press the power button</string>
   <string name="ui_knew_cb63c6">Got it</string>
   <string name="ui_remove_image_089db3">Remove image</string>
   <string name="ui_remove_file_reference_04bbfc">Remove file reference</string>
-  <string name="ui_system_assistant_takes_over_f46043">System assistant takes over</string>
+  <string name="ui_system_assistant_takes_over_f46043">System assistant</string>
   <string name="ui_system_enhancement_dcd4ad">System enhancement</string>
-  <string name="ui_system_applications_have_voice_wake_up_permissions_f_0190f2">System applications have voice wake-up permissions, fewer self-start restrictions, and the experience is close to native. Will be installed via Magisk/KernelSU module and will take effect after reboot.</string>
   <string name="ui_result_0a2c91">result</string>
   <string name="ui_absolute_path_9ac6fc">absolute path</string>
   <string name="ui_edit_a7f814">edit</string>
   <string name="ui_edit_model_parameters_ba4864">Edit model parameters</string>
   <string name="ui_url_or_domain_name_3ee97a">URL or domain name</string>
   <string name="ui_the_webpage_cannot_be_opened_3db06d">The webpage cannot be opened</string>
-  <string name="ui_automatically_set_default_assistant_f86963">Automatically set default assistant</string>
   <string name="ui_memory_b55ff5">Memory</string>
   <string name="ui_set_up_7debf9">set up</string>
   <string name="ui_access_7f5641">Access</string>
@@ -494,7 +482,6 @@
   <string name="ui_regenerate_reply_84a7d9">Regenerate reply</string>
   <string name="ui_reset_built_in_configuration_35b6ec">Reset built-in settings</string>
   <string name="ui_reset_browser_session_791b36">Reset browser session</string>
-  <string name="ui_lock_screen_evokes_automatic_voice_input_1cde18">Lock screen evokes automatic voice input</string>
   <string name="ui_deep_thinking_enabled_by_default_c032d6">Reasoning enabled by default</string>
   <string name="tool_tap_area">Tap area</string>
   <string name="tool_current_context">Time and location</string>
@@ -548,7 +535,6 @@
   </plurals>
   <string name="reasoning_collapse">Collapse reasoning</string>
   <string name="reasoning_expand">Expand reasoning</string>
-  <string name="state_hook_secondary_ability_95afe3">Hook secondary ability</string>
   <string name="state_root_permissions_958906">Root permissions</string>
   <string name="state_runtime_displays_a_status_pop_up_window_when_the_ser_54f285">Runtime displays a status pop-up window when the service is running</string>
   <string name="state_direct_access_to_personal_data_387d7b">Direct access to personal data</string>
@@ -682,17 +668,12 @@
   <string name="page_create_fcbd09">create</string>
   <string name="page_create_new_provider_36cab9">Create new provider</string>
   <string name="page_created_62cfc5">Created</string>
-  <string name="page_created_and_set_as_current_lsposed_service_is_not_co_baa03d">Created and set as current, LSPosed service is not connected</string>
-  <string name="page_created_set_current_and_synced_a99010">Created, set current and synced</string>
   <string name="page_didn_t_get_root_permissions_23efb3">Didn\'t get root permissions</string>
   <string name="page_document_49deaf">document</string>
   <string name="page_enter_path_ec5f01">Enter path</string>
   <string name="page_eta_is_executing_032532">su is executing…</string>
   <string name="page_folder_46ecac">folder</string>
-  <string name="page_google_app_is_already_a_system_priv_app_4f33b0">Google App is already a system priv-app</string>
-  <string name="page_google_app_not_installed_2e3e55">Google App not installed</string>
   <string name="page_hide_bb0e7e">hide</string>
-  <string name="page_kernelsu_needs_to_enable_metamodule_support_first_5d29de">KernelSU needs to enable metamodule support first</string>
   <string name="page_leave_it_to_eta_to_finish_3d378f">Leave it to su to finish.</string>
   <string name="page_magisk_or_kernelsu_not_detected_ae18c5">Magisk or KernelSU not detected</string>
   <string name="page_missing_2fe9b7">Missing</string>
@@ -712,9 +693,6 @@
   <string name="page_reset_built_in_configuration_35b6ec">Reset built-in configuration</string>
   <string name="page_resetting_616090">Resetting...</string>
   <string name="page_save_configuration_817af1">Save configuration</string>
-  <string name="page_saved_and_set_as_current_lsposed_service_not_connect_08da2c">Saved and set as current, LSPosed service not connected</string>
-  <string name="page_saved_current_and_synced_95dac1">Saved, current and synced</string>
-  <string name="page_saved_provider_not_enabled_7afa54">Saved, provider not enabled</string>
   <string name="page_selected_0a3020">selected</string>
   <string name="page_send_1214d6">send</string>
   <string name="page_set_as_current_df334e">Set as current</string>
@@ -931,16 +909,6 @@
   <string name="accessibility_protection_unavailable">The accessibility protection backend is unavailable. Enable the system scope and restart</string>
   <string name="accessibility_protection_rejected">The system rejected the accessibility protection request</string>
   <string name="settings_write_failed">Couldn\'t save settings</string>
-  <string name="status_processing">Processing…</string>
-  <string name="power_assistant_system_default">System default assistant</string>
-  <string name="systemizer_already_system">Google App is already a system priv-app</string>
-  <string name="systemizer_google_missing">Google App is not installed</string>
-  <string name="systemizer_root_manager_missing">Magisk or KernelSU was not detected</string>
-  <string name="systemizer_metamodule_missing">Enable metamodule support in KernelSU first</string>
-  <string name="systemizer_grant_kernelsu">Grant su root access in KernelSU</string>
-  <string name="systemizer_grant_magisk">Grant su root access in Magisk</string>
-  <string name="systemizer_root_denied">Root access was not granted</string>
-  <string name="systemizer_installed">Installation complete. Restart to apply changes</string>
   <string name="provider_error">Failed: %1$s</string>
   <string name="provider_save_failed">Couldn\'t save provider</string>
   <string name="provider_delete_failed">Couldn\'t delete provider</string>
@@ -1368,6 +1336,8 @@
   <string name="model_feature_missing">Not selected or unavailable</string>
   <string name="vision_feature_description">For text-only chat models, send images and the relevant question to the selected vision model. Its description is returned as text. Screenshots and video cover frames are supported. Native vision models continue to read images directly. Extra requests may incur charges.</string>
   <string name="title_feature_description">Generate a short title for new conversations. When custom selection is off, use the current conversation model. On failure, keep the local title. Manually renamed titles are never overwritten.</string>
+  <string name="title_feature_generate">Generate titles automatically</string>
+  <string name="title_feature_disabled">Titles are generated for new conversations only when this is on; switched off, a new conversation keeps the first line of its first message.</string>
   <string name="title_feature_default">Current conversation model</string>
   <string name="vision_feature_off">Disabled: text-only models cannot read images</string>
   <string name="revision_history_unavailable">Cannot locate the original context for this message. Operation cancelled; existing history is preserved. This does not mean the conversation was compressed.</string>

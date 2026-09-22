@@ -3,8 +3,6 @@ ndk = "29.0.14206865"
 agp = "9.3.2"
 kotlin = "2.4.10"
 ksp = "2.3.9"
-libxposedApi = "102.0.0"
-libxposedService = "102.0.0"
 miuix = "0.9.4-rc01"
 materialIcons = "1.7.8"
 androidx-navigationevent = "1.1.2"
@@ -27,8 +25,6 @@ xz = "1.12"
 [libraries]
 commons-compress = { group = "org.apache.commons", name = "commons-compress", version.ref = "commonsCompress" }
 xz = { group = "org.tukaani", name = "xz", version.ref = "xz" }
-libxposed-api = { group = "io.github.libxposed", name = "api", version.ref = "libxposedApi" }
-libxposed-service = { group = "io.github.libxposed", name = "service", version.ref = "libxposedService" }
 miuix-ui = { group = "top.yukonga.miuix.kmp", name = "miuix-ui-android", version.ref = "miuix" }
 miuix-blur = { group = "top.yukonga.miuix.kmp", name = "miuix-blur-android", version.ref = "miuix" }
 miuix-nav = { group = "top.yukonga.miuix.kmp", name = "miuix-nav-android", version.ref = "miuix" }

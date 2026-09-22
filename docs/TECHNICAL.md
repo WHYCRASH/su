@@ -1,35 +1,28 @@
 # Technical implementation
 
-Modules install targeted hooks per process and feature domain. The entry point only handles lifecycle, process filtering, configuration injection, and installation-result aggregation; target selection and interception logic live in each feature domain.
-
-## Hook installation and diagnostics
-
-- Each feature domain registers hooks through `HookRegistrar` with a stable ID, `PROTECTIVE` exception mode, and a unified priority policy.
-- Installation results distinguish `INSTALLED`, `MISSING`, `FAILED`, and `SKIPPED`, and retain the `HookHandle`, so signature drift after a ROM or target-app upgrade is easy to locate.
-- Missing ordinary targets and reflection failures fail open per feature domain; framework-level `Error`s such as `HookFailedError` are never swallowed by the ordinary exception-isolation layer.
-- `ModuleMain` filters out irrelevant processes early and calls `detach()` to avoid keeping lifecycle callbacks alive in processes that do not need them.
+The APK is a privileged system app shipped by the KernelSU/ReSukiSU NoMount module (`:app:assembleKsuModule`), plus an accessibility service, a notification listener, and a VoiceInteractionService for the ASSIST role. There is no Xposed module: no hooks, no scopes, no RemotePreferences, no framework channel. System integration happens through the plain Android digital-assistant setting and the privileged permissions the module grants (notably `WRITE_SECURE_SETTINGS`).
 
 ## Logging and Release trimming
 
-su uses one four-level logging semantic and selects the backend by runtime environment: the app and the agent runtime write to logcat via `AndroidAgentLogger`, while hook processes write to the Xposed log via `ModuleLogger`. Business code must never call `android.util.Log` or `XposedModule.log` directly.
+su uses one four-level logging semantic backed by logcat via `AndroidAgentLogger`. Business code must never call `android.util.Log` directly.
 
 | Level | Scope | Release |
 | --- | --- | --- |
-| `DEBUG` | Frequent normal flows, target matching, retry details, sizes and counts | Stripped entirely |
-| `INFO` | Infrequent lifecycle events, hook installation summaries, structured summaries of privileged actions | Kept |
-| `WARN` | Recoverable degradation, fallbacks, target signature drift, exhausted retries | Kept; high-frequency events must be throttled |
+| `DEBUG` | Frequent normal flows, retry details, sizes and counts | Stripped entirely |
+| `INFO` | Infrequent lifecycle events, structured summaries of privileged actions | Kept |
+| `WARN` | Recoverable degradation, fallbacks, exhausted retries | Kept; high-frequency events must be throttled |
 | `ERROR` | Current request or feature definitely cannot complete, critical invariant violated | Kept |
 
-Cancellation, disabled features, and missing optional targets are never logged as `ERROR`. `debug` only accepts a lazy supplier, and the supplier must be pure observation code: no hooks, reflective writes, state changes, or other business side effects, because R8 in Release deletes the whole call.
+Cancellation and disabled features are never logged as `ERROR`. `debug` only accepts a lazy supplier, and the supplier must be pure observation code: no reflective writes, state changes, or other business side effects, because R8 in Release deletes the whole call.
 
-No level may log prompts, request or response bodies, API keys, auth headers, cookies, tool arguments or results, raw commands, stdout/stderr, URIs, file paths, image contents, app manifests, or raw runtime identifiers. Exceptions log only their type by default and never string-interpolate `Throwable.message`; externally or model-generated names must first be converted into length- and charset-constrained safe tokens. Only framework or reflection exceptions confirmed to carry no user data may attach a full stack trace.
+No level may log prompts, request or response bodies, API keys, auth headers, cookies, tool arguments or results, raw commands, stdout/stderr, URIs, file paths, image contents, app manifests, or raw runtime identifiers. Exceptions log only their type by default and never string-interpolate `Throwable.message`; externally or model-generated names must first be converted into length- and charset-constrained safe tokens. Only exceptions confirmed to carry no user data may attach a full stack trace.
 
 Release trimming treats `app/proguard-rules.pro` as the single executable source of truth, with the following rule boundaries:
 
 - `-maximumremovedandroidloglevel 3 class io.github.mangi.eta.** { *; }` only removes Android `VERBOSE`/`DEBUG` in su's own code, not in dependencies.
-- Precise `-assumenosideeffects` on `AgentLogger.debug(Function0)`, `AndroidAgentLogger.debug(Function0)`, and `ModuleLogger.debug(Function0)`, covering the Xposed log backend that R8 cannot recognize.
+- Precise `-assumenosideeffects` on `AgentLogger.debug(Function0)` and `AndroidAgentLogger.debug(Function0)`.
 - No side-effect-free declarations for `INFO`/`WARN`/`ERROR`, and no wildcard trimming rules over `*Logger` or global `android.util.Log`.
-- After every rule change, build both Debug and Release, and inspect the R8 configuration/usage, DEX log calls, representative log strings, and Xposed entry metadata.
+- After every rule change, build both Debug and Release, and inspect the R8 configuration/usage, DEX log calls, and representative log strings.
 
 This policy follows Android's official [R8 additional rule types](https://developer.android.com/topic/performance/app-optimization/additional-rule-types), [log information-disclosure protection](https://developer.android.com/privacy-and-security/risks/log-info-disclosure), AOSP [logging level conventions](https://source.android.com/docs/core/tests/debug/understanding-logging), the OWASP [runtime logging test](https://mas.owasp.org/MASTG/tests/android/MASVS-STORAGE/MASTG-TEST-0203/), and [CWE-532](https://cwe.mitre.org/data/definitions/532.html).
 
@@ -39,66 +32,29 @@ The manifest registers a `VoiceInteractionService`, a separate-process `VoiceInt
 
 The `VoiceInteractionSession` only serves the system entry point and closes its own UI; `EtaAssistantOverlayService` owns the full-screen window, the colored edge animation, and keyboard input. The window draws behind the status bar, navigation bar, and display cutout via `setFitInsetsTypes(0)`, while interactive content stays reachable through `WindowInsetsRulers.SafeDrawing` and `Ime`, avoiding truncating the edge-to-edge background by adding insets to the root container. Submitted text goes to `AgentRuntimeClient`; requests, streaming results, foreground-tool collapse, cancellation, and archiving reuse the existing runtime protocol. Before a foreground tool runs, su's own entry removes the window on the main thread and notifies the system session via `hide()`, and the runtime only continues once the view has actually detached. This flow runs no speech recognition or speech playback.
 
-The `:voice`, `:voice_session`, and `:recognition` processes only initialize local preferences and never warm up the database, skills, or Xposed UI services. `RecognitionService` keeps only the declaration needed for Android digital-assistant-role eligibility and is not called by the current overlay.
-
-## system_server
-
-- **Power-button takeover**: hooks `PhoneWindowManagerExtImpl$OplusSpeechHandler.handleMessage()` to handle the wake message (`what == 0x3F3`) the system dispatches to the vendor assistant. When the target is the vendor assistant, the original method runs untouched; only Gemini or su targets are intercepted and dispatched to the matching entry.
-- **Compatibility configuration**: the tri-state target is stored as a string key; when the key is missing or the value is invalid, the legacy `POWER_KEY_TAKEOVER` boolean protocol is read, with `true` still meaning Gemini and `false` meaning the vendor assistant. Fresh installs default to the vendor assistant, so existing users never get their target rewritten by the newly added su option.
-- **Digital-assistant config repair**: with the standalone auto-fix toggle on, the current Gemini/su target's `android.app.role.ASSISTANT` and secure settings are asynchronously corrected via `AssistantManager` at boot, unlock, user switch, and launch-failure recovery. Vendor-assistant mode and a disabled toggle never write system configuration; the validation cache and async callbacks also re-check the user and the target, so stale tasks for an old target never overwrite a new selection.
-- **Launch-logic optimization**: Gemini restores the original `VoiceInteractionManagerService`, `ACTION_ASSIST`, `ACTION_VOICE_COMMAND` order; su first reuses the active `voiceinteraction` session, then tries the same-package `ACTION_ASSIST` bridge when already configured as the default assistant. If every path fails, the vendor's original logic runs immediately without blocking the system callback.
-- **Keeping Hey Google available after screen-off**: hooks `PhoneWindowManager.screenTurnedOff()` and, shortly after the default display turns off, re-checks Google's `SoftwareTrustedHotwordDetectorSession`. Only when an `mSoftwareCallback` already exists and listening is currently not running does it resume `startListeningFromMicLocked()`; any pending task is cancelled on screen-on or after a successful resume.
-- **Circle to Search support**: force-enables `ContextualSearchManagerService`, points the package name at the Google app, and admits `SystemUI` callers. As the foundation Circle to Search depends on, it always runs and cannot be turned off.
-- **Accessibility protection**: reuses the verified `SystemServer.startOtherServices(TimingsTraceAndSlog)` lifecycle point to attach event-driven protection once system services are up. Background work reuses Android's `BackgroundThread` — no module threads, no polling. The toggle defaults to off, and an enable request must simultaneously pass the signature permission, real sender UID, service declaration, and APK signer-pinning checks. Protection only maintains su components and the master toggle under the owner user and leaves other services alone; on disconnect it confirms via the health provider callable only by the `system` UID, then rebinds su with a capped retry count and cooldown.
+The `:voice`, `:voice_session`, and `:recognition` processes only initialize local preferences and never warm up the database or skills. `RecognitionService` keeps only the declaration needed for Android digital-assistant-role eligibility and is not called by the current overlay.
 
 ## Accessibility protection
 
-"Force-keep accessibility" defaults to off. When on, the protection backend injected into `system_server` verifies su's service declaration, caller UID, and APK signature, and corrects the configuration when the accessibility service list, the master toggle, the su package, or the owner user's unlock state changes. It leaves other accessibility services alone, needs no app self-start, and never polls on a timer.
+"Force-keep accessibility" defaults to off. When on, `agent/accessibility/AccessibilityProtectionClient` enforces the service from inside the app process: it writes `Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES` / `Settings.Secure.ACCESSIBILITY_ENABLED` directly, using `android.permission.WRITE_SECURE_SETTINGS` held as a privileged system app. A plain APK install without the module cannot enforce it, and the toggle reports failure (`ControlResult` with `UNAVAILABLE`/`REJECTED`) instead of pretending protection is on. It only maintains su components, leaves other accessibility services alone, needs no app self-start, and never polls on a timer.
 
-When the service is still in the enabled list but has no live connection, the protection backend only restarts su itself, in at most three escalating rounds, then cools down for one minute after sustained failure. When a ROM keeps deleting the setting, the write-back interval backs off from 300 ms to 30 seconds and recovers after one stable minute. Turning the toggle off only stops protection; it never disables the user's current service for them.
+Turning the toggle off only stops protection; it never disables the user's current service for them. GUI tools still confirm a live service connection before executing; when protection is off or enforcement fails, the action fails explicitly instead of quietly rewriting accessibility settings via root or shell.
 
-GUI tools still confirm a live service connection before executing. When protection is off, the system scope is inactive, or rebinding times out, the action fails explicitly instead of quietly rewriting accessibility settings via root or shell.
-
-When the app control entry is unavailable, stop protection over ADB first, then turn the service off in system settings:
+The toggle state is also mirrored in the Global setting `eta_accessibility_protection_enabled`, which stays the documented ADB kill switch. When the app control entry is unavailable, stop protection over ADB first, then turn the service off in system settings:
 
 ```bash
 adb shell settings put global eta_accessibility_protection_enabled 0
 ```
 
-Deleting that setting restores the default-off state. While developing with a deliberately rotated signature and a trusted APK source, also clear the old signer-pinning value:
+Deleting that setting restores the default-off state.
 
-```bash
-adb shell settings delete global eta_app_signer_sha256
-```
+At boot, `module/boot-completed.sh` re-applies the accessibility service (and the notification listener) via root `settings put secure`, so the service entry survives reboots even before the app process runs.
 
-## SystemUI
+## Configuration
 
-Intercepts the bottom gesture-bar long-press that would trigger the vendor OCR screen search, and calls the `contextual_search` service directly over binder to trigger Circle to Search.
+The app UI uses Miuix, with component and icon dependencies pinned centrally in `gradle/libs.versions.toml`. Feature icons use Material Icons Rounded; settings and management lists use uniform-size monochrome icons, brand icons keep their native colors, and status and selection actions follow theme semantics. Settings, permissions, skills, MCP, backup, and provider lists are grouped with cards and row spacing, and empty lists share the same lightweight hint. Provider type, model count, and built-in source appear as wrappable helper text, with the current choice marked by a check icon. Skill rows ellipsize the blurb by line count, the "more" menu offers the full description and a delete entry, and deletion still asks for confirmation. Tool cards clearly label actions that jump somewhere; pure intro cards open the full description on tap, and jumpable cards expose the description through an info button. The thinking indicator always uses the local Atom orbit icon, and shows the matching tool icon while a too…
 
-## Google app
-
-Disguises the device as a Samsung S24 Ultra so Google enables Circle to Search; it also intercepts key queries to `SystemProperties` and `PackageManager.hasSystemFeature()` so the Google app sees `ro.opa.eligible_device=true`, `GOOGLE_BUILD`, and `GOOGLE_EXPERIENCE`. This mirrors the OPA-eligibility approach used by off-the-shelf Google App Magisk modules and OpenGApps, but scoped to the Google App process without touching system files. Device disguise and eligibility backfill always run as the foundation Circle to Search depends on, and cannot be turned off.
-
-When the Gemini overlay is woken on the lock screen, Google occasionally shows only the input box without starting recording. The module first hooks `FloatyActivity.onResume()` directly and only falls back to a global `Activity.onResume()` when the target class is missing; after confirming the device is still locked, it re-sends one deduplicated `ACTION_VOICE_COMMAND` so the user does not have to tap the microphone manually. The same glitch exists when waking unlocked, so the same hook symmetrically adds an unlocked branch: after confirming the device is still unlocked, it likewise re-sends one `ACTION_VOICE_COMMAND`. Deduplication is scoped to a single `FloatyActivity` instance, so repeat `onResume` calls on the same overlay never double-send, while a freshly opened overlay right after closing is never blocked by the previous global cooldown; each branch re-checks its toggle and lock state before its delayed task runs.
-
-## Making the Google app a system app
-
-As an ordinary user app, the Google app lacks the system permissions voice wake-up needs and is easily killed by the system's auto-start management. The module ships a Magisk/KernelSU module that installs the Google app as a system priv-app.
-
-The flow is handled by `GoogleAppSystemizerInstaller`:
-
-- Detects the root manager type (Magisk or KernelSU)
-- KernelSU requires the meta-overlayfs module first; module installation is unsupported without it
-- Installs the bundled Google App systemization module via root
-- Prompts the user to reboot once installation succeeds
-
-Systemization is a user-initiated action and never runs automatically. The entry lives in the "Advanced" group on the settings page; tapping it shows a confirmation dialog explaining why and how, and installation starts only after the user confirms.
-
-## Configuration and live effect
-
-The module UI uses Miuix, with component and icon dependencies pinned centrally in `gradle/libs.versions.toml`. Feature icons use Material Icons Rounded; settings and management lists use uniform-size monochrome icons, brand icons keep their native colors, and status and selection actions follow theme semantics. Settings, permissions, skills, MCP, backup, and provider lists are grouped with cards and row spacing, and empty lists share the same lightweight hint. Provider type, model count, and built-in source appear as wrappable helper text, with the current choice marked by a check icon. Skill rows ellipsize the blurb by line count, the "more" menu offers the full description and a delete entry, and deletion still asks for confirmation. Tool cards clearly label actions that jump somewhere; pure intro cards open the full description on tap, and jumpable cards expose the description through an info button. The thinking indicator always uses the local Atom orbit icon, and shows the matching tool icon while a tool runs. Chat history and the tool list share one icon mapping covering local tools, server-side tool names, and MCP tools; web search uses the globe-search icon, web browsing the globe icon, and unknown tools the generic tool icon. The settings page's "tool list" entry opens the existing tool-capability page directly and returns to settings on back. Root authorization and re-detection live inside the status row; the workspace file list distinguishes directory navigation from file export, and empty directories show a lightweight hint.
-
-The Linux environment page is organized into current environment, environment setup, files and directories, and extended tools. The top status card shows version, runtime mode, install stage, and result, with the primary action below the description; distro and runtime mode switch through a compact floating menu with explanations, or a static status when only the plain mode exists. The power-button target uses the same native picker. Pop-up menus keep the Miuix default background scrim and plain-option highlight, closing on selection or outside tap. The workspace entry is always available, while shared folders and file browsing appear once the base environment is ready and extended tools once the base tools are ready. When root authorization lapses, the previous chroot choice is kept, and the user may read the authorization notes or switch to the standalone PRoot environment.
+The Linux environment page is organized into current environment, environment setup, files and directories, and extended tools. The top status card shows version, runtime mode, install stage, and result, with the primary action below the description; distro and runtime mode switch through a compact floating menu with explanations, or a static status when only the plain mode exists. Pop-up menus keep the Miuix default background scrim and plain-option highlight, closing on selection or outside tap. The workspace entry is always available, while shared folders and file browsing appear once the base environment is ready and extended tools once the base tools are ready. When root authorization lapses, the previous chroot choice is kept, and the user may read the authorization notes or switch to the standalone PRoot environment.
 
 The configuration chain works as follows:
 
@@ -106,12 +62,7 @@ Root navigation uses the Miuix `NavDisplay` with a savable route stack; the swip
 
 Appearance settings live in the existing `eta_settings` DataStore. The theme root uniformly resolves follow-system, light, dark, Monet dynamic color, accent color, and pure-black background, and bridges the system bars and Markdown to the same Material colors. The top bar captures scrolling content with the Miuix `LayerBackdrop` in either gaussian or progressive blur; with blur off, the top bar and chat input fall back to the plain theme surface. Page scrolling keeps Miuix overscroll bounce and edge haptics, and landscape safe areas are jointly constrained by the display cutout and navigation-bar insets.
 
-- **su runtime configuration**: default thinking, web browsing, on-device direct access, sensitive-information reads, sensitive device operations, and terminal/file tools are stored in the app's private configuration, independent of LSPosed. The runtime reads the current values at request start and before every tool call; upgrades compat-migrate existing RemotePreferences values.
-- **Hook configuration**: `EtaApp` registers `XposedServiceHelper` in `Application.onCreate`, and obtains `XposedService` after the framework pushes the binder through `XposedProvider`. Hook toggles such as system-assistant binding, Gemini, and Circle to Search are written to the LSPosed database via `XposedService.getRemotePreferences()`; while the service is disconnected these toggles stay uneditable.
-- **Hook processes**: `ModuleMain.onModuleLoaded` calls `XposedInterface.getRemotePreferences()` and caches the read-only `SharedPreferences` in `Prefs`. Each hook's interception entry reads `Prefs.isEnabled(key)` directly and falls through to the original logic when off, so toggling a setting normally takes effect on the very next relevant trigger. This live effect comes from hook entries reading the current configuration, not from the libxposed API 102 hot-reload feature.
-- **Delayed-task re-check**: queued background config repairs, `HotwordSelfHealHooks` retries, and the `GoogleAppHooks` lock-screen/unlocked voice commands re-check their toggle before running, so a stale queued task can never bypass a toggle the user turned off while it was queued.
-
-Non-toggleable foundations (the ContextualSearch service backfill, device disguise, eligibility backfill) always run and expose no toggle.
+- **su runtime configuration**: default thinking, web browsing, on-device direct access, sensitive-information reads, sensitive device operations, and terminal/file tools are stored in the app's private configuration. The runtime reads the current values at request start and before every tool call, so later runs follow the current configuration.
 
 ## On-device personal data
 
@@ -171,7 +122,7 @@ Cross-conversation long-term memory lives in a single `MEMORY.md` in the app's p
 
 A chat session stores its own `ReasoningEffort`, and the input bar shows the effective subset of `Thinking · Off / Default / Low / Medium / High / XHigh / Max` for the current provider, endpoint, and model capability. Models without reasoning show no entry; forced-reasoning models with no adjustable level show only a non-clickable `Thinking · Default`. After a model switch or remote capability refresh, a saved level that is no longer legal is clipped down to the nearest valid level, falling back to `Default` when no comparable level exists.
 
-Capability resolution tries precise remote metadata first, then the built-in model catalog, then provider and model-family rules, and finally degrades safely. `Default` preserves the vendor or advanced-custom-body default behavior; an explicit level applies after the request body merge, so the session choice is the final override. Room, the runtime bundle, RemotePreferences JSON, and external archives simultaneously keep the legacy `thinkingEnabled` boolean projection, with legacy `true`/`false` interpreted as `Default`/`Off`; a forced-reasoning model receiving `Off` reports a configuration error directly.
+Capability resolution tries precise remote metadata first, then the built-in model catalog, then provider and model-family rules, and finally degrades safely. `Default` preserves the vendor or advanced-custom-body default behavior; an explicit level applies after the request body merge, so the session choice is the final override. Room, the runtime bundle, and external archives simultaneously keep the legacy `thinkingEnabled` boolean projection, with legacy `true`/`false` interpreted as `Default`/`Off`; a forced-reasoning model receiving `Off` reports a configuration error directly.
 
 ## Chat streaming render
 
@@ -189,20 +140,12 @@ Returning to the chat page replays from the full text present at restore as the 
 
 Stay minimal and never add extra load to the system:
 
-- No polling, no keeping Google processes alive, no continuous log writing
-- Accessibility protection defaults to off; when on, it only reacts to settings, package, and user-lifecycle events plus explicit runtime reports, uses backoff on setting contention, and caps disconnect-rebind attempts with cooldown
-- The hot path keeps only the validated power-button hook for the current device
-- Default-assistant checks carry a 15-second cooldown, and the post-screen-off Hey Google restore path never proactively reads or writes the default-assistant configuration
+- No polling, no continuous log writing
+- Accessibility protection defaults to off; when on, it only writes Secure Settings to re-assert su's own service entry, with backoff on contention
 - High-frequency success paths use `DEBUG`; debuggable in Debug builds, deterministically stripped by R8 in Release
-- The power-button interception path performs no sleeping, polling, or blocking waits; each trigger only attempts a fast launch and falls back to the system's original logic on failure
-- Default-assistant repair runs asynchronously and serialized per user, re-verifying role, target, and toggle state on completion
-- Post-screen-off Hey Google restore only reacts to the system screen-off event; at most 3 serial attempts, queuing the next only after a failure, with pending callbacks removed on screen-on, success, or finish
-- The Google App lock-screen/unlocked voice-input fix prefers hooking the fixed FloatyActivity instead of permanently intercepting every Google App page; voice compensation deduplicates per FloatyActivity instance, avoiding repeat sends without blocking a quick close-and-reopen
 
 ## Expected behavior
 
-When the power-button target is the vendor default, a long-press keeps the vendor's original behavior and never touches the current default assistant. With Gemini as the target, a long-press restores Google's original system-assistant and activity fallback chain. With su as the target and su already the default digital assistant, a long-press opens the edge-to-edge full-screen assistant overlay and auto-focuses the keyboard input; before the overlay and IME appear, the entry prepares a screenshot that is only sent as the next message's image context after the user selects it. After the user submits text, tool execution, streaming results, and archiving stay with the agent runtime in the main process; this flow runs no ASR or TTS.
+Setting su as the digital assistant is the plain Android setting (Settings -> Apps -> Default apps -> Digital assistant); the power button follows that. With su as the default digital assistant, the assistant entry opens the edge-to-edge full-screen overlay and auto-focuses the keyboard input; before the overlay and IME appear, the entry prepares a screenshot that is only sent as the next message's image context after the user selects it. After the user submits text, tool execution, streaming results, and archiving stay with the agent runtime in the main process; this flow runs no ASR or TTS.
 
-When su is not yet the default assistant and auto-fix is off, the established policy falls straight back to the vendor default without creating a parallel activity session. With auto-fix on, a failed trigger only repairs the current selection in the background while the current long-press still falls back immediately; later triggers use the repaired primary path. On other ROMs, vendor key events only need to be wired to the same target-dispatch boundary — the text session and runtime need no changes.
-
-The configuration UI saves toggles by consumption boundary: agent and local tools go to the app's private configuration, hook capabilities to LSPosed-side RemotePreferences. Hook callbacks and delayed tasks read the matching toggle before executing, so later triggers follow the current configuration.
+The configuration UI keeps agent and local-tool toggles in the app's private configuration; the runtime re-reads them before execution, so later runs follow the current configuration.

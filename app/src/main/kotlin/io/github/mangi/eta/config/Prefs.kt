@@ -2,38 +2,20 @@ package io.github.mangi.eta.config
 
 import android.content.Context
 import android.content.SharedPreferences
-import io.github.libxposed.service.XposedService
 
 /**
  * Module configuration hub.
  *
- * - Hook processes (system_server / SystemUI / Google / system assistant, etc.) call
- *   [attachRemote] when the module loads, caching the framework-provided read-only [SharedPreferences]; afterwards all interception callbacks use [isEnabled]
- *   to read the remote preferences held by the current process.
- * - Switches consumed by Eta Runtime itself are kept in the app's private config and do not depend on Xposed Service.
- * - Switches consumed by hooks are written to RemotePreferences through [remotePreferencesForUi];
- *   when XposedService is not ready, no local fake fallback is provided.
- *
- * Built on [io.github.libxposed.api.XposedInterface.getRemotePreferences] from libxposed API 102
- * and [XposedService.getRemotePreferences] from service 102; both ends share the same group.
+ * Every switch the runtime reads lives in the app's own private configuration: the app ships no
+ * framework-side hook, so there is no remote preference store and nothing depends on another process.
+ * Feature defaults are declared per key in [Keys.BOOLEAN_DEFAULTS] and match what the settings page shows.
  */
 internal object Prefs {
 
-    /** Remote config group name; what the UI writes and what hooks read must match. */
-    const val GROUP = "eta_prefs"
-
-    private const val LOCAL_AGENT_GROUP = "eta_agent_preferences"
+    private const val PREFERENCES_GROUP = "eta_agent_preferences"
 
     /** Every feature switch key. Defaults are chosen per feature risk. */
     object Keys {
-        const val POWER_KEY_ASSISTANT_TARGET = "power_key_assistant_target"
-        // Compatible with the legacy boolean protocol; the new UI no longer writes it, and when the tri-state config is missing, true still means Gemini.
-        const val POWER_KEY_TAKEOVER = "power_key_takeover"
-        const val ASSISTANT_AUTO_CONFIG = "assistant_auto_config"
-        const val HOTWORD_SELF_HEAL = "hotword_self_heal"
-        const val GESTURE_BAR_CIRCLE_TO_SEARCH = "gesture_bar_circle_to_search"
-        const val LOCKSCREEN_VOICE_COMMAND = "lockscreen_voice_command"
-        const val SCREEN_ON_VOICE_COMMAND = "screen_on_voice_command"
         const val AGENT_TERMINAL_TOOLS = "agent_terminal_tools"
         const val AGENT_BROWSER_TOOLS = "agent_browser_tools"
         const val AGENT_DEVICE_DIRECT_TOOLS = "agent_device_direct_tools"
@@ -63,12 +45,6 @@ internal object Prefs {
 
         /** All boolean switches and their defaults. */
         val BOOLEAN_DEFAULTS: Map<String, Boolean> = mapOf(
-            POWER_KEY_TAKEOVER to false,
-            ASSISTANT_AUTO_CONFIG to false,
-            HOTWORD_SELF_HEAL to false,
-            GESTURE_BAR_CIRCLE_TO_SEARCH to true,
-            LOCKSCREEN_VOICE_COMMAND to false,
-            SCREEN_ON_VOICE_COMMAND to false,
             AGENT_TERMINAL_TOOLS to true,
             AGENT_BROWSER_TOOLS to true,
             AGENT_DEVICE_DIRECT_TOOLS to true,
@@ -80,64 +56,43 @@ internal object Prefs {
             HAPTIC_TOUCH_FEEDBACK to true,
             HAPTIC_MESSAGE_GENERATION to true,
         )
-
-        /** Switches ultimately decided by Eta Runtime that do not require the Xposed framework to be online. */
-        val LOCAL_AGENT_KEYS: Set<String> = setOf(
-            AGENT_TERMINAL_TOOLS,
-            AGENT_BROWSER_TOOLS,
-            AGENT_DEVICE_DIRECT_TOOLS,
-            AGENT_DEVICE_SENSITIVE_READ_TOOLS,
-            AGENT_DEVICE_SENSITIVE_ACTION_TOOLS,
-            AGENT_THINKING_ENABLED,
-            AGENT_AUTO_COMPRESS_ENABLED,
-            AGENT_COMPRESS_CUSTOM_MODEL_ENABLED,
-            HAPTIC_TOUCH_FEEDBACK,
-            HAPTIC_MESSAGE_GENERATION,
-        )
     }
 
-    /** Read-only remote preferences cached by the hook process, injected by ModuleMain in onModuleLoaded. */
     @Volatile
-    private var remote: SharedPreferences? = null
+    private var preferences: SharedPreferences? = null
 
-    @Volatile
-    private var localAgent: SharedPreferences? = null
-
-    /** Reads an Agent-local Int config value. */
+    /** Reads an Int config value. */
     fun getInt(key: String, default: Int): Int {
-        return localAgent?.getInt(key, default) ?: default
+        return preferences?.getInt(key, default) ?: default
     }
 
-    /** Reads a string config value. Local Agent config takes priority, avoiding contention with read-only remote overrides over the same key. */
+    /** Reads a string config value. */
     fun getString(key: String, default: String = ""): String {
-        localAgent?.let { prefs ->
-            if (prefs.contains(key)) return prefs.getString(key, default) ?: default
-        }
-        return remote?.getString(key, default) ?: default
+        return preferences?.getString(key, default) ?: default
     }
 
-    /** Writes an Agent-local Int config value. */
+    /** Writes an Int config value. */
     fun putInt(key: String, value: Int) {
-        localAgent?.edit()?.putInt(key, value)?.apply()
+        preferences?.edit()?.putInt(key, value)?.apply()
     }
 
-    /** Writes an Agent-local String config value. */
+    /** Writes a string config value. */
     fun putString(key: String, value: String) {
-        localAgent?.edit()?.putString(key, value)?.apply()
+        preferences?.edit()?.putString(key, value)?.apply()
     }
 
-    /** Writes an Agent-local Boolean config value. */
+    /** Writes a Boolean config value. */
     fun putBoolean(key: String, value: Boolean) {
-        localAgent?.edit()?.putBoolean(key, value)?.apply()
+        preferences?.edit()?.putBoolean(key, value)?.apply()
     }
 
-    /** Called by the app process: initializes the Agent config that does not depend on Xposed Service. */
-    fun initLocal(context: Context) {
-        if (localAgent == null) {
+    /** Called by the app process before any runtime reads configuration. */
+    fun init(context: Context) {
+        if (preferences == null) {
             synchronized(this) {
-                if (localAgent == null) {
-                    localAgent = context.applicationContext.getSharedPreferences(
-                        LOCAL_AGENT_GROUP,
+                if (preferences == null) {
+                    preferences = context.applicationContext.getSharedPreferences(
+                        PREFERENCES_GROUP,
                         Context.MODE_PRIVATE,
                     )
                 }
@@ -145,56 +100,16 @@ internal object Prefs {
         }
     }
 
-    /** Called by the hook process: caches the read-only SharedPreferences provided by the framework. */
-    fun attachRemote(prefs: SharedPreferences?) {
-        remote = prefs
-    }
-
-    /** The hook process listens for config changes delivered by the framework; the caller must hold a strong reference to the listener for the lifetime of the process. */
-    fun registerRemoteListener(listener: SharedPreferences.OnSharedPreferenceChangeListener): Boolean {
-        val preferences = remote ?: return false
-        preferences.registerOnSharedPreferenceChangeListener(listener)
-        return true
-    }
-
-    /**
-     * Reads a boolean switch. When remote is unavailable (framework not injected or the call failed), falls back to each feature's own default;
-     * the defaults match what the settings page displays.
-     */
+    /** Reads a boolean switch; a key without a declared default counts as on. */
     fun isEnabled(key: String): Boolean {
         val default = Keys.BOOLEAN_DEFAULTS[key] ?: true
-        val preferences = if (key in Keys.LOCAL_AGENT_KEYS) localAgent ?: remote else remote
         return preferences?.getBoolean(key, default) ?: default
     }
 
-
-    fun powerAssistantTarget(): PowerAssistantTarget = powerAssistantTarget(remote)
-
-    fun powerAssistantTarget(preferences: SharedPreferences?): PowerAssistantTarget {
-        val persistedValue = runCatching {
-            preferences?.getString(Keys.POWER_KEY_ASSISTANT_TARGET, null)
-        }.getOrNull()
-        val legacyDefault = Keys.BOOLEAN_DEFAULTS.getValue(Keys.POWER_KEY_TAKEOVER)
-        val legacyTakeover = runCatching {
-            preferences?.getBoolean(Keys.POWER_KEY_TAKEOVER, legacyDefault)
-        }.getOrNull() ?: legacyDefault
-        return PowerAssistantTarget.resolve(persistedValue, legacyTakeover)
-    }
-
-    /**
-     * The UI process obtains a writable RemotePreferences.
-     *
-     * commit on [XposedService.getRemotePreferences] synchronously waits for the binder to commit to the LSPosed
-     * database and returns false on failure; when the service is not ready it returns null, leaving the UI non-writable.
-     */
-    fun remotePreferencesForUi(service: XposedService?): SharedPreferences? =
-        runCatching { service?.getRemotePreferences(GROUP) }.getOrNull()
-
-    /** Local Agent config used by the Eta settings page and Runtime; does not depend on LSPosed. */
-    fun localAgentPreferences(): SharedPreferences? = localAgent
+    fun localAgentPreferences(): SharedPreferences? = preferences
 
     fun exportAgentPreferences(): Map<String, String> {
-        val prefs = localAgent ?: return emptyMap()
+        val prefs = preferences ?: return emptyMap()
         return prefs.all.mapNotNull { (key, value) ->
             when (value) {
                 is Boolean -> key to "b:$value"
@@ -207,7 +122,7 @@ internal object Prefs {
     }
 
     fun restoreAgentPreferences(values: Map<String, String>) {
-        val prefs = localAgent ?: return
+        val prefs = preferences ?: return
         val editor = prefs.edit().clear()
         values.forEach { (key, encoded) ->
             if (key.isBlank() || encoded.length < 2 || encoded[1] != ':') return@forEach
@@ -223,41 +138,12 @@ internal object Prefs {
     }
 
     /** When off, compression uses the current conversation model; legacy configs that already picked a custom model are treated as on. */
-    fun isCustomCompressModelEnabled(preferences: SharedPreferences? = localAgent): Boolean {
+    fun isCustomCompressModelEnabled(preferences: SharedPreferences? = this.preferences): Boolean {
         val prefs = preferences ?: return false
         if (prefs.contains(Keys.AGENT_COMPRESS_CUSTOM_MODEL_ENABLED)) {
             return prefs.getBoolean(Keys.AGENT_COMPRESS_CUSTOM_MODEL_ENABLED, false)
         }
         return !prefs.getString(Keys.AGENT_COMPRESS_MODEL_PROVIDER_ID, null).isNullOrBlank() &&
             !prefs.getString(Keys.AGENT_COMPRESS_MODEL_ID, null).isNullOrBlank()
-    }
-
-    /**
-     * On the first upgrade, existing RemotePreferences values are migrated into local storage first; after that the local value is the source of truth, and when the framework
-     * is available it is written back to remote, so hook entry points that still assemble requests inside the target process get a consistent initial config.
-     */
-    fun reconcileAgentPreferences(service: XposedService?) {
-        val local = localAgent ?: return
-        val remotePreferences = remotePreferencesForUi(service) ?: return
-        val localEditor = local.edit()
-        val remoteEditor = remotePreferences.edit()
-        var updateLocal = false
-        var updateRemote = false
-
-        Keys.LOCAL_AGENT_KEYS.forEach { key ->
-            val default = Keys.BOOLEAN_DEFAULTS.getValue(key)
-            when {
-                local.contains(key) -> {
-                    remoteEditor.putBoolean(key, local.getBoolean(key, default))
-                    updateRemote = true
-                }
-                remotePreferences.contains(key) -> {
-                    localEditor.putBoolean(key, remotePreferences.getBoolean(key, default))
-                    updateLocal = true
-                }
-            }
-        }
-        if (updateLocal) localEditor.commit()
-        if (updateRemote) runCatching { remoteEditor.commit() }
     }
 }

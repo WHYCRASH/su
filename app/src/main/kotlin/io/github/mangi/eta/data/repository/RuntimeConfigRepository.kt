@@ -1,6 +1,5 @@
 package io.github.mangi.eta.data.repository
 
-import android.content.SharedPreferences
 import io.github.mangi.eta.agent.model.AgentModelClient
 import io.github.mangi.eta.config.Prefs
 import io.github.mangi.eta.data.datastore.SettingsDataStore
@@ -18,7 +17,6 @@ import io.github.mangi.eta.data.model.selectedOrFirstModel
 import io.github.mangi.eta.data.provider.BuiltinProviders
 import io.github.mangi.eta.data.provider.ProviderSourceRegistry
 import io.github.mangi.eta.data.provider.ReasoningCapabilityResolver
-import io.github.libxposed.service.XposedService
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
@@ -83,16 +81,30 @@ internal object RuntimeConfigRepository {
         return buildRuntimeConfig(resolveOAuth(provider), model, AssistantRepository.active())
     }
 
-    suspend fun syncToRemotePreferences(service: XposedService?): Boolean {
-        val prefs = Prefs.remotePreferencesForUi(service) ?: return false
-        val config = currentRuntimeConfig() ?: return clearRuntimeConfig(prefs)
-        return writeRuntimeConfig(prefs, config)
+    /**
+     * Persists the selected model into app-local configuration.
+     *
+     * Surfaces that start a run without a UI-provided config (the voice overlay) read it back through
+     * [AgentModelClient.loadConfig]; clearing happens when no provider/model resolves so a stale entry never survives.
+     */
+    suspend fun refreshRuntimeConfig(): Boolean {
+        val prefs = Prefs.localAgentPreferences() ?: return false
+        val config = currentRuntimeConfig()
+        return runCatching {
+            prefs.edit().apply {
+                if (config == null) {
+                    remove(Prefs.Keys.AGENT_RUNTIME_CONFIG_JSON)
+                } else {
+                    putString(Prefs.Keys.AGENT_RUNTIME_CONFIG_JSON, runtimeConfigJson(config))
+                }
+            }.commit()
+        }.getOrDefault(false)
     }
 
-    suspend fun ensureDefaults(service: XposedService?) {
+    suspend fun ensureDefaults() {
         ProviderRepository.ensureBuiltInsMerged()
         ProviderRepository.repairSelection()
-        syncToRemotePreferences(service)
+        refreshRuntimeConfig()
     }
 
     fun runtimeConfigJson(config: AgentModelClient.ModelConfig): String =
@@ -154,23 +166,6 @@ internal object RuntimeConfigRepository {
             supportsVideo = model.supportsVideo,
         )
     }
-
-    private fun writeRuntimeConfig(
-        prefs: SharedPreferences,
-        config: AgentModelClient.ModelConfig,
-    ): Boolean =
-        runCatching {
-            prefs.edit()
-                .putString(Prefs.Keys.AGENT_RUNTIME_CONFIG_JSON, runtimeConfigJson(config))
-                .commit()
-        }.getOrDefault(false)
-
-    private fun clearRuntimeConfig(prefs: SharedPreferences): Boolean =
-        runCatching {
-            prefs.edit()
-                .remove(Prefs.Keys.AGENT_RUNTIME_CONFIG_JSON)
-                .commit()
-        }.getOrDefault(false)
 
     internal suspend fun configForProviderAndModel(
         providerId: String,

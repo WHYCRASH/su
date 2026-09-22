@@ -43,7 +43,6 @@ import androidx.compose.ui.unit.dp
 import androidx.navigationevent.NavigationEventInfo
 import androidx.navigationevent.compose.NavigationBackHandler
 import androidx.navigationevent.compose.rememberNavigationEventState
-import io.github.mangi.eta.EtaApp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.data.model.ProviderSetting
 import io.github.mangi.eta.data.model.ProviderSourceTypes
@@ -90,7 +89,7 @@ internal fun ModelProviderListScreen(
     var isDeleting by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
-        RuntimeConfigRepository.ensureDefaults(EtaApp.serviceInstance)
+        RuntimeConfigRepository.ensureDefaults()
     }
 
     val filteredProviders = remember(providers, searchQuery) {
@@ -329,7 +328,7 @@ internal fun ModelProviderListScreen(
                         isDeleting = true
                         try {
                             ProviderRepository.deleteProviders(selectedProviderIds)
-                            RuntimeConfigRepository.syncToRemotePreferences(EtaApp.serviceInstance)
+                            RuntimeConfigRepository.refreshRuntimeConfig()
                             showBatchDeleteDialog = false
                             selectionMode = false
                             selectedProviderIds = emptySet()

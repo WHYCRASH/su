@@ -38,7 +38,7 @@ body:
     id: device
     attributes:
       label: Device and OS
-      description: Model and Android / ColorOS / HyperOS version. Mention root or LSPosed if applicable.
+      description: Model and Android version (plus OEM skin, e.g. ColorOS / HyperOS, if applicable).
       placeholder: For example, OnePlus 12 · ColorOS 15 · rooted
     validations:
       required: false

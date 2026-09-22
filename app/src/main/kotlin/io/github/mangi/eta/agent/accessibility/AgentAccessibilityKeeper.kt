@@ -1,15 +1,18 @@
 package io.github.mangi.eta.agent.accessibility
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
 import android.os.SystemClock
-import io.github.mangi.eta.EtaApp
 import io.github.mangi.eta.core.AndroidAgentLogger
 
 /**
  * Before the GUI tools execute, confirm that the Eta accessibility service is actually connected.
  *
- * Persistent protection, Secure Settings writes, and rebinding after disconnection are all handled by the system_server backend. This does not request
- * Root, nor does it directly modify system settings; fail closed when protection is disabled or the backend is unavailable.
+ * Persistent protection, Secure Settings writes, and rebinding after disconnection are all handled in-process by
+ * AccessibilityProtectionRuntime using WRITE_SECURE_SETTINGS held through the privileged system-app install. This does not request
+ * Root, nor does it directly modify system settings from here; fail closed when protection is disabled or the app cannot write
+ * secure settings (a plain APK install without the module reports the missing privilege explicitly).
  */
 object AgentAccessibilityKeeper {
     internal fun ensureEnabledForGuiOperation(context: Context): AccessibilityEnableResult {
@@ -22,7 +25,7 @@ object AgentAccessibilityKeeper {
                     AccessibilityProtectionClient.ControlStatus.APPLIED
             },
             awaitServiceBinding = ::awaitServiceBinding,
-            protectionAvailable = { EtaApp.serviceInstance != null },
+            protectionAvailable = { canWriteSecureSettings(context) },
         )
         val elapsedMs = SystemClock.elapsedRealtime() - startedAt
         if (result.available) {
@@ -74,6 +77,15 @@ object AgentAccessibilityKeeper {
         }
         return AccessibilityEnableResult.available(recoveryRequested = true)
     }
+
+    /**
+     * The privileged system-app install grants WRITE_SECURE_SETTINGS; a plain APK
+     * install never holds it, so protection (and any Secure Settings write) fails
+     * closed here with an explicit unavailable result instead of attempting recovery.
+     */
+    private fun canWriteSecureSettings(context: Context): Boolean =
+        context.checkSelfPermission(Manifest.permission.WRITE_SECURE_SETTINGS) ==
+            PackageManager.PERMISSION_GRANTED
 
     private fun awaitServiceBinding(): Boolean {
         repeat(SERVICE_BIND_ATTEMPTS) {

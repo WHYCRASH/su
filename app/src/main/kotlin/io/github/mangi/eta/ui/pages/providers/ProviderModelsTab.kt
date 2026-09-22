@@ -61,7 +61,6 @@ import androidx.compose.ui.unit.dp
 import androidx.navigationevent.NavigationEventInfo
 import androidx.navigationevent.compose.NavigationBackHandler
 import androidx.navigationevent.compose.rememberNavigationEventState
-import io.github.mangi.eta.EtaApp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.data.model.Model
 import io.github.mangi.eta.data.model.VisionChatModels
@@ -262,7 +261,7 @@ internal fun ProviderModelsTab(
                                     val chatModels = models.filter(RemoteModelFetcher::isCatalogModel)
                                     val sync = ModelRepository.syncRemoteModels(provider.id, chatModels)
                                     if (sync.applied) {
-                                        RuntimeConfigRepository.syncToRemotePreferences(EtaApp.serviceInstance)
+                                        RuntimeConfigRepository.refreshRuntimeConfig()
                                     }
                                     val filteredCount = models.size - chatModels.size
                                     message = if (!sync.applied) {
@@ -440,7 +439,7 @@ internal fun ProviderModelsTab(
                                 onSelectCurrent?.invoke(model.id)
                                 scope.launch {
                                     RuntimeConfigRepository.setSelectedModelId(model.id)
-                                    RuntimeConfigRepository.syncToRemotePreferences(EtaApp.serviceInstance)
+                                    RuntimeConfigRepository.refreshRuntimeConfig()
                                 }
                             },
                         )
@@ -495,7 +494,7 @@ internal fun ProviderModelsTab(
                     editorError = null
                     try {
                         val saved = ModelRepository.saveModel(provider.id, updated)
-                        RuntimeConfigRepository.syncToRemotePreferences(EtaApp.serviceInstance)
+                        RuntimeConfigRepository.refreshRuntimeConfig()
                         editingModel = null
                         message = context.getString(R.string.provider_model_saved, saved.displayName)
                     } catch (cancelled: CancellationException) {
@@ -534,7 +533,7 @@ internal fun ProviderModelsTab(
                         isMutatingModel = true
                         try {
                             ModelRepository.deleteModel(provider.id, model.id)
-                            RuntimeConfigRepository.syncToRemotePreferences(EtaApp.serviceInstance)
+                            RuntimeConfigRepository.refreshRuntimeConfig()
                             message = context.getString(R.string.provider_model_deleted, model.displayName)
                             modelPendingDelete = null
                         } catch (cancelled: CancellationException) {
@@ -577,7 +576,7 @@ internal fun ProviderModelsTab(
                         isMutatingModel = true
                         try {
                             ModelRepository.deleteModels(provider.id, selectedModelIds)
-                            RuntimeConfigRepository.syncToRemotePreferences(EtaApp.serviceInstance)
+                            RuntimeConfigRepository.refreshRuntimeConfig()
                             message = context.resources.getQuantityString(
                                 R.plurals.provider_models_deleted,
                                 deletedCount,

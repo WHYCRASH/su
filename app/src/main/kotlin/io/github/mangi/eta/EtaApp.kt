@@ -1,8 +1,7 @@
 package io.github.mangi.eta
 
 import android.app.Application
-import android.os.Handler
-import android.os.Looper
+import io.github.mangi.eta.agent.accessibility.AccessibilityProtectionRuntime
 import io.github.mangi.eta.agent.skill.SkillRuntime
 import io.github.mangi.eta.agent.device.RootAccess
 import io.github.mangi.eta.agent.terminal.TerminalRuntime
@@ -18,9 +17,6 @@ import io.github.mangi.eta.data.repository.LinuxEnvironmentSettingsRepository
 import io.github.mangi.eta.data.repository.AssistantRepository
 import io.github.mangi.eta.data.repository.ProviderRepository
 import io.github.mangi.eta.ui.app.PredictiveBackController
-import io.github.libxposed.service.XposedService
-import io.github.libxposed.service.XposedServiceHelper
-import java.util.concurrent.CopyOnWriteArraySet
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -28,24 +24,19 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 
 /**
- * Application for the module UI process.
+ * Application for the app process.
  *
- * Registers the [XposedServiceHelper] listener at process start; the framework pushes the binder through XposedProvider,
- * after which the UI can use [XposedService] to write RemotePreferences, syncing across processes to each hook process.
- *
- * The UI side writes RemotePreferences through [XposedService].
+ * Owns process-wide initialization only: configuration, the terminal runtime, root state, storage and the
+ * repositories. There is no framework-side component and no cross-process configuration, so every feature
+ * runs in this app's own processes.
  */
-class EtaApp : Application(), XposedServiceHelper.OnServiceListener {
+class EtaApp : Application() {
 
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    interface ServiceStateListener {
-        fun onServiceStateChanged(service: XposedService?)
-    }
-
     override fun onCreate() {
         super.onCreate()
-        Prefs.initLocal(this)
+        Prefs.init(this)
         if (!AppProcessPolicy.shouldInitializeFullRuntime(Application.getProcessName(), packageName)) {
             return
         }
@@ -82,7 +73,7 @@ class EtaApp : Application(), XposedServiceHelper.OnServiceListener {
         runBlocking(Dispatchers.IO) {
             io.github.mangi.eta.data.repository.UsageStatsRepository.initializeConversationUsage(this@EtaApp)
         }
-        XposedServiceHelper.registerListener(this)
+        AccessibilityProtectionRuntime.start(this)
         applicationScope.launch {
             LinuxEnvironmentSettingsRepository.initialize(this@EtaApp)
             runCatching {
@@ -91,57 +82,6 @@ class EtaApp : Application(), XposedServiceHelper.OnServiceListener {
                 AndroidAgentLogger.warn(
                     "Agent skill index prewarm failed: type=${throwable.safeLogType()}"
                 )
-            }
-        }
-    }
-
-    override fun onServiceBind(service: XposedService) {
-        serviceInstance = service
-        Prefs.reconcileAgentPreferences(service)
-        dispatch(service)
-    }
-
-    override fun onServiceDied(service: XposedService) {
-        // Only clear and dispatch null when the currently held service dies;
-        // in multi-framework setups the dead instance may be an already-replaced old one that should not affect the UI.
-        if (serviceInstance === service) {
-            serviceInstance = null
-            dispatch(null)
-        }
-    }
-
-    companion object {
-        @Volatile
-        var serviceInstance: XposedService? = null
-            private set
-
-        private val listeners = CopyOnWriteArraySet<ServiceStateListener>()
-        private val mainHandler = Handler(Looper.getMainLooper())
-
-        fun addServiceStateListener(listener: ServiceStateListener, notifyImmediately: Boolean) {
-            listeners.add(listener)
-            if (notifyImmediately) {
-                dispatchTo(listener, serviceInstance)
-            }
-        }
-
-        fun removeServiceStateListener(listener: ServiceStateListener) {
-            listeners.remove(listener)
-        }
-
-        private fun dispatch(service: XposedService?) {
-            listeners.forEach { dispatchTo(it, service) }
-        }
-
-        private fun dispatchTo(listener: ServiceStateListener, service: XposedService?) {
-            if (Looper.myLooper() == Looper.getMainLooper()) {
-                listener.onServiceStateChanged(service)
-            } else {
-                mainHandler.post {
-                    if (listeners.contains(listener)) {
-                        listener.onServiceStateChanged(service)
-                    }
-                }
             }
         }
     }

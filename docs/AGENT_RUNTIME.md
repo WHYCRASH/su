@@ -1,6 +1,6 @@
 # Agent Runtime
 
-su's Agent Runtime organizes a single user input into model turns, tool execution, and a persistable incremental transcript. It runs in the module's own process; hook processes only recognize the entry point, send the request, and receive the result.
+su's Agent Runtime organizes a single user input into model turns, tool execution, and a persistable incremental transcript. It runs in the app's own process; system entry points (chat, ASSIST voice) only send the request and receive the result.
 
 ## Code boundaries
 
@@ -100,9 +100,9 @@ Memory content is editable background only and carries no instruction priority. 
 
 `AgentToolRequirements` declares each local tool's `NONE / PARTIAL / REQUIRED` root requirement plus accessibility, normal system-grant, and ROM conditions; a tool with no registered metadata can never enter the model catalog. `AgentToolCapabilities` snapshots device conditions per turn, and the same projected schema backs both provider declarations and parameter validation. Metadata is su-internal and never extends the provider protocol. UI capability cards link to real tool IDs, and "all capabilities" only changes presentation.
 
-Without root, exclusive tools are removed entirely; the hybrid terminal only advertises `identity=user`, and the default device path and model hints adjust in sync. The executor re-checks current root and parameters, and stale calls return `ROOT_REQUIRED`. Ordinary foreground intents need no accessibility; screenshots, nodes, gestures, input, and conditional waits need a live service connection, with a limited repair path kept where system protection is on. Current notifications come from the connected notification-listener service — a disconnect returns an explicit error rather than substituting history. User selections persist through the existing local-agent configuration and RemotePreferences coordination path; capability changes never rewrite saved toggles.
+Without root, exclusive tools are removed entirely; the hybrid terminal only advertises `identity=user`, and the default device path and model hints adjust in sync. The executor re-checks current root and parameters, and stale calls return `ROOT_REQUIRED`. Ordinary foreground intents need no accessibility; screenshots, nodes, gestures, input, and conditional waits need a live service connection, with re-assertion while force-keep accessibility protection is on. Current notifications come from the connected notification-listener service — a disconnect returns an explicit error rather than substituting history. User selections persist through the existing local-agent configuration; capability changes never rewrite saved toggles.
 
-Root probing runs on an IO thread: when `su` exists, it requests once on first sight, waits at most 30 s, and treats only UID 0 as usable; denial and timeout never re-prompt, and the user can retry manually from the system-enhancement settings. The LSPosed connection is judged independently and never substitutes for root authorization.
+Root probing runs on an IO thread: when `su` exists, it requests once on first sight, waits at most 30 s, and treats only UID 0 as usable; denial and timeout never re-prompt, and the user can retry manually from settings. The privileged-system-app install is judged independently and never substitutes for root authorization.
 
 ## Terminal environments
 

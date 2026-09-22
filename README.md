@@ -14,9 +14,9 @@ It is a fork of [Eta](https://github.com/Mangi-11/Eta), maintained by [dautist](
 - **Screen:** an accessibility GUI agent for taps, scrolls, and typing. You can stop or take over at any time.
 - **Terminal:** Android shells plus Alpine / Debian Linux, including files, scripts, and daemon tasks.
 - **On-device data:** notifications, photos, calendars, SMS, and more. Some sources need root and a matching app.
-- **System entry points:** with LSPosed, route the power-button long press into `su`, and unlock Gemini and Circle to Search.
+- **System integration:** a privileged system app shipped by the KernelSU/ReSukiSU NoMount module (`:app:assembleKsuModule`), plus an accessibility service, a notification listener, and a VoiceInteractionService for the ASSIST role.
 
-Requires **Android 14 or later**. The app is not vendor-locked; core features work without root. Root and LSPosed unlock more system access and assistant integration, depending on permission and ROM support.
+Requires **Android 14 or later**. The app is not vendor-locked; core features work without root. Root and the privileged-system-app module unlock more system access and assistant integration, depending on permission and ROM support.
 
 [Downloads](https://github.com/WHYCRASH/su/releases) · [Getting started](#getting-started) · [Issues](https://github.com/WHYCRASH/su/issues)
 
@@ -57,7 +57,7 @@ A task can combine these tools: read web sources and then organize files with a 
 
 ### Agent runtime
 
-The runtime runs inside `su`. Requests from chat and system assistants use the same agent loop: the model selects tools through tool calling, execution results return to its context, and it decides what to do next. Calls are validated against JSON Schema and permissions are checked before execution. Hooked processes only handle the entry point and return path.
+The runtime runs inside `su`. Requests from chat and system assistants use the same agent loop: the model selects tools through tool calling, execution results return to its context, and it decides what to do next. Calls are validated against JSON Schema and permissions are checked before execution.
 
 The runtime also manages streaming events, steering, cancellation, and incremental transcripts. Steering messages enter after the current turn completes. Conversations and results are stored locally; after an interruption, `su` attempts to recover existing records without automatically replaying actions. See [Agent Runtime](docs/AGENT_RUNTIME.md) for implementation details.
 
@@ -79,17 +79,9 @@ The provider layer supports OpenAI-compatible Chat Completions, the Responses AP
 
 ## System assistant entry points
 
-- **Power-button long press:** choose the default vendor assistant, Gemini, or `su`.
-- **`su` system assistant:** open the text conversation panel from the power button, with screen context and follow-up conversations.
+Set su as the digital assistant with the plain Android setting: **Settings -> Apps -> Default apps -> Digital assistant**. The power button follows that choice; there is no power-key takeover inside the app.
 
-Power-button interception requires LSPosed and a supported system.
-
-## Unlocking Gemini and Circle to Search
-
-- **Gemini:** enable system-assistant capabilities, including making the Google app a system app, voice input on the lock screen and while the screen is on, and support for keeping hotword detection working with the screen off.
-- **Circle to Search:** enable the feature and trigger it with a long press on the navigation handle or a two-finger long press on the screen.
-
-These features require LSPosed and a supported system. See [Technical Implementation](docs/TECHNICAL.md) for functionality and compatibility details.
+The assistant entry opens the text conversation panel, with screen context and follow-up conversations.
 
 ## Permissions and data
 
@@ -98,17 +90,17 @@ System tools, sensitive reads, sensitive actions, terminal and file access, brow
 - **Model requests:** task-relevant conversation content, images, and tool results are sent to your configured provider. A local runtime does not imply local inference. Custom HTTP endpoints transmit API keys and request content without transport encryption.
 - **Local records:** raw arguments and results from sensitive tools and MCP tools are excluded from persistent conversation history; model replies are still saved. Once notification access is granted, `su` retains up to 1,000 notifications for seven days. MCP authentication tokens are stored encrypted.
 - **Conversations and backups:** copy or edit messages, delete a conversation from a selected turn onward, and regenerate replies. Import or export conversations, model configurations, and memory. Backups contain API keys.
-- **Execution limits:** tasks can be stopped or taken over. Background work remains subject to Android and OEM process management; restart tasks manually after a force-stop or reboot. System and app updates may also require hook adaptations.
+- **Execution limits:** tasks can be stopped or taken over. Background work remains subject to Android and OEM process management; restart tasks manually after a force-stop or reboot.
 
 ## Getting started
 
 1. Download the APK from [Releases](https://github.com/WHYCRASH/su/releases). After installation, open **Model provider** in Settings, enter your API key, and select a model. Task execution requires tool calling; interpreting images also requires image input support.
 2. Enable the tools and permissions you need. GUI control requires the accessibility service. Notification access and usage access are granted separately; location tools require **Allow all the time**. The tools page shows what is available on your device.
-3. Start a conversation. For Linux, install a distribution, base tools, and any development tools you need under **Linux tool environment**. For assistant integration, see [System assistant entry points](#system-assistant-entry-points).
+3. Start a conversation. For Linux, install a distribution, base tools, and any development tools you need under **Linux tool environment**. For assistant integration, set su as the digital assistant (see [System assistant entry points](#system-assistant-entry-points)).
 
 - **Unrooted devices:** Android 14+ supports chat, browsing, memory, Skills, MCP, the ordinary terminal, and a private workspace. GUI control and personal data access need their respective permissions. Linux is available on supported 64-bit devices.
 - **Rooted devices:** gain access to protected system settings, app management, privileged files, dedicated personal-data searches, root shells, and chroot.
-- **LSPosed with a compatible ROM:** adds system shortcuts and Google feature enablement. Some features also require root.
+- **Privileged system app via the KernelSU/ReSukiSU module:** grants `WRITE_SECURE_SETTINGS` and the other privileged capabilities (including force-keep accessibility enforcement). Some features also require root.
 
 Dedicated searches for contacts, SMS messages, and calendar events still require root. See [Device Support](docs/ROOTLESS_SUPPORT.md) for full requirements and validation coverage.
 
@@ -128,7 +120,6 @@ This project is derived from [Eta](https://github.com/Mangi-11/Eta). The origina
 - [Eta](https://github.com/Mangi-11/Eta): the upstream project this fork is based on.
 - [Pi Coding Agent](https://github.com/earendil-works/pi): the main reference for the agent runtime, including the agent loop, tool calling, steering, and transcript state management.
 - [OmniBot](https://github.com/omnimind-ai/OmniBot): a reference project for AI agents on Android.
-- [libxposed API](https://github.com/libxposed/api): the modern Xposed API.
 - [Miuix](https://github.com/compose-miuix-ui/miuix): the UI component library.
 
 ## License

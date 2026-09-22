@@ -44,7 +44,6 @@ import io.github.mangi.eta.agent.terminal.SharedFolderMounts
 import io.github.mangi.eta.config.Prefs
 import io.github.mangi.eta.agent.voice.tts.SpeechPlayback
 import io.github.mangi.eta.core.AgentLogger
-import io.github.mangi.eta.core.HookSupport
 import io.github.mangi.eta.data.model.AssistantPrompt
 import io.github.mangi.eta.data.repository.AgentMemoryException
 import io.github.mangi.eta.data.repository.AgentMemoryMutation
@@ -701,7 +700,10 @@ internal class AgentLocalTools(
         val context = requireContext()
         val intent = Intent(Intent.ACTION_VIEW, uri)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        if (!HookSupport.resolvesActivity(context, intent)) {
+        val resolvable = runCatching {
+            context.packageManager.resolveActivity(intent, 0) != null
+        }.getOrDefault(false)
+        if (!resolvable) {
             return errorResult("NO_ACTIVITY", "No app can handle this URI")
         }
         context.startActivity(intent)

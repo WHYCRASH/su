@@ -1,22 +1,23 @@
 package io.github.mangi.eta.agent.accessibility
 
-import android.app.BroadcastOptions
-import android.content.BroadcastReceiver
 import android.content.Context
-import android.content.Intent
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.provider.Settings
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
 
 /**
- * The app side only expresses the protection toggle and restore requests; Secure Settings is always maintained by the system_server backend.
+ * Thin local facade for the "Force-keep accessibility" toggle.
+ *
+ * Enforcement lives in-process in [AccessibilityProtectionRuntime] and writes Secure
+ * Settings directly, which requires `android.permission.WRITE_SECURE_SETTINGS` held via
+ * the privileged system-app install. A plain APK install without the module cannot
+ * write secure settings and fails closed: [setEnabled] reports [ControlStatus.REJECTED]
+ * and [requestRecoveryBlocking] reports [ControlStatus.UNAVAILABLE].
  */
 internal object AccessibilityProtectionClient {
     private const val PREFERENCES_NAME = "accessibility_protection"
     private const val PREFERENCE_ENABLED = "enabled"
-    private const val CONTROL_TIMEOUT_MS = 2_000L
 
     private val mainHandler = Handler(Looper.getMainLooper())
 
@@ -26,12 +27,12 @@ internal object AccessibilityProtectionClient {
             .getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
             .getBoolean(
                 PREFERENCE_ENABLED,
-                AccessibilityProtectionProtocol.DEFAULT_ENABLED,
+                AccessibilityProtectionRuntime.DEFAULT_ENABLED,
             )
         return try {
             Settings.Global.getInt(
                 appContext.contentResolver,
-                AccessibilityProtectionProtocol.SETTING_NAME,
+                AccessibilityProtectionRuntime.SETTING_NAME,
                 if (fallback) 1 else 0,
             ) == 1
         } catch (_: RuntimeException) {
@@ -44,99 +45,76 @@ internal object AccessibilityProtectionClient {
         enabled: Boolean,
         onResult: (ControlResult) -> Unit,
     ) {
-        sendRequest(
-            context = context.applicationContext,
-            action = AccessibilityProtectionProtocol.ACTION_SET,
-            enabled = enabled,
-            scheduler = mainHandler,
-        ) { result ->
-            if (result.status == ControlStatus.APPLIED) {
-                context.applicationContext
-                    .getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
-                    .edit()
-                    .putBoolean(PREFERENCE_ENABLED, result.enabled)
-                    .apply()
+        val appContext = context.applicationContext
+        val result = try {
+            if (enabled && !AccessibilityProtectionRuntime.isServiceValid(appContext)) {
+                ControlResult(ControlStatus.REJECTED, isEnabled(appContext))
+            } else {
+                val stored = Settings.Global.putInt(
+                    appContext.contentResolver,
+                    AccessibilityProtectionRuntime.SETTING_NAME,
+                    if (enabled) 1 else 0,
+                )
+                if (!stored) {
+                    ControlResult(ControlStatus.UNAVAILABLE, isEnabled(appContext))
+                } else {
+                    appContext
+                        .getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
+                        .edit()
+                        .putBoolean(PREFERENCE_ENABLED, enabled)
+                        .apply()
+                    // Idempotent either way: reconcile starts enforcement when turning
+                    // on and tears the watchers down when turning off.
+                    AccessibilityProtectionRuntime.start(appContext)
+                    ControlResult(ControlStatus.APPLIED, enabled)
+                }
             }
-            onResult(result)
+        } catch (_: SecurityException) {
+            ControlResult(ControlStatus.REJECTED, isEnabled(appContext))
+        } catch (_: RuntimeException) {
+            ControlResult(ControlStatus.UNAVAILABLE, isEnabled(appContext))
         }
+        mainHandler.post { onResult(result) }
     }
 
     fun requestRecoveryBlocking(context: Context): ControlStatus {
         if (Looper.myLooper() == Looper.getMainLooper()) {
             return ControlStatus.UNAVAILABLE
         }
-        val latch = CountDownLatch(1)
-        var status = ControlStatus.UNAVAILABLE
-        sendRequest(
-            context = context.applicationContext,
-            action = AccessibilityProtectionProtocol.ACTION_RECOVER,
-            enabled = true,
-            scheduler = mainHandler,
-        ) { result ->
-            status = result.status
-            latch.countDown()
-        }
-        val completed = runCatching {
-            latch.await(CONTROL_TIMEOUT_MS, TimeUnit.MILLISECONDS)
-        }.getOrDefault(false)
-        return if (completed) status else ControlStatus.UNAVAILABLE
-    }
-
-    private fun sendRequest(
-        context: Context,
-        action: String,
-        enabled: Boolean,
-        scheduler: Handler,
-        onResult: (ControlResult) -> Unit,
-    ) {
-        val intent = Intent(action)
-            .setPackage(AccessibilityProtectionProtocol.RECEIVER_PACKAGE)
-            .putExtra(
-                AccessibilityProtectionProtocol.EXTRA_PROTOCOL_VERSION,
-                AccessibilityProtectionProtocol.VERSION,
-            )
-            .putExtra(AccessibilityProtectionProtocol.EXTRA_ENABLED, enabled)
-        val resultReceiver = object : BroadcastReceiver() {
-            override fun onReceive(receiverContext: Context, intent: Intent?) {
-                val actualEnabled = getResultExtras(false)?.getBoolean(
-                    AccessibilityProtectionProtocol.EXTRA_ENABLED,
-                    isEnabled(context),
-                ) ?: isEnabled(context)
-                onResult(
-                    ControlResult(
-                        status = resultCode.toControlStatus(),
-                        enabled = actualEnabled,
-                    ),
-                )
+        val appContext = context.applicationContext
+        return try {
+            if (!AccessibilityProtectionRuntime.isProtectionEnabled(appContext)) {
+                return ControlStatus.UNAVAILABLE
             }
-        }
-
-        try {
-            // Starting with Android 14, broadcasts do not share the sender's identity by default; the protection backend must obtain the real UID before accepting requests.
-            val options = BroadcastOptions.makeBasic()
-                .setShareIdentityEnabled(true)
-                .toBundle()
-            context.sendOrderedBroadcast(
-                intent,
-                null,
-                options,
-                resultReceiver,
-                scheduler,
-                AccessibilityProtectionProtocol.RESULT_UNAVAILABLE,
-                null,
-                null,
-            )
+            if (!AccessibilityProtectionRuntime.isServiceValid(appContext)) {
+                return ControlStatus.REJECTED
+            }
+            val limiter = AccessibilityRepairLimiter()
+            while (true) {
+                AccessibilityProtectionRuntime.enforceOnce(appContext, "recovery")
+                if (isConfiguredAndConnected(appContext)) {
+                    return ControlStatus.APPLIED
+                }
+                val attempt = limiter.nextAttempt(SystemClock.elapsedRealtime())
+                    ?: break
+                AccessibilityProtectionRuntime.rebindOnce(appContext)
+                SystemClock.sleep(attempt.disabledDurationMs)
+            }
+            if (isConfiguredAndConnected(appContext)) {
+                ControlStatus.APPLIED
+            } else {
+                ControlStatus.UNAVAILABLE
+            }
+        } catch (_: SecurityException) {
+            ControlStatus.REJECTED
         } catch (_: RuntimeException) {
-            scheduler.post {
-                onResult(
-                    ControlResult(
-                        status = ControlStatus.UNAVAILABLE,
-                        enabled = isEnabled(context),
-                    ),
-                )
-            }
+            ControlStatus.UNAVAILABLE
         }
     }
+
+    private fun isConfiguredAndConnected(context: Context): Boolean =
+        AccessibilityProtectionRuntime.isServiceConfigured(context) &&
+            AgentAccessibilityService.isAvailable()
 
     data class ControlResult(
         val status: ControlStatus,
@@ -147,11 +125,5 @@ internal object AccessibilityProtectionClient {
         APPLIED,
         UNAVAILABLE,
         REJECTED,
-    }
-
-    private fun Int.toControlStatus(): ControlStatus = when (this) {
-        AccessibilityProtectionProtocol.RESULT_APPLIED -> ControlStatus.APPLIED
-        AccessibilityProtectionProtocol.RESULT_REJECTED -> ControlStatus.REJECTED
-        else -> ControlStatus.UNAVAILABLE
     }
 }

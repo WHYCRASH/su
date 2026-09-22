@@ -17,7 +17,7 @@ class ReadAloudVoiceHistoryTest {
     private val context get() = RuntimeEnvironment.getApplication()
     @Before fun clear() {
         context.getSharedPreferences("read_aloud_voice_history", Context.MODE_PRIVATE).edit().clear().commit()
-        Prefs.initLocal(context)
+        Prefs.init(context)
     }
     @Test fun switchingModelsAndReturningRestoresEachVoice() {
         ReadAloudVoiceHistory.remember(context, "p", "model-a", "voice-a")

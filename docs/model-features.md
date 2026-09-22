@@ -24,7 +24,9 @@ no tools, have an overall timeout with cancellation on stop/pause/append, and pr
 bounded output; extra tokens bill to the actual assistive provider.
 
 The title model defaults to the current conversation's bound model, with the custom
-switch stored independently and never changing the chat selection. Only a new
+switch stored independently and never changing the chat selection. Title generation can
+be switched off entirely; the stored provider/model selection is kept so switching it
+back on restores the previous choice. Only a new
 conversation's first send triggers it, as a standalone async request; failure keeps the
 local title. The request carries only the visible question, never images, tool
 snapshots, or system prompts. Async write-back checks that the conversation still

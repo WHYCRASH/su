@@ -46,8 +46,8 @@ android {
         minSdk = 34
         targetSdk = 36
         // versionCode scheme: yyyyMMdd + a two-digit same-day sequence (starting at 01); bump it by hand alongside versionName when releasing.
-        versionCode = 2026092001
-        versionName = "5.3.1"
+        versionCode = 2026092101
+        versionName = "5.3.2"
     }
 
     signingConfigs {
@@ -104,8 +104,6 @@ android {
             keepDebugSymbols += setOf("**/libproot_exec.so", "**/libproot_loader.so", "**/libeta_pty.so")
         }
         resources {
-            // Merge the Xposed module declaration so the module entry survives release shrinking.
-            merges += "META-INF/xposed/*"
             // Exclude only the signature/version metadata that causes packaging conflicts; do not strip Compose resources.
             excludes += "META-INF/*.kotlin_module"
             excludes += "META-INF/INDEX.LIST"
@@ -126,11 +124,6 @@ android {
 dependencies {
     implementation(libs.commons.compress)
     implementation(libs.xz)
-    compileOnly(libs.libxposed.api)
-    // UI-side RemotePreferences write bridge: commits configuration to the LSPosed database
-    // through XposedService; the hook side reads the per-process cache with
-    // XposedInterface.getRemotePreferences.
-    implementation(libs.libxposed.service)
     implementation(libs.miuix.ui)
     implementation(libs.miuix.blur)
     implementation(libs.miuix.nav)

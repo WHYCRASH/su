@@ -14,7 +14,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import io.github.mangi.eta.EtaApp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.data.model.AssistantProfile
 import io.github.mangi.eta.data.repository.AssistantRepository
@@ -102,7 +101,7 @@ internal fun AssistantsScreen(
                                 scope.launch {
                                     withContext(Dispatchers.IO) {
                                         AssistantRepository.select(profile.id)
-                                        RuntimeConfigRepository.syncToRemotePreferences(EtaApp.serviceInstance)
+                                        RuntimeConfigRepository.refreshRuntimeConfig()
                                     }
                                     onBack()
                                 }
@@ -165,7 +164,7 @@ internal fun AssistantsScreen(
                 scope.launch {
                     withContext(Dispatchers.IO) {
                         AssistantRepository.delete(target.id)
-                        RuntimeConfigRepository.syncToRemotePreferences(EtaApp.serviceInstance)
+                        RuntimeConfigRepository.refreshRuntimeConfig()
                     }
                 }
             },

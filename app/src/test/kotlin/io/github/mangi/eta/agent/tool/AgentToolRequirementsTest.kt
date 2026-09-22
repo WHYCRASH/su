@@ -71,11 +71,10 @@ class AgentToolRequirementsTest {
     }
 
     @Test
-    fun frameworkConnectionDoesNotGrantRootAndRootOnlyToolsDoNotRequireFramework() {
-        assertEquals(LsposedRequirement.NONE, AgentToolRequirements.find("get_health_summary")?.lsposedRequirement)
-        assertEquals("ROOT_REQUIRED", AgentToolCapabilities(rootAvailable = false, lsposedAvailable = true)
+    fun rootOnlyToolsNeverReportAvailableWithoutRoot() {
+        assertEquals("ROOT_REQUIRED", AgentToolCapabilities(rootAvailable = false)
             .unavailableCode("get_health_summary"))
-        assertEquals(null, AgentToolCapabilities(rootAvailable = true, lsposedAvailable = false)
+        assertEquals(null, AgentToolCapabilities(rootAvailable = true)
             .unavailableCode("get_health_summary"))
     }
 

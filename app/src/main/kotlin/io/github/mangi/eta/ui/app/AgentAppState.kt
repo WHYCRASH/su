@@ -12,7 +12,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.Snapshot
-import io.github.mangi.eta.EtaApp
 import io.github.mangi.eta.ui.components.StreamPerformanceDiagnostics
 import io.github.mangi.eta.R
 import io.github.mangi.eta.agent.device.AgentFileReferenceGateway
@@ -2211,6 +2210,7 @@ internal class AgentAppState(
         persisted: Deferred<Boolean>,
     ) {
         if (firstMessageId == null || conversationId in manuallyRenamedDuringTitleRequest) return
+        if (!io.github.mangi.eta.agent.model.ModelFeaturePreferences.titleGenerationEnabled()) return
         val expectedTitle = conversationTitles[conversationId] ?: return
         val selection = io.github.mangi.eta.agent.model.ModelFeaturePreferences.selection(
             io.github.mangi.eta.agent.model.ModelFeature.TITLE)
@@ -4496,7 +4496,7 @@ internal class AgentAppState(
         }
         scope.launch(Dispatchers.IO) {
             AssistantRepository.select(assistantId)
-            RuntimeConfigRepository.syncToRemotePreferences(EtaApp.serviceInstance)
+            RuntimeConfigRepository.refreshRuntimeConfig()
             withContext(Dispatchers.Main) {
                 if (resolvedAssistantId(homeState) != assistantId) return@withContext
                 refreshMemory()

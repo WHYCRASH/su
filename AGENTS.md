@@ -2,14 +2,14 @@
 
 ## Project Overview
 
-`su` (namespace `io.github.mangi.eta`, v5.3.1) is a system-level Android AI assistant, fork of Eta, BYOK (user supplies OpenAI-compatible/Anthropic key). Chat + agent loop drives Android APIs, accessibility GUI agent, WebView browser, terminals (Android + Alpine/Debian via PRoot/chroot), on-device data, Skills, Streamable-HTTP MCP, `MEMORY.md`, voice/assistant entry points. Android 14+ (`minSdk 34`); root + LSPosed unlock privileged access.
+`su` (namespace `io.github.mangi.eta`, v5.3.2) is a system-level Android AI assistant, fork of Eta, BYOK (user supplies OpenAI-compatible/Anthropic key). Chat + agent loop drives Android APIs, accessibility GUI agent, WebView browser, terminals (Android + Alpine/Debian via PRoot/chroot), on-device data, Skills, Streamable-HTTP MCP, `MEMORY.md`, voice/assistant entry points. Android 14+ (`minSdk 34`); root + the KernelSU/ReSukiSU NoMount privileged-system-app module (`:app:assembleKsuModule`, with accessibility service, notification listener, and VoiceInteractionService for the ASSIST role) unlock privileged access.
 
 ## Architecture & Data Flow
 
 Single-module app; two-process agent system:
 
 ```
-Entry (MainActivity SEND/VIEW | ASSIST voice | ModuleMain hooks)
+Entry (MainActivity SEND/VIEW | ASSIST voice)
  -> UI (AgentAppRoot / AgentAppState, collectAsState over repos/DataStore)
  -> AgentRuntimeClient/Connection (Messenger IPC, AgentRuntimeWire bundles + FD transfer)
  -> AgentRuntimeService -> AgentRuntimeRunExecutor (single exception boundary)
@@ -17,7 +17,7 @@ Entry (MainActivity SEND/VIEW | ASSIST voice | ModuleMain hooks)
    -> serial tool batch (terminal/browser/device/memory/skill/MCP + validator)
    -> AgentRunController (cancel/pause/steer) + AgentRuntimeSession (RUNNING->COMMITTING->TERMINAL)
  -> checkpoints (Room in-flight) / archives / ResultStore -> UI drain
-Hook path: ModuleMain -> SystemServer/SystemUI/Google hooks; read-only RemotePreferences, never executes loop.
+System entry is plain Android: the digital-assistant setting plus the ASSIST-role VoiceInteractionService; no module hooks.
 ```
 
 Key rules:
@@ -42,7 +42,7 @@ Base: `app/src/main/kotlin/io/github/mangi/eta/`
 - `agent/voice/` (`tts/`, `offline/`), `agent/overlay/`, `agent/delegation/`, `agent/media/` — voice session/recognition, overlay, subagents, image hydration.
 - `data/db/` + `data/repository/` + `data/datastore/` + `data/provider/` — Room entities/DAOs, object repos, `SettingsDataStore`, provider/model JSON, `BuiltinProviders`.
 - `ui/` (`app/`, `screens/`, `pages/`, `components/`, `navigation/`, `markdown/`, `haptics/`) — `MainActivity`, `AgentAppRoot/Shell/State/ViewModel`, `AppRoute/AgentNavigator`.
-- `hook/system/` + `hook/google/` + `core/` + `config/` + `systemizer/` — LSPosed hooks, `AndroidAgentLogger`, `LogSafety`, `Prefs`, `PowerAssistantTarget`.
+- `agent/accessibility/` — accessibility service/keeper plus in-app force-keep accessibility enforcement (`AccessibilityProtectionClient` writing Secure Settings via `WRITE_SECURE_SETTINGS`); `core/` — `AndroidAgentLogger`, `LogSafety`; `config/` — `Prefs`.
 - Non-Kotlin: `app/src/main/cpp/` + `jniLibs/`, `assets/agent/workspace.py`, `res/`, `app/src/test/{kotlin,python}/`.
 - `module/` (repo root) — ReSukiSU NoMount module inputs: `customize.sh`, `service.sh`, `boot-completed.sh` (permissions/app-ops/root-profile provisioning), `uninstall.sh`, `action.sh`, `system/etc/permissions/privapp-permissions-io.github.mangi.eta.xml`. `module.prop` and the whitelist are generated into `app/build/ksu-module/staging/` by `:app:assembleKsuModule`; never hand-edit the shipped list.
 
@@ -66,7 +66,7 @@ apksigner verify app/build/outputs/apk/release/app-release.apk
 
 # ReSukiSU NoMount module (privileged su.apk + generated privapp whitelist + root-profile helper)
 ./gradlew --no-daemon --no-configuration-cache :app:assembleKsuModule
-unzip -l app/build/outputs/ksu-module/su-5.3.1-arm64.zip
+unzip -l app/build/outputs/ksu-module/su-5.3.2-arm64.zip
 
 # Lint
 ./gradlew :app:lintDebug
@@ -80,17 +80,17 @@ yes | sdkmanager --licenses >/dev/null || true
 sdkmanager --channel=3 "platforms;android-37.0"
 
 # Release tag (CI builds, human publishes Release manually)
-git tag v5.3.1 && git push origin v5.3.1
+git tag v5.3.2 && git push origin v5.3.2
 ```
 
 Release authority: `.github/RELEASING.md`. Never auto-publishes; version bump (`versionCode`/`versionName` in `app/build.gradle.kts`) only for official releases. Never commit `keystore.properties`, `*.jks`, `google-services.json`.
 
 ## Code Conventions & Common Patterns
 
-- **Packages/imports:** `package io.github.mangi.eta.<area>.<topic>`; absolute imports, androidx/compose -> libxposed -> `io.github.mangi.eta.*` -> kotlinx -> okhttp/org.json. No wildcards. Ex: `agent/model/AgentModelClient.kt`, `EtaApp.kt`.
-- **Visibility/naming:** `internal` by default for runtime/data/hook symbols (`internal class AgentLoop`, `internal object Prefs`); public only for manifest-referenced (`EtaApp`, `MainActivity`, services) and UI. One top-level class/object per file, `UpperCamelCase.kt` matches symbol. Constants `UPPER_SNAKE` in `Prefs.Keys`; pref keys `agent_*` slash feature (`agent_terminal_tools`).
+- **Packages/imports:** `package io.github.mangi.eta.<area>.<topic>`; absolute imports, androidx/compose -> `io.github.mangi.eta.*` -> kotlinx -> okhttp/org.json. No wildcards. Ex: `agent/model/AgentModelClient.kt`, `EtaApp.kt`.
+- **Visibility/naming:** `internal` by default for runtime/data symbols (`internal class AgentLoop`, `internal object Prefs`); public only for manifest-referenced (`EtaApp`, `MainActivity`, services) and UI. One top-level class/object per file, `UpperCamelCase.kt` matches symbol. Constants `UPPER_SNAKE` in `Prefs.Keys`; pref keys `agent_*` slash feature (`agent_terminal_tools`).
 - **StateFlow/Compose:** `private val _x = MutableStateFlow(...); val x: StateFlow = _x.asStateFlow()` + `.update{}` (`ui/app/ConsoleStore.kt`, `UserTerminalStore.kt`); UI `by Repo.flow().collectAsState(initial=...)` + `remember`/`LaunchedEffect`/`DisposableEffect`. Repos expose `Flow` + `suspend` getters + `init(context)`.
-- **Async:** `CoroutineScope(SupervisorJob() + Dispatchers.IO)` app scope (`EtaApp.kt:40`); `withContext(Dispatchers.IO)` for root/probe/IO; `Mutex` + `withLock` for repo mutation; `@Volatile` + `synchronized` double-checked singletons; `Handler(Looper.getMainLooper())` for service-listener dispatch.
+- **Async:** `CoroutineScope(SupervisorJob() + Dispatchers.IO)` app scope (`EtaApp.kt:40`); `withContext(Dispatchers.IO)` for root/probe/IO; `Mutex` + `withLock` for repo mutation; `@Volatile` + `synchronized` double-checked singletons.
 - **Error handling:** `runCatching{}.getOrNull()/getOrDefault()/onFailure{log}` at IO/IPC boundaries; typed `AgentModelFailure(code, retryable, message, diagnostic)` with `CONTEXT_WINDOW_EXCEEDED` special-case; `DeviceControlUnavailableException`, `AgentRunCancelledException` — never swallow loop control as generic `Exception`.
 - **Logging:** `AndroidAgentLogger.warn/error/debug{}` + `warnThrottled(key){}`; never log bodies/keys — use `safeLogType()` (`core/LogSafety.kt`) and `AgentHttpFailureDiagnostics.safe(...)`.
 - **Serialization/persistence:** `kotlinx.serialization Json{ignoreUnknownKeys=true}` for provider/runtime JSON; `org.json` at provider wire + `AgentRuntimeWire` bundles; Room `@Entity/@Dao/@Database(exportSchema=false)` with explicit `MIGRATION_x_y`; DataStore-preferences for settings.
@@ -100,8 +100,7 @@ Release authority: `.github/RELEASING.md`. Never auto-publishes; version bump (`
 
 | Path | Role |
 |---|---|
-| `app/src/main/kotlin/io/github/mangi/eta/EtaApp.kt` | App init (Prefs, TerminalRuntime, RootAccess, Room/DataStore, XposedService); `AppProcessPolicy` guard |
-| `app/src/main/kotlin/io/github/mangi/eta/ModuleMain.kt` | LSPosed entry |
+| `app/src/main/kotlin/io/github/mangi/eta/EtaApp.kt` | App init (Prefs, TerminalRuntime, RootAccess, Room/DataStore); `AppProcessPolicy` guard |
 | `app/src/main/kotlin/io/github/mangi/eta/ui/MainActivity.kt` | Compose entry, `AgentAppRoot` host |
 | `app/src/main/kotlin/io/github/mangi/eta/agent/model/AgentLoop.kt` | Pure orchestration loop |
 | `app/src/main/kotlin/io/github/mangi/eta/agent/model/AgentModelClient.kt` | Model facade, `loadConfig()` |
@@ -115,9 +114,9 @@ Release authority: `.github/RELEASING.md`. Never auto-publishes; version bump (`
 | `app/src/main/kotlin/io/github/mangi/eta/data/datastore/SettingsDataStore.kt` | Settings/provider-selection store |
 | `app/src/main/kotlin/io/github/mangi/eta/ui/app/AgentAppViewModel.kt` + `AgentAppState.kt` | Activity-scoped state |
 | `app/src/main/AndroidManifest.xml` | Manifest (MainActivity singleTask, ASSIST, services) |
-| `build.gradle.kts` / `app/build.gradle.kts` / `gradle/libs.versions.toml` | KGP force, app config (compileSdk 37/min 34/target 36, v5.3.1), version catalog |
+| `build.gradle.kts` / `app/build.gradle.kts` / `gradle/libs.versions.toml` | KGP force, app config (compileSdk 37/min 34/target 36, v5.3.2), version catalog |
 | `settings.gradle.kts` / `gradle.properties` / `gradle/wrapper/gradle-wrapper.properties` | Repos, flags, Gradle 9.6.1 |
-| `app/proguard-rules.pro` | R8 keeps (Xposed entry, Miuix) |
+| `app/proguard-rules.pro` | R8 keeps (Miuix) |
 | `.github/workflows/build-debug.yml` / `android-release.yml` / `.github/RELEASING.md` | CI + release process |
 | `scripts/build-terminal-native.sh` / `scripts/prepare-speech-runtime.py` / `scripts/native/` | Native PTY/PRoot build, speech JNI fetch |
 | `docs/AGENT_RUNTIME.md` / `docs/TECHNICAL.md` / `docs/ROOTLESS_SUPPORT.md` / `docs/TERMINAL_NATIVE.md` | Runtime, tools, device support, native build |
@@ -126,8 +125,8 @@ Release authority: `.github/RELEASING.md`. Never auto-publishes; version bump (`
 
 - **Runtime:** Kotlin 2.4.x (KGP forced 2.4.0 in root `buildscript`; AGP 9.3.2 bundles 2.2.10), JDK 25 toolchain (Temurin in CI, Foojay resolver), `kotlin.code.style=official`. No Node/Bun/pnpm/yarn; Python 3 is scripts/tests only.
 - **Build:** Gradle 9.6.1 wrapper, single module `:app`. No `package.json`/`Dockerfile`/`Makefile`. No Detekt/ktlint/Spotless/`.editorconfig`; only Android Lint (`abortOnError=true`, `checkReleaseBuilds=false`).
-- **Android:** `compileSdk 37`, `minSdk 34`, `targetSdk 36`, `ndkVersion 29.0.14206865`, native api 34. `versionCode 2026092001` + `versionName 5.3.1` manual.
-- **Libs (pins in `gradle/libs.versions.toml`):** Miuix 0.9.4-rc01, Compose Material3, Room 2.8.4 + KSP, OkHttp/SSE 5.4.0, DataStore-prefs 1.2.1, kotlinx-serialization/coroutines 1.11.0, libxposed api/service 102.0.0 (`compileOnly`), hiddenapibypass 6.1.
+- **Android:** `compileSdk 37`, `minSdk 34`, `targetSdk 36`, `ndkVersion 29.0.14206865`, native api 34. `versionCode 2026092101` + `versionName 5.3.2` manual. Raise both for every `assembleKsuModule` build that changes the APK: the module replaces `system/priv-app/su/su.apk` in place at a fixed path, and Android keeps the cached parse of that path, so a same-version swap applies the previous manifest and resource IDs to the new file — the app then shows the wrong label (stale `labelRes` resolving against shifted string IDs) and instantiates components the new dex no longer contains.
+- **Libs (pins in `gradle/libs.versions.toml`):** Miuix 0.9.4-rc01, Compose Material3, Room 2.8.4 + KSP, OkHttp/SSE 5.4.0, DataStore-prefs 1.2.1, kotlinx-serialization/coroutines 1.11.0, hiddenapibypass 6.1.
 - **Native/JNI:** hash-verified, never bundled models. `prepareSpeechRuntime` Exec runs `python3` on every `preBuild` (sherpa-ncnn v2.1.15, 4 ABIs). `useLegacyPackaging=true`.
 - **Signing/env:** `ETA_RELEASE_STORE_FILE/_PASSWORD/_KEY_ALIAS/_KEY_PASSWORD` env or root `keystore.properties`; `ETA_DISABLE_RELEASE_SIGNING=true` forces debug. CI restores cert from `ETA_RELEASE_KEYSTORE_BASE64`. Repos locked `google()+mavenCentral()` (`FAIL_ON_PROJECT_REPOS`); CI uses `--no-daemon --no-configuration-cache`.
 

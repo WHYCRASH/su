@@ -1,41 +1,33 @@
 # Rootless and rooted devices
 
 su ships one APK that enables capabilities based on the actual grants. Base features
-never wait for root probing; the root grant and the framework-service connection show
-separately, and denied grants, disconnects, or reconnects never rewrite the user's
-saved switches.
+never wait for root probing; the root grant and the privileged-system-app install show
+separately, and denied grants never rewrite the user's saved switches.
 
-On the system enhancements page, "framework channel" only means a framework-service
-Binder was received; it does not mean the su switch in the LSPosed manager is on or
-that hooks are active. The current libxposed Service interface offers no module-switch
-query or change notification; after the module is switched off, an existing service
-connection may linger. The manager is authoritative for the module switch and scope,
-and each feature further depends on loading inside its target process. The running-
-target list is no substitute for the module switch: an empty list only means no
-running targets were returned.
+Force-keep accessibility is enforced from inside the app process via
+`WRITE_SECURE_SETTINGS` (privileged system app only); a plain APK install reports
+enforcement failure instead of pretending protection is on. See
+[Technical Implementation](TECHNICAL.md#accessibility-protection).
 
 ## Capability boundaries
 
 | Feature | Rootless device | Extra requirement |
 | --- | --- | --- |
 | Chat, models, memory, Skills, MCP, built-in browser | Available, each running under its own switches and configuration | None |
-| GUI screenshots, nodes, gestures, input, and waits | Enable the su accessibility service | LSPosed system protection can provide limited rebinding |
+| GUI screenshots, nodes, gestures, input, and waits | Enable the su accessibility service | The privileged module's force-keep accessibility can re-assert the service entry |
 | Launching apps, opening links, alarms, and timers | Android foreground Intents | Accessibility is not a precondition |
 | Current and historical notifications | Notification-access grant; current notifications need the listener service connected | Root users keep the existing system source |
 | App usage, location | The matching Android access grants | Background location needs allow-all-the-time |
 | Android Shell, files, and images | App UID, private workspace or granted sources | Root users keep the privileged paths |
 | Alpine, Debian, PTY | Run through PRoot | A chroot can be installed additionally |
 | System modification, app freezing, private-data reads | Not offered to the model | Root required; some data additionally needs the matching ROM |
-| Gemini and Circle to Search | See system enhancements | LSPosed and the matching ROM required, root additionally for systemization |
 
 The tools page defaults to "current device". Features still missing a plain Android
 grant stay discoverable; "all capabilities" shows extra introductions and their actual
-requirements, and viewing them requests no permission and grants the model nothing. The
-system-enhancements entry is a plain settings row with no persistent unauthorized
-prompt. Root users' existing configuration locations are unchanged; while disconnected,
-the used configuration is kept, no reconnect prompt card appears at the top of the
-settings page, and the framework-channel state stays viewable on the system-
-enhancements page.
+requirements, and viewing them requests no permission and grants the model nothing.
+Root users' existing configuration locations are unchanged; while disconnected,
+the used configuration is kept and no reconnect prompt card appears at the top of the
+settings page.
 
 This change adds no unprivileged reads of contacts, SMS, calendar, or similar data.
 
@@ -90,7 +82,7 @@ The dev environment passed `:app:compileDebugKotlin`, `:app:assembleDebug`, and 
 full `:app:testDebugUnitTest` run: 785 passed, 1 skipped for macOS missing `/proc`
 (the daemon ownership token's accidental-kill protection check). The APK's 8 new native
 ELFs were checked for 16 KiB alignment, four install ABIs, system dynamic dependencies,
-Xposed metadata, and matching source-bundle consistency; `git diff --check` passed.
+and matching source-bundle consistency; `git diff --check` passed.
 
 The directory-isolation fix additionally passed 32 targeted tests covering unwritable
 old parent directories, in-place reads of old rootless data, file import, install
@@ -105,8 +97,8 @@ yet covered.
 
 Full acceptance still needs an Android 14+ device:
 
-- No-root, root-only, LSPosed-only, both: inspect the tool catalog and system
-  enhancements, verify deny, 30-second timeout, revoke, disconnect, and recovery;
+- No-root, root-only, privileged-module-only, both: inspect the tool catalog,
+  verify deny, 30-second timeout, revoke, disconnect, and recovery;
   confirm switches never reset and viewing all capabilities pops no grant.
 - With accessibility on, complete screenshot, node tap, Chinese input, and wait; a
   mid-run disconnect must report an error immediately, and stale nodes or uncertain
@@ -123,5 +115,5 @@ Full acceptance still needs an Android 14+ device:
   on the current device by default. Verify narrow screens, large fonts, landscape,
   dark/light themes, system bars, and IME.
 - Force-stop and reboot never auto-replay commands; state refreshes and restarts
-  manually; saving model configuration never shows an LSPosed sync prompt that a
+  manually; saving model configuration pops no grant and shows no sync prompt that a
   rootless user cannot act on.

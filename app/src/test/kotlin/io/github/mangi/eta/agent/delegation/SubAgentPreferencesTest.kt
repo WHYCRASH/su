@@ -17,7 +17,7 @@ import org.robolectric.annotation.Config
 @Config(application = Application::class, sdk = [34])
 class SubAgentPreferencesTest {
     @Test fun additionalSlotsPreserveOriginalRoleAndModelReferences() {
-        Prefs.initLocal(RuntimeEnvironment.getApplication())
+        Prefs.init(RuntimeEnvironment.getApplication())
         val original = SubAgentPreferences.selection(0)
         val review = SubAgentPreferences.selection(1)
         val saved = SubAgentPreferences.selection(3)
@@ -33,7 +33,7 @@ class SubAgentPreferencesTest {
         } finally { SubAgentPreferences.save(3, saved); SubAgentPreferences.saveReasoning(3, savedReasoning) }
     }
     @Test fun draftSwitchPromotesOnceAndConversationsRemainIndependent() {
-        Prefs.initLocal(RuntimeEnvironment.getApplication())
+        Prefs.init(RuntimeEnvironment.getApplication())
         val id = java.util.UUID.randomUUID().toString()
         assertTrue(SubAgentPreferences.enabled(id))
         SubAgentPreferences.setEnabled(null, false)
@@ -43,7 +43,7 @@ class SubAgentPreferencesTest {
         assertTrue(SubAgentPreferences.enabled("another-$id"))
     }
     @Test fun reasoningIsSlotLocalAndLeavesSharedModelAndParentSnapshotUnchanged() {
-        Prefs.initLocal(RuntimeEnvironment.getApplication())
+        Prefs.init(RuntimeEnvironment.getApplication())
         val saved = (0 until SubAgentPreferences.SLOT_COUNT).map(SubAgentPreferences::reasoning)
         try {
             (0 until SubAgentPreferences.SLOT_COUNT).forEach { SubAgentPreferences.saveReasoning(it, null) }
@@ -67,7 +67,7 @@ class SubAgentPreferencesTest {
     }
 
     @Test fun changingModelClearsOnlyThatSlotsOverride() {
-        Prefs.initLocal(RuntimeEnvironment.getApplication())
+        Prefs.init(RuntimeEnvironment.getApplication())
         val savedModel = SubAgentPreferences.selection(0)
         val saved = (0..1).map(SubAgentPreferences::reasoning)
         try {
@@ -90,7 +90,7 @@ class SubAgentPreferencesTest {
     }
 
     @Test fun unsupportedOverridesAreNormalizedWithoutChangingStoredChoice() {
-        Prefs.initLocal(RuntimeEnvironment.getApplication())
+        Prefs.init(RuntimeEnvironment.getApplication())
         val saved = SubAgentPreferences.reasoning(3)
         try {
             val config = AgentModelClient.ModelConfig(baseUrl = "https://example.invalid", apiKey = "test",

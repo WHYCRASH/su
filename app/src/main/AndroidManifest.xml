@@ -18,6 +18,9 @@
     <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"
         tools:ignore="ProtectedPermissions" />
+    <!-- Held through the privileged system-app install; a plain APK install never grants this. -->
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS"
+        tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <!-- The agent's app-discovery and visibility self-check need the full app list; launcher queries cannot cover that. -->
     <uses-permission
@@ -25,17 +28,10 @@
         tools:ignore="QueryAllPackagesPermission" />
     <uses-permission android:name="android.permission.VIBRATE" />
 
-    <permission
-        android:name="io.github.mangi.eta.permission.CONTROL_ACCESSIBILITY_PROTECTION"
-        android:protectionLevel="signature" />
-
-    <uses-permission android:name="io.github.mangi.eta.permission.CONTROL_ACCESSIBILITY_PROTECTION" />
-
     <queries>
         <intent>
             <action android:name="android.intent.action.TTS_SERVICE" />
         </intent>
-        <package android:name="com.google.android.googlequicksearchbox" />
         <intent>
             <action android:name="android.speech.RecognitionService" />
         </intent>
@@ -48,7 +44,7 @@
     <application
         android:name=".EtaApp"
         android:allowBackup="false"
-        android:description="@string/xposed_description"
+        android:description="@string/app_description"
         android:enableOnBackInvokedCallback="true"
         android:hasCode="true"
         android:icon="@mipmap/ic_launcher"
@@ -221,13 +217,6 @@
                 <action android:name="android.service.notification.NotificationListenerService" />
             </intent-filter>
         </service>
-
-        <provider
-            android:name=".agent.accessibility.AgentAccessibilityHealthProvider"
-            android:authorities="io.github.mangi.eta.accessibility.health"
-            android:exported="true"
-            android:grantUriPermissions="false"
-            android:permission="android.permission.MANAGE_ACCESSIBILITY" />
 
         <provider
             android:name="androidx.core.content.FileProvider"

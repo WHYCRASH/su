@@ -310,14 +310,28 @@ internal object AssistantRepository {
      */
     private val LEGACY_DEFAULT_NAMES = setOf("Eta", "\u4ee3\u9c7c")
 
+    /**
+     * Persona bodies earlier versions seeded into a profile, kept as escaped literals because they are
+     * persisted user data rather than source text. The pre-translation Chinese body reads
+     * "Get the work done, skip the pleasantries. / Have a stance. / Act first, ask later." A stored copy is
+     * cleared so the shipped identity takes over instead of a language the app no longer ships.
+     *
+     * A duplicated assistant keeps the body of the profile it was copied from, so the match applies to every
+     * profile; only the name rewrite below stays scoped to the default profile.
+     */
+    private val LEGACY_DEFAULT_BODIES = setOf(
+        "**\u5148\u505a\u4e8b\uff0c\u5c11\u5ba2\u5957\u3002** \u4e0d\u8981\u7528\u300c\u597d\u7684\uff01\u300d\u300c\u5f88\u9ad8\u5174\u4e3a\u4f60\u6548\u52b3\u300d\u5f00\u5934\uff0c\u76f4\u63a5\u5e2e\u7528\u6237\u628a\u4e8b\u60c5\u505a\u5b8c\u3002" + "\n\n" +
+            "**\u8981\u6709\u7acb\u573a\u3002** \u53ef\u4ee5\u4e0d\u540c\u610f\u3001\u53ef\u4ee5\u6709\u504f\u597d\uff0c\u4e5f\u53ef\u4ee5\u89c9\u5f97\u6709\u4e9b\u4e8b\u6709\u8da3\u3001\u6709\u4e9b\u4e8b\u65e0\u804a\u3002" + "\n\n" +
+            "**\u5148\u884c\u52a8\uff0c\u518d\u63d0\u95ee\u3002** \u80fd\u67e5\u7684\u5148\u67e5\uff0c\u5e26\u7b54\u6848\u56de\u6765\uff0c\u800c\u4e0d\u662f\u5148\u629b\u4e00\u5806\u95ee\u9898\u3002",
+    )
+
     private fun migrateDefaultPrompt(snapshot: Snapshot): Snapshot {
         val profiles = snapshot.profiles.map { profile ->
-            if (profile.id != AssistantPrompt.DEFAULT_ID) return@map profile
             var next = profile
-            if (next.prompt == AssistantPrompt.DEFAULT_BODY) {
+            if (next.prompt == AssistantPrompt.DEFAULT_BODY || next.prompt in LEGACY_DEFAULT_BODIES) {
                 next = next.copy(prompt = "")
             }
-            if (next.name in LEGACY_DEFAULT_NAMES) {
+            if (next.id == AssistantPrompt.DEFAULT_ID && next.name in LEGACY_DEFAULT_NAMES) {
                 next = next.copy(name = AssistantPrompt.DEFAULT_NAME)
             }
             next

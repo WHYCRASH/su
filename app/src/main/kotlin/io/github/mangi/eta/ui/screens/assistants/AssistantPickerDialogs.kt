@@ -25,7 +25,6 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import io.github.mangi.eta.EtaApp
 import io.github.mangi.eta.R
 import io.github.mangi.eta.data.model.AssistantProfile
 import io.github.mangi.eta.data.repository.AssistantRepository
@@ -164,7 +163,7 @@ internal fun AssistantPickerDialog(
                 scope.launch {
                     withContext(Dispatchers.IO) {
                         AssistantRepository.delete(target.id)
-                        RuntimeConfigRepository.syncToRemotePreferences(EtaApp.serviceInstance)
+                        RuntimeConfigRepository.refreshRuntimeConfig()
                     }
                 }
             },

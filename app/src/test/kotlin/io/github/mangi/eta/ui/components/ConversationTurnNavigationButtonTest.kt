@@ -44,7 +44,7 @@ class ConversationTurnNavigationButtonTest {
 
     @Before fun setup() {
         val context = RuntimeEnvironment.getApplication()
-        Prefs.initLocal(context)
+        Prefs.init(context)
         originalTouch = Prefs.isEnabled(Prefs.Keys.HAPTIC_TOUCH_FEEDBACK)
         originalIntensity = TouchHaptics.currentIntensity()
         Prefs.putBoolean(Prefs.Keys.HAPTIC_TOUCH_FEEDBACK, true)

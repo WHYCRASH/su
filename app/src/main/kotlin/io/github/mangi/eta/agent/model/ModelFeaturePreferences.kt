@@ -29,4 +29,10 @@ internal object ModelFeaturePreferences {
         Prefs.putString("${feature.key}_custom", selection.custom.toString())
     }
     fun visionEnabled() = selection(ModelFeature.VISION).custom
+
+    /** Conversation titles are generated unless the user turns the whole feature off; the model selection is kept either way. */
+    fun titleGenerationEnabled(): Boolean = Prefs.getString("${ModelFeature.TITLE.key}_enabled", "true") == "true"
+    fun setTitleGenerationEnabled(enabled: Boolean) {
+        Prefs.putString("${ModelFeature.TITLE.key}_enabled", enabled.toString())
+    }
 }

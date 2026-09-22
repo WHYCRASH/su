@@ -157,8 +157,14 @@ private class BuiltinSkillAssetStore(
             if (entry?.installState == INSTALL_STATE_REMOVED_BUILTIN) return@forEach
             if (entry?.source == USER_SOURCE) return@forEach
             val targetDir = File(skillsRoot, builtin.id)
+            // The APK assets are the source of truth for a built-in skill: an installed copy that no longer
+            // matches them is a leftover of an older release and is refreshed in place, so shipped edits —
+            // translations included — reach devices that already have the skill installed. Deleting a
+            // built-in skill records removed_builtin above and is never undone here.
             if (!isSafeBuiltinSkillInstallation(targetDir)) {
                 installBuiltinInternal(builtin)
+            } else {
+                syncBuiltinFiles(builtin)
             }
             if (entry?.source == BUILTIN_SOURCE && entry.installState == INSTALL_STATE_INSTALLED) {
                 return@forEach
@@ -206,6 +212,57 @@ private class BuiltinSkillAssetStore(
         children.forEach { child ->
             copyAssetRecursively(assetManager, "$assetPath/$child", File(target, child))
         }
+    }
+
+    /**
+     * Overwrites the shipped files of an installed built-in copy.
+     *
+     * A built-in skill is app-managed content, so a copy that no longer matches the APK is a leftover of an
+     * older release (or lost a file mid-install) and is brought up to date, which is also how shipped edits
+     * such as translations reach devices that already have the skill installed. Files the runtime itself
+     * writes inside the directory, and any symlinked path, are never touched.
+     */
+    private fun syncBuiltinFiles(builtin: BuiltinSkillAsset) {
+        val files = readAssetFiles(builtin.assetPath)
+        if (files.isEmpty()) return
+        val targetDir = File(skillsRoot, builtin.id)
+        files.forEach { (relative, bytes) ->
+            val target = File(targetDir, relative)
+            if (isSymlinkedPath(targetDir, relative)) return@forEach
+            if (target.isFile && runCatching { target.readBytes().contentEquals(bytes) }.getOrDefault(false)) return@forEach
+            target.parentFile?.mkdirs()
+            runCatching { target.writeBytes(bytes) }
+        }
+    }
+
+    /** True when [relative] or one of the directories leading to it under [root] is a symlink. */
+    private fun isSymlinkedPath(root: File, relative: String): Boolean {
+        var current = root
+        return relative.split('/').any { part ->
+            current = File(current, part)
+            Files.isSymbolicLink(current.toPath())
+        }
+    }
+
+    /** Every file under [assetPath], keyed by the same relative path [copyAssetRecursively] writes to. */
+    private fun readAssetFiles(assetPath: String): Map<String, ByteArray> {
+        val files = linkedMapOf<String, ByteArray>()
+
+        fun walk(path: String, relative: String) {
+            val children = runCatching { context.assets.list(path) }.getOrNull().orEmpty()
+            if (children.isEmpty()) {
+                runCatching { context.assets.open(path).use { it.readBytes() } }
+                    .getOrNull()
+                    ?.let { files[relative] = it }
+                return
+            }
+            children.forEach { child ->
+                walk("$path/$child", if (relative.isEmpty()) child else "$relative/$child")
+            }
+        }
+
+        walk(assetPath, "")
+        return files
     }
 }
 

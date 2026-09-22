@@ -4,13 +4,11 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 internal enum class RootRequirement { NONE, PARTIAL, REQUIRED }
-internal enum class LsposedRequirement { NONE, OPTIONAL, REQUIRED }
 
 internal enum class ToolSystemAccess { NONE, NOTIFICATIONS, USAGE, LOCATION }
 
 internal data class LocalToolRequirement(
     val rootRequirement: RootRequirement,
-    val lsposedRequirement: LsposedRequirement = LsposedRequirement.NONE,
     val accessibility: Boolean = false,
     val systemAccess: ToolSystemAccess = ToolSystemAccess.NONE,
 )

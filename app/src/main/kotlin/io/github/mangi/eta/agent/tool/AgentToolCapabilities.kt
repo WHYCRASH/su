@@ -3,7 +3,6 @@ package io.github.mangi.eta.agent.tool
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
-import io.github.mangi.eta.EtaApp
 import io.github.mangi.eta.agent.accessibility.AgentAccessibilityService
 import io.github.mangi.eta.agent.accessibility.AccessibilityProtectionClient
 import io.github.mangi.eta.agent.device.AgentNotificationHistoryService
@@ -13,7 +12,6 @@ import org.json.JSONArray
 /** Runtime conditions frozen for each round; does not include user toggles, nor does it trigger authorization requests. */
 internal data class AgentToolCapabilities(
     val rootAvailable: Boolean,
-    val lsposedAvailable: Boolean = false,
     val accessibilityAvailable: Boolean = true,
     val accessibilityRecoveryAvailable: Boolean = false,
     val notificationsAllowed: Boolean = true,
@@ -23,7 +21,6 @@ internal data class AgentToolCapabilities(
     fun unavailableCode(name: String): String? {
         val requirement = AgentToolRequirements.find(name) ?: return "UNKNOWN_TOOL"
         if (requirement.rootRequirement == RootRequirement.REQUIRED && !rootAvailable) return "ROOT_REQUIRED"
-        if (requirement.lsposedRequirement == LsposedRequirement.REQUIRED && !lsposedAvailable) return "LSPOSED_REQUIRED"
         if (requirement.accessibility && !accessibilityAvailable && !accessibilityRecoveryAvailable) {
             return "ACCESSIBILITY_UNAVAILABLE"
         }
@@ -51,10 +48,8 @@ internal data class AgentToolCapabilities(
     companion object {
         fun capture(context: Context): AgentToolCapabilities = AgentToolCapabilities(
             rootAvailable = RootAccess.isGranted,
-            lsposedAvailable = EtaApp.serviceInstance != null,
             accessibilityAvailable = AgentAccessibilityService.isAvailable(),
-            accessibilityRecoveryAvailable = EtaApp.serviceInstance != null &&
-                AccessibilityProtectionClient.isEnabled(context),
+            accessibilityRecoveryAvailable = AccessibilityProtectionClient.isEnabled(context),
             notificationsAllowed = AgentNotificationHistoryService.isEnabled(context),
             usageAllowed = AgentPersonalContextTools.hasUsageAccess(context),
             locationAllowed = context.checkSelfPermission(Manifest.permission.ACCESS_BACKGROUND_LOCATION) ==

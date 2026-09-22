@@ -345,4 +345,30 @@ class SkillRuntimeTest {
         assertEquals(File(skillsRoot, "alpha").canonicalFile.absolutePath, indexed.single().rootPath)
     }
 
+    @Test
+    fun reseedingRefreshesStaleBuiltinFilesAndKeepsRuntimeData() {
+        val context = RuntimeEnvironment.getApplication()
+        val skillsRoot = temporaryFolder.newFolder("stale-builtin-skills")
+        val shipped = context.assets.open("builtin_skills/skill-installer/SKILL.md").use { it.readBytes() }
+        SkillIndexService(context = context, skillsRoot = skillsRoot).seedBuiltinSkillsIfNeeded()
+        val installedSkill = File(skillsRoot, "skill-installer/SKILL.md")
+        assertTrue(installedSkill.readBytes().contentEquals(shipped))
+        // An installed copy left over from an older release: the pre-translation Chinese body.
+        installedSkill.writeText(
+            "---\nname: skill-installer\ndescription: 从受信任的 curated 目录发现并安装 Skills。\n---\n\n# Skill Installer\n",
+        )
+        val runtimeData = File(skillsRoot, "skill-installer/data/ERRORS.md")
+        runtimeData.parentFile?.mkdirs()
+        runtimeData.writeText("preserve existing learning\n")
+
+        val restarted = SkillIndexService(context = context, skillsRoot = skillsRoot)
+        restarted.seedBuiltinSkillsIfNeeded()
+        val indexed = restarted.listSkillsForManagement().single { it.id == "skill-installer" }
+
+        assertTrue(installedSkill.readBytes().contentEquals(shipped))
+        assertEquals("preserve existing learning\n", runtimeData.readText())
+        assertEquals(SkillParser.parseSkillFile(installedSkill)?.frontmatter?.get("description"), indexed.description)
+        assertTrue(indexed.description.orEmpty().none { it.code in 0x4E00..0x9FFF })
+    }
+
 }

@@ -22,6 +22,9 @@ internal fun ModelFeatureSettingsScreen(feature: ModelFeature, onBack: () -> Uni
     var picker by remember { mutableStateOf(false) }
     val providers by remember { ProviderRepository.providersFlow() }.collectAsState(initial = emptyList())
     val vision = feature == ModelFeature.VISION
+    val titles = feature == ModelFeature.TITLE
+    // Only the title feature can be switched off entirely; the stored model selection survives a toggle.
+    var titlesEnabled by remember { mutableStateOf(ModelFeaturePreferences.titleGenerationEnabled()) }
     val title = stringResource(if (vision) R.string.auxiliary_vision_title else R.string.title_model_title)
     val models = remember(providers, selection, vision) {
         val all = AgentModelPickerProjector.project(providers, selection.providerId, selection.modelId)
@@ -37,31 +40,48 @@ internal fun ModelFeatureSettingsScreen(feature: ModelFeature, onBack: () -> Uni
             Text(stringResource(if (vision) R.string.vision_feature_description else R.string.title_feature_description),
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp))
             Card(Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) {
-                SwitchPreference(
-                    title = stringResource(R.string.model_feature_custom),
-                    checked = selection.custom,
-                    onCheckedChange = {
-                        selection = selection.copy(custom = it)
-                        ModelFeaturePreferences.save(feature, selection)
-                    },
-                )
-                if (selection.custom) {
-                    ArrowPreference(
-                        title = stringResource(R.string.model_feature_select),
-                        summary = models.selectedModel?.let { "${it.providerName} / ${it.displayName}" }
-                            ?: stringResource(R.string.model_feature_missing),
-                        onClick = { picker = true },
+                if (titles) {
+                    SwitchPreference(
+                        title = stringResource(R.string.title_feature_generate),
+                        checked = titlesEnabled,
+                        onCheckedChange = {
+                            titlesEnabled = it
+                            ModelFeaturePreferences.setTitleGenerationEnabled(it)
+                        },
                     )
+                }
+                if (!titles || titlesEnabled) {
+                    SwitchPreference(
+                        title = stringResource(R.string.model_feature_custom),
+                        checked = selection.custom,
+                        onCheckedChange = {
+                            selection = selection.copy(custom = it)
+                            ModelFeaturePreferences.save(feature, selection)
+                        },
+                    )
+                    if (selection.custom) {
+                        ArrowPreference(
+                            title = stringResource(R.string.model_feature_select),
+                            summary = models.selectedModel?.let { "${it.providerName} / ${it.displayName}" }
+                                ?: stringResource(R.string.model_feature_missing),
+                            onClick = { picker = true },
+                        )
+                    } else {
+                        Text(stringResource(if (vision) R.string.vision_feature_off else R.string.title_feature_default),
+                            modifier = Modifier.padding(16.dp))
+                    }
                 } else {
-                    Text(stringResource(if (vision) R.string.vision_feature_off else R.string.title_feature_default),
+                    Text(stringResource(R.string.title_feature_disabled),
                         modifier = Modifier.padding(16.dp))
                 }
             }
         }
     }
-    TtsModelPickerDialog(models, picker, { picker = false }, { providerId, modelId ->
-        selection = selection.copy(providerId = providerId, modelId = modelId)
-        ModelFeaturePreferences.save(feature, selection)
-        picker = false
-    }, title)
+    if (!titles || titlesEnabled) {
+        TtsModelPickerDialog(models, picker, { picker = false }, { providerId, modelId ->
+            selection = selection.copy(providerId = providerId, modelId = modelId)
+            ModelFeaturePreferences.save(feature, selection)
+            picker = false
+        }, title)
+    }
 }

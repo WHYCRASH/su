@@ -2,15 +2,10 @@ package io.github.mangi.eta.ui.screens.enhance
 
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ManageSearch
-import androidx.compose.material.icons.rounded.AccountTree
 import androidx.compose.material.icons.rounded.AdminPanelSettings
-import androidx.compose.material.icons.rounded.AutoAwesome
-import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Key
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Terminal
-import androidx.compose.material.icons.rounded.VerifiedUser
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -62,23 +57,6 @@ fun SystemEnhanceScreen(
                         )
                     },
                 )
-                BasicComponent(
-                    title = stringResource(R.string.capability_xposed_service),
-                    summary = stringResource(
-                        if (capabilities.xposedConnected) R.string.capability_xposed_connected
-                        else R.string.capability_xposed_disconnected,
-                    ),
-                    startAction = { PreferenceIcon(Icons.Rounded.AccountTree) },
-                )
-            }
-        }
-        item(key = "framework-help") {
-            Card(modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) {
-                BasicComponent(
-                    title = stringResource(R.string.capability_xposed_help),
-                    summary = stringResource(R.string.capability_xposed_help_summary),
-                    startAction = { PreferenceIcon(Icons.Rounded.Info) },
-                )
             }
         }
         item(key = "root-title") { SmallTitle(stringResource(R.string.capability_root_features)) }
@@ -98,26 +76,6 @@ fun SystemEnhanceScreen(
                     title = stringResource(R.string.capability_root_linux),
                     summary = stringResource(R.string.capability_root_linux_summary),
                     startAction = { PreferenceIcon(Icons.Rounded.Terminal) },
-                )
-            }
-        }
-        item(key = "hook-title") { SmallTitle(stringResource(R.string.capability_system_features)) }
-        item(key = "hook-features") {
-            Card(modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) {
-                BasicComponent(
-                    title = stringResource(R.string.capability_hook_assistants),
-                    summary = stringResource(R.string.capability_hook_assistants_summary),
-                    startAction = { PreferenceIcon(Icons.Rounded.AutoAwesome) },
-                )
-                BasicComponent(
-                    title = stringResource(R.string.capability_hook_google),
-                    summary = stringResource(R.string.capability_hook_google_summary),
-                    startAction = { PreferenceIcon(Icons.AutoMirrored.Rounded.ManageSearch) },
-                )
-                BasicComponent(
-                    title = stringResource(R.string.capability_hook_accessibility),
-                    summary = stringResource(R.string.capability_hook_accessibility_summary),
-                    startAction = { PreferenceIcon(Icons.Rounded.VerifiedUser) },
                 )
             }
         }

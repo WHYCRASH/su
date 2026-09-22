@@ -20,24 +20,11 @@
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
 
-# libxposed loads the module entry from the class-name strings in
-# META-INF/xposed/java_init.list; if the entry class is obfuscated, rewrite
-# java_init.list in sync so the module still works in release builds after shrinking.
--dontwarn io.github.libxposed.annotation.**
--adaptresourcefilecontents META-INF/xposed/java_init.list
--keep,allowoptimization,allowobfuscation class io.github.mangi.eta.ModuleMain {
-    public <init>();
-}
-
 # The R8 default rules already cover the Compose runtime; Miuix icons are plain
 # Kotlin code, so R8 may strip unused icons.
 # -dontwarn only suppresses the optional-platform warnings that KMP dependencies
 # may emit on the Android side; it does not block shrinking.
 -dontwarn top.yukonga.miuix.**
-
-# The libxposed service is wired through static calls and a manifest provider;
-# leave reachable code to the R8/Android default rules.
--dontwarn io.github.libxposed.service.**
 
 # Configuration keys are string constants accessed through static calls;
 # no need to keep class or member names.
@@ -47,15 +34,11 @@
 # and third-party dependencies keep their own logging policy.
 -maximumremovedandroidloglevel 3 class io.github.mangi.eta.** { *; }
 
-# XposedModule.log is not android.util.Log, so R8 cannot recognize it through the rule above.
 # The debug supplier is a pure observation API; never perform business side effects inside a supplier.
 -assumenosideeffects interface io.github.mangi.eta.core.AgentLogger {
     public abstract void debug(kotlin.jvm.functions.Function0);
 }
 -assumenosideeffects class io.github.mangi.eta.core.AndroidAgentLogger {
-    public void debug(kotlin.jvm.functions.Function0);
-}
--assumenosideeffects class io.github.mangi.eta.core.ModuleLogger {
     public void debug(kotlin.jvm.functions.Function0);
 }
 
