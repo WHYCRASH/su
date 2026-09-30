@@ -19,7 +19,7 @@ class AgentSummaryFormatTest {
         assertNull(AgentSummaryFormat.coerceSummary("## Current Work\n- 已完成"))
     }
     @Test fun supportedChineseAliasesAndOuterFenceStillWork() {
-        val aliases = listOf("主要请求与意图", "关键技术概念", "文件与代码", "错误与修复", "待办工作", "当前工作", "下一步", "关键上下文")
+        val aliases = listOf("Primary Request and Intent", "关键技术概念", "文件与代码", "错误与修复", "Pending Jobs", "Current Work", "Next Step", "Critical Context")
         assertEquals(summary(), AgentSummaryFormat.coerceSummary("```markdown\n" + summary(aliases) + "\n```"))
     }
     @Test fun fencedCodeHeadingsAndNestedSectionsAreContentNotSchema() {

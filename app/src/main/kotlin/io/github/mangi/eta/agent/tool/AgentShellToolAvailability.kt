@@ -216,19 +216,19 @@ internal object AgentShellToolAvailability {
 
     /** Prompt guidance built only from fixed probe names and detection flags. */
     fun promptNote(snapshot: Snapshot): String {
-        fun list(names: List<String>) = if (names.isEmpty()) "无" else names.joinToString("、")
+        fun list(names: List<String>) = if (names.isEmpty()) "none" else names.joinToString(", ")
         val linuxPart = if (snapshot.linuxReady) {
-            "Linux（${snapshot.linuxLabel}）检测到：${list(snapshot.linux)}"
+            "Linux (${snapshot.linuxLabel}) detected: ${list(snapshot.linux)}"
         } else {
-            "Linux（${snapshot.linuxLabel}）工具环境未就绪"
+            "Linux (${snapshot.linuxLabel}) environment not ready"
         }
         val missing = snapshot.probed.filter { it !in snapshot.linux && it !in snapshot.android }
-        return "本机命令检测（客户端在本轮开始时只读检查可执行文件，未执行用户命令）：" +
-            "$linuxPart；Android 检测到：${list(snapshot.android)}" +
-            (if (missing.isEmpty()) "" else "；两个环境都未检测到：${list(missing)}") + "。" +
-            "选择环境时：Android 系统操作（pm、am、cmd、dumpsys、settings、getprop 等）使用 environment=android 或 run_command；" +
-            "其他命令在 Linux 已就绪时优先 terminal(environment=linux)，只在 Android 检测到的命令才用 Android；" +
-            "两个环境都未检测到时先说明检测结果；未检出不等于未安装，权限受限时不得断言需要安装，不要在两个环境之间来回试。" +
-            "检测范围仅限上述名称，且可能读不到部分受保护目录，以实际执行结果为准。"
+        return "Local command detection (client performs read-only binary check at turn start without executing user commands):" +
+            "$linuxPart；Android detected: ${list(snapshot.android)}" +
+            (if (missing.isEmpty()) "" else "；neither environment: ${list(missing)}") + "。" +
+            "选择环境时：Android system operations (pm, am, cmd, dumpsys, settings, getprop, etc.) use environment=android or run_command; " +
+            "other commands prefer terminal(environment=linux) when Linux is ready; use Android only for commands detected on Android; " +
+            "state detection result first if not detected in either environment; not detected does not mean not installed; do not switch back and forth. " +
+            "Detection scope limited to above names."
     }
 }

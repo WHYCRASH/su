@@ -39,7 +39,7 @@ internal object AgentTerminalToolCatalog {
                                     JSONObject()
                                         .put("type", "string")
                                         .put("enum", JSONArray().put("user").put("root"))
-                                        .put("description", "宿主执行身份。Android 默认使用当前可用身份；Linux 根据已选择的后端使用 user 或 root。PRoot 内模拟 root 不授予 Android 特权。")
+                                        .put("description", "Execution identity. Android defaults to current available identity; Linux uses user or root according to selected backend. Simulated root in PRoot gives no Android privileges.")
                                 )
                                 .put(
                                     "environment",
@@ -131,19 +131,19 @@ internal object AgentTerminalToolCatalog {
                                     "command",
                                     JSONObject()
                                         .put("type", "string")
-                                        .put("description", "要执行的 shell 命令，可使用管道和重定向。")
+                                        .put("description", "Shell command to execute; supports pipes and redirections.")
                                 )
                                 .put(
                                     "cwd",
                                     JSONObject()
                                         .put("type", "string")
-                                        .put("description", "工作目录，默认 /data/local/tmp/eta。相对路径也按该目录解析；用户存储可用 ~/ 表示 /storage/emulated/0。")
+                                        .put("description", "Working directory, default /data/local/tmp/eta. Relative paths resolved against it.")
                                 )
                                 .put(
                                     "timeout_seconds",
                                     JSONObject()
                                         .put("type", "integer")
-                                        .put("description", "超时秒数，1 到 180，默认 30。")
+                                        .put("description", "Timeout in seconds (1 to 180), default 30.")
                                 )
                         )
                         .put("required", JSONArray().put("command"))
@@ -163,13 +163,13 @@ internal object AgentTerminalToolCatalog {
                                     "offset_bytes",
                                     JSONObject()
                                         .put("type", "integer")
-                                        .put("description", "从第几个字节开始，默认 0。")
+                                        .put("description", "Start offset byte position, default 0.")
                                 )
                                 .put(
                                     "max_bytes",
                                     JSONObject()
                                         .put("type", "integer")
-                                        .put("description", "最多读取字节数，1 到 262144，默认 65536。")
+                                        .put("description", "Max bytes to read (1 to 262144), default 65536.")
                                 )
                         )
                         .put("required", JSONArray().put("path"))
@@ -178,7 +178,7 @@ internal object AgentTerminalToolCatalog {
             .put(
                 AgentToolSchema.function(
                     name = "write_file",
-                    description = "写入 Android 文件。可覆盖或追加；会自动创建父目录。用于明确需要修改文件的任务。",
+                    description = "Writes to file; supports overwrite or append. Automatically creates parent directory.",
                     parameters = JSONObject()
                         .put("type", "object")
                         .put(
@@ -190,7 +190,7 @@ internal object AgentTerminalToolCatalog {
                                     "append",
                                     JSONObject()
                                         .put("type", "boolean")
-                                        .put("description", "true 追加，false 覆盖，默认 false。")
+                                        .put("description", "true to append, false to overwrite, default false.")
                                 )
                         )
                         .put("required", JSONArray().put("path").put("content"))
@@ -211,7 +211,7 @@ internal object AgentTerminalToolCatalog {
                                     "limit",
                                     JSONObject()
                                         .put("type", "integer")
-                                        .put("description", "最多返回 1 到 200 行，默认 80。")
+                                        .put("description", "Max lines to return (1 to 200), default 80.")
                                 )
                         )
                 )

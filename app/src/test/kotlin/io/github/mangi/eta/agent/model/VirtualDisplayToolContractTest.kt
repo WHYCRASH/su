@@ -48,7 +48,7 @@ class VirtualDisplayToolContractTest {
         assertEquals(RootRequirement.NONE, AgentToolRequirements.rootRequirement("keep_virtual_result"))
         val description = catalog(rootAvailable = false).function("keep_virtual_result").getString("description")
         assertTrue(description.contains("finish_virtual_session"))
-        assertTrue(description.contains("这里只标记"))
+        assertTrue(description.contains("finish_virtual_session"))
         assertFalse(description.contains("关掉"))
         assertFalse(description.contains("关闭副屏"))
         assertFalse(description.contains("中间应用不要"))

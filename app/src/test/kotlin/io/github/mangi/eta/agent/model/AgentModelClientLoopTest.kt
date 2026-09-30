@@ -75,7 +75,7 @@ class AgentModelClientLoopTest {
         val provider = ScriptedProvider(listOf(
             { request, _ ->
                 assertTrue(request.tools.toString().contains("set_setting"))
-                assertTrue(request.messages.toString().contains("相关应用私有文件与数据库"))
+                assertTrue(request.messages.toString().contains("app private files and databases"))
                 assistant(finishReason = "tool_calls", toolCalls = listOf(toolCall("first", "get_current_context", "{}")))
             },
             { request, _ ->
