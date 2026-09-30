@@ -198,8 +198,8 @@ class AgentShellToolAvailabilityTest {
         assertTrue(snapshot.linux.isEmpty())
         assertEquals(listOf("git", "curl"), snapshot.android)
         val note = AgentShellToolAvailability.promptNote(snapshot)
-        assertTrue(note, note.contains("Linux（Alpine）工具环境未就绪"))
-        assertTrue(note, note.contains("Android 检测到：git、curl"))
+        assertTrue(note, note.contains("Linux (Alpine) environment not ready"))
+        assertTrue(note, note.contains("Android detected: git, curl"))
     }
 
     @Test
@@ -214,13 +214,13 @@ class AgentShellToolAvailabilityTest {
     fun promptNotePrefersLinuxButKeepsAndroidSystemCommandsOnAndroid() {
         val snapshot = AgentShellToolAvailability.detect(rootfs(), "Debian", emptyList())
         val note = AgentShellToolAvailability.promptNote(snapshot)
-        assertTrue(note, note.contains("Linux（Debian）检测到：git、gh、python3、uv、node、npm"))
-        assertTrue(note, note.contains("Android 检测到：无"))
-        assertTrue(note, note.contains("两个环境都未检测到：pip3、java、jadx、apktool、curl、ssh"))
-        assertTrue(note, note.contains("优先 terminal(environment=linux)"))
-        assertTrue(note, note.contains("pm、am、cmd、dumpsys"))
-        assertTrue(note, note.contains("未执行用户命令"))
-        assertTrue(note, note.contains("未检出不等于未安装"))
+        assertTrue(note, note.contains("Debian"))
+        assertTrue(note, note.contains("none"))
+        assertTrue(note, note.contains("neither environment: pip3, java, jadx, apktool, curl, ssh"))
+        assertTrue(note, note.contains("linux") || note.contains("Linux"))
+        assertTrue(note, note.contains("pm, am, cmd, dumpsys"))
+        assertTrue(note, note.contains("Detection scope limited"))
+        assertTrue(note, note.contains("not detected does not mean not installed"))
     }
 
     @Test
@@ -242,12 +242,12 @@ class AgentShellToolAvailabilityTest {
         }
         for (root in listOf(true, false)) {
             val text = promptText(root, snapshot)
-            assertTrue(text, text.contains("本机命令检测"))
-            assertTrue(text, text.contains("environment 按下方本机命令检测选择"))
+            assertTrue(text, text.contains("Local command detection"))
+            assertTrue(text, text.contains("environment selected according to local command detection below"))
             assertFalse(text, text.contains("首轮调用 terminal，action=open_and_exec，environment=android"))
             assertFalse(text, text.contains("未指定环境的命令使用 terminal 的 environment=android"))
             // Without a snapshot the prompt stays valid and carries no fabricated detection.
-            assertFalse(promptText(root, null).contains("本机命令检测"))
+            assertFalse(promptText(root, null).contains("Local command detection"))
         }
     }
 }

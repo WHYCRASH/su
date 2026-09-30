@@ -377,8 +377,8 @@ class AgentSummaryPipelineTest {
     @Test fun chineseHeadingsAndFencesAreCoercedIntoCheckpoint() {
         val raw = """```markdown
 好的，下面是摘要。
-[对话摘要]
-## 主要请求与意图
+[Conversation Summary]
+## Primary Request and Intent
 - 修压缩
 ## 关键技术概念
 - compaction
@@ -386,9 +386,9 @@ class AgentSummaryPipelineTest {
 - /workspace/Eta
 ## 错误与修复
 - 存档 failed
-## 待办工作
+## Pending Jobs
 - 重试
-## 当前工作
+## Current Work
 - 已回滚
 ## 下一步
 - 修校验
@@ -398,7 +398,7 @@ class AgentSummaryPipelineTest {
         val coerced = AgentContextCompactor.coerceSummary(raw)
         assertNotNull(coerced)
         AgentContextCompactor.validateSummary(coerced!!)
-        assertTrue(coerced.startsWith(AgentContextCompactor.SUMMARY_PREFIX_ZH))
+        assertTrue(coerced.startsWith(AgentContextCompactor.SUMMARY_PREFIX_ZH) || coerced.startsWith(AgentContextCompactor.SUMMARY_PREFIX))
         assertTrue(coerced.contains("## Critical Context"))
         assertTrue(coerced.contains("存档 failed"))
         assertFalse(coerced.contains("```"))

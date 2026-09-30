@@ -50,14 +50,14 @@ internal object AgentSummaryFormat {
 
     private fun extractSummarySections(text: String): List<String>? {
         val aliases = mapOf(
-            "primary request and intent" to 0, "主要请求与意图" to 0, "主要请求" to 0, "goal" to 0, "目标" to 0,
-            "key technical concepts" to 1, "关键技术概念" to 1, "关键技术" to 1,
-            "files and code" to 2, "文件与代码" to 2, "files and identifiers" to 2, "文件和标识符" to 2,
+            "primary request and intent" to 0, "Primary Request and Intent" to 0, "Main Requests and Intent" to 0, "主要请求与意图" to 0, "主要请求" to 0, "goal" to 0, "目标" to 0, "关键技术概念" to 1, "文件与代码" to 2, "错误与修复" to 3, "待办工作" to 4, "当前工作" to 5,
+            "key technical concepts" to 1, "Key Technical Concepts" to 1, "关键技术" to 1,
+            "files and code" to 2, "Files and Code" to 2, "files and identifiers" to 2, "文件和标识符" to 2,
             "文件与标识符" to 2, "文件" to 2,
-            "errors and fixes" to 3, "错误与修复" to 3, "errors and open issues" to 3,
+            "errors and fixes" to 3, "Errors and Fixes" to 3, "errors and open issues" to 3,
             "错误和待解决问题" to 3, "错误与待办" to 3, "错误" to 3,
-            "pending jobs" to 4, "pending work" to 4, "待办工作" to 4, "未完成工作" to 4, "待办" to 4,
-            "current work" to 5, "current state" to 5, "当前工作" to 5, "当前状态" to 5, "现状" to 5,
+            "pending jobs" to 4, "pending work" to 4, "Pending Work" to 4, "未完成工作" to 4, "待办" to 4,
+            "current work" to 5, "current state" to 5, "Current Work" to 5, "当前状态" to 5, "现状" to 5,
             "verified evidence" to 5, "已验证证据" to 5, "已核实证据" to 5,
             "next step" to 6, "下一步" to 6, "下一步行动" to 6,
             "critical context" to 7, "关键上下文" to 7, "constraints" to 7, "约束" to 7, "限制" to 7,

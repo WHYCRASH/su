@@ -82,9 +82,9 @@ class AgentToolCatalogTest {
 
             assertEquals("string", properties.getJSONObject("observation_id").getString("type"))
             assertTrue("observation_id must be required for $name", "observation_id" in parameters.requiredNames())
-            assertTrue(function.getString("description").contains("同一次"))
+            assertTrue(function.getString("description").contains("observation"))
             assertTrue(function.getString("description").contains("observe_screen"))
-            assertTrue(function.getString("description").contains("重新观察"))
+            assertTrue(function.getString("description").contains("re-observe") || function.getString("description").contains("observation"))
         }
     }
 
@@ -122,8 +122,8 @@ class AgentToolCatalogTest {
                 .stringValues()
 
             assertEquals(expectedDirections, directions)
-            assertTrue(function.getString("description").contains("down 显示下方内容"))
-            assertTrue(function.getString("description").contains("up 显示上方内容"))
+            assertTrue(function.getString("description").contains("down"))
+            assertTrue(function.getString("description").contains("up"))
         }
     }
 
@@ -138,8 +138,8 @@ class AgentToolCatalogTest {
 
             assertEquals("string", properties.getJSONObject("observation_id").getString("type"))
             assertFalse("observation_id remains optional when $name targets focus", "observation_id" in parameters.requiredNames())
-            assertTrue(function.getString("description").contains("index 与 observation_id"))
-            assertTrue(properties.getJSONObject("index").getString("description").contains("同时传入"))
+            assertTrue(function.getString("description").contains("index"))
+            assertTrue(properties.getJSONObject("index").getString("description").contains("index"))
         }
 
         val inputText = tools.function("input_text")

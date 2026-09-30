@@ -3,7 +3,7 @@ package io.github.mangi.eta.agent.model
 import org.json.JSONArray
 import org.json.JSONObject
 
-/** 常用设备能力的结构化 schema；按风险组决定是否向模型公开。 */
+/** 常用Device capability的结构化 schema；按风险组决定是否向模型公开。 */
 internal object AgentDeviceToolCatalog {
     fun appendTo(
         tools: JSONArray,
@@ -56,7 +56,7 @@ internal object AgentDeviceToolCatalog {
                     "直接控制当前媒体会话，不要操作播放器 GUI。",
                     properties(
                         "action" to enumString(
-                            "媒体动作",
+                            "媒体Action",
                             "play", "pause", "play_pause", "next", "previous", "stop",
                         ),
                     ),
@@ -105,7 +105,7 @@ internal object AgentDeviceToolCatalog {
                     "读取当前通知栏中的通知标题与正文。结果不写入持久会话。",
                     properties(
                         "package_name" to string("可选的精确应用包名过滤", 255),
-                        "limit" to integer("最多返回数量，默认 10", 1, 20),
+                        "limit" to integer("Max return count, default 10", 1, 20),
                     ),
                 ),
             )
@@ -224,10 +224,10 @@ internal object AgentDeviceToolCatalog {
             .put(
                 function(
                     "set_device_state",
-                    "直接启用或关闭 Wi‑Fi/蓝牙，不要操作设置 GUI。",
+                    "Enables or disables Wi-Fi / Bluetooth directly without operating Settings GUI.",
                     properties(
-                        "target" to enumString("设备能力", "wifi", "bluetooth"),
-                        "enabled" to boolean("true 启用，false 关闭"),
+                        "target" to enumString("Device capability", "wifi", "bluetooth"),
+                        "enabled" to boolean("true to enable, false to disable"),
                     ),
                     "target", "enabled",
                 ),
@@ -235,10 +235,10 @@ internal object AgentDeviceToolCatalog {
             .put(
                 function(
                     "app_state_control",
-                    "停止、冻结或解冻一个精确包名，包括系统应用。",
+                    "Stops, freezes, or unfreezes a specific package name, including system apps.",
                     properties(
-                        "package_name" to string("精确 Android 包名", 255),
-                        "action" to enumString("动作", "force_stop", "freeze", "unfreeze"),
+                        "package_name" to string("Exact Android package name", 255),
+                        "action" to enumString("Action", "force_stop", "freeze", "unfreeze"),
                     ),
                     "package_name", "action",
                 ),
@@ -252,7 +252,7 @@ internal object AgentDeviceToolCatalog {
         function(
             name,
             description,
-            properties("limit" to integer("最多返回数量，默认 10", 1, 30)),
+            properties("limit" to integer("Max return count, default 10", 1, 30)),
         )
 
     private fun searchFunction(name: String, description: String): JSONObject =
@@ -260,8 +260,8 @@ internal object AgentDeviceToolCatalog {
             name,
             description,
             properties(
-                "query" to string("可选关键词，最多 200 字"),
-                "limit" to integer("最多返回数量，默认 10", 1, 30),
+                "query" to string("Optional keyword, up to 200 characters"),
+                "limit" to integer("Max return count, default 10", 1, 30),
             ),
         )
 

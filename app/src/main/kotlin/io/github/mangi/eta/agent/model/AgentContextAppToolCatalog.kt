@@ -14,7 +14,7 @@ internal object AgentContextAppToolCatalog {
             .put(
                 AgentToolSchema.function(
                     name = "get_current_context",
-                    description = "获取手机当前时间、时区和最近系统位置；涉及现在、今天、明天或所在位置时调用。",
+                    description = "Retrieves current phone time, timezone, and recent location; call when query involves now, today, tomorrow, or position.",
                     parameters = JSONObject()
                         .put("type", "object")
                         .put("properties", JSONObject())
@@ -23,7 +23,7 @@ internal object AgentContextAppToolCatalog {
             .put(
                 AgentToolSchema.function(
                     name = "search_apps",
-                    description = "搜索手机上已安装的 Android 应用，返回应用名和包名。打开应用前如果不确定包名，先调用这个工具。",
+                    description = "Searches installed Android apps on phone, returning app name and package name. Call when package name is uncertain before opening.",
                     parameters = JSONObject()
                         .put("type", "object")
                         .put(
@@ -33,19 +33,19 @@ internal object AgentContextAppToolCatalog {
                                     "query",
                                     JSONObject()
                                         .put("type", "string")
-                                        .put("description", "应用名或包名片段，例如 QQ、微信、com.tencent")
+                                        .put("description", "App name or package substring, e.g. QQ or com.tencent")
                                 )
                                 .put(
                                     "include_system",
                                     JSONObject()
                                         .put("type", "boolean")
-                                        .put("description", "是否包含系统应用，默认 false")
+                                        .put("description", "Whether to include system apps, default false")
                                 )
                                 .put(
                                     "limit",
                                     JSONObject()
                                         .put("type", "integer")
-                                        .put("description", "最多返回 1 到 20 个结果，默认 10")
+                                        .put("description", "Max results to return (1 to 20), default 10")
                                 )
                         )
                         .put("required", JSONArray().put("query"))
@@ -64,13 +64,13 @@ internal object AgentContextAppToolCatalog {
                                     "package_name",
                                     JSONObject()
                                         .put("type", "string")
-                                        .put("description", "精确 Android 包名，例如 com.tencent.mobileqq")
+                                        .put("description", "Exact Android package name, e.g. com.tencent.mobileqq")
                                 )
                                 .put(
                                     "app_name",
                                     JSONObject()
                                         .put("type", "string")
-                                        .put("description", "应用显示名，例如 QQ")
+                                        .put("description", "App display name, e.g. QQ")
                                 )
                         )
                 )
@@ -87,7 +87,7 @@ internal object AgentContextAppToolCatalog {
             .put(
                 AgentToolSchema.function(
                     name = "keep_virtual_result",
-                    description = "标记本次副屏会话要交付的任务。优先 task_ids；也可按本次已启动包名选择。这里只标记，必须再调用 finish_virtual_session 验证迁移及关闭。",
+                    description = "Marks tasks to handoff for secondary session. Only marks tasks; finish_virtual_session must be called to verify handoff.",
                     parameters = JSONObject()
                         .put("type", "object")
                         .put(
@@ -98,14 +98,14 @@ internal object AgentContextAppToolCatalog {
                                     "package_name",
                                     JSONObject()
                                         .put("type", "string")
-                                        .put("description", "一个最终应用的精确包名")
+                                        .put("description", "Exact package name of target app")
                                 )
                                 .put(
                                     "packages",
                                     JSONObject()
                                         .put("type", "array")
                                         .put("items", JSONObject().put("type", "string"))
-                                        .put("description", "多个最终应用的精确包名")
+                                        .put("description", "Multiple package names of target apps")
                                 )
                         )
                 )
@@ -113,7 +113,7 @@ internal object AgentContextAppToolCatalog {
             .put(
                 AgentToolSchema.function(
                     name = "open_uri",
-                    description = "把一个确定有效的 URI 显式交给 Android 外部应用处理，例如 https、tel、geo 或应用 deep link。它不用于读取网页或网页交互。不要编造 URI。",
+                    description = "Explicitly hands a valid URI to an external Android app (e.g. https, tel, geo, deep link). Not for reading web pages.",
                     parameters = JSONObject()
                         .put("type", "object")
                         .put(
@@ -123,7 +123,7 @@ internal object AgentContextAppToolCatalog {
                                     "uri",
                                     JSONObject()
                                         .put("type", "string")
-                                        .put("description", "确定有效、可由系统处理的 URI")
+                                        .put("description", "Valid URI that can be handled by system")
                                 )
                         )
                         .put("required", JSONArray().put("uri"))
@@ -143,14 +143,14 @@ internal object AgentContextAppToolCatalog {
                                     JSONObject()
                                         .put("type", "boolean")
                                         .put("default", AgentScreenObservationContract.DEFAULT_INCLUDE_SCREENSHOT)
-                                        .put("description", "是否附加当前屏幕原图给模型，默认 false；仅在 UI 节点不足以完成任务时显式开启")
+                                        .put("description", "Whether to attach current screen screenshot to model, default false.")
                                 )
                                 .put(
                                     "include_ui_tree",
                                     JSONObject()
                                         .put("type", "boolean")
                                         .put("default", AgentScreenObservationContract.DEFAULT_INCLUDE_UI_TREE)
-                                        .put("description", "是否返回 UI 节点列表，默认 true")
+                                        .put("description", "Whether to return UI node list, default true")
                                 )
                                 .put(
                                     "max_nodes",
@@ -159,7 +159,7 @@ internal object AgentContextAppToolCatalog {
                                         .put("minimum", AgentScreenObservationContract.MIN_MAX_NODES)
                                         .put("maximum", AgentScreenObservationContract.MAX_MAX_NODES)
                                         .put("default", AgentScreenObservationContract.DEFAULT_MAX_NODES)
-                                        .put("description", "最多返回 1 到 120 个 UI 节点，默认 60")
+                                        .put("description", "Max UI nodes to return (1 to 120), default 60")
                                 )
                         )
                 )
